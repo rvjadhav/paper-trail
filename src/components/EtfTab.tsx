@@ -54,8 +54,8 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
   const cellBg = (val: number | null) => {
     if (val == null) return 'transparent';
     const clamped = Math.max(0, Math.min(100, val));
-    const alpha = Math.min(0.42, (clamped / 100) * 0.48);
-    return `rgba(29, 78, 216, ${alpha.toFixed(3)})`;
+    const alpha = Math.min(0.38, (clamped / 100) * 0.44);
+    return `rgba(0, 113, 227, ${alpha.toFixed(3)})`;
   };
 
   const bestOverall = rows[0];

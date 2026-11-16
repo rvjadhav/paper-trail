@@ -279,7 +279,7 @@ export const RankingTab: FC<RankingTabProps> = ({
                       )}
                     </td>
 
-                    <td style={{ minWidth: '240px' }}>
+                    <td style={{ minWidth: '210px' }}>
                       <button
                         type="button"
                         className="fund-link-btn"
@@ -310,7 +310,7 @@ export const RankingTab: FC<RankingTabProps> = ({
                       </div>
                     </td>
 
-                    <td style={{ minWidth: '215px' }}>
+                    <td style={{ minWidth: '195px' }}>
                       <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
                         {fund.topHoldingsPreview.slice(0, 3).map((h) => (
                           <span key={h.ticker} className="chip" title={h.name}>

@@ -10,20 +10,20 @@ export const RETURN_WINDOWS: Array<{ id: ReturnWindow; label: string; fullLabel:
 ];
 
 export const SECTOR_COLORS: Record<string, string> = {
-  Technology: '#1d4ed8',
-  'Communication Services': '#0284c7',
-  'Consumer Cyclical': '#0d9488',
-  'Financial Services': '#4f46e5',
-  Industrials: '#d97706',
-  Healthcare: '#059669',
-  Utilities: '#65a30d',
-  Energy: '#b45309',
-  'Consumer Defensive': '#64748b',
-  Other: '#94a3b8',
+  Technology: '#0071e3',
+  'Communication Services': '#32ade6',
+  'Consumer Cyclical': '#00c7be',
+  'Financial Services': '#5856d6',
+  Industrials: '#ff9500',
+  Healthcare: '#34c759',
+  Utilities: '#30b0c7',
+  Energy: '#ff6b22',
+  'Consumer Defensive': '#8e8e93',
+  Other: '#aeaeb2',
 };
 
 export function sectorColor(sector: string): string {
-  return SECTOR_COLORS[sector] ?? '#64748b';
+  return SECTOR_COLORS[sector] ?? '#8e8e93';
 }
 
 export function formatUsdCompact(val: number | null | undefined): string {

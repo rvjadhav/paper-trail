@@ -1,42 +1,46 @@
 :root {
-  /* Institutional Editorial Palette — Warm Alabaster & Deep Ink */
-  --bg-page: #f7f6f2;
+  /* Apple Human Interface Guidelines Palette — Cupertino Light & Translucent Surfaces */
+  --bg-page: #f5f5f7;
   --bg-surface: #ffffff;
-  --bg-surface-subtle: #f1efe9;
-  --bg-surface-hover: #f8f7f3;
-  --bg-dark-bar: #0f172a;
+  --bg-surface-glass: rgba(255, 255, 255, 0.82);
+  --bg-surface-subtle: #f2f2f7;
+  --bg-surface-hover: rgba(0, 113, 227, 0.038);
+  --bg-segmented: rgba(118, 118, 128, 0.11);
+  --bg-dark-bar: rgba(29, 29, 31, 0.92);
 
-  --text-primary: #111827;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --text-inverse: #f8fafc;
+  --text-primary: #1d1d1f;
+  --text-secondary: #515154;
+  --text-muted: #86868b;
+  --text-inverse: #f5f5f7;
 
-  --border-subtle: #e5e2da;
-  --border-strong: #cbd5e1;
+  --border-subtle: rgba(0, 0, 0, 0.065);
+  --border-hairline: #e5e5ea;
+  --border-strong: #d2d2d7;
 
-  --accent-primary: #1d4ed8;
-  --accent-primary-soft: #eff6ff;
-  --accent-primary-hover: #1e40af;
+  --accent-primary: #0071e3;
+  --accent-primary-soft: rgba(0, 113, 227, 0.10);
+  --accent-primary-hover: #0077ed;
 
-  --pos-text: #047857;
-  --pos-bg: #ecfdf5;
-  --neg-text: #b91c1c;
-  --neg-bg: #fef2f2;
-  --warn-text: #b45309;
-  --warn-bg: #fffbeb;
+  --pos-text: #00823b;
+  --pos-bg: rgba(52, 199, 89, 0.13);
+  --neg-text: #d70015;
+  --neg-bg: rgba(255, 59, 48, 0.11);
+  --warn-text: #b25000;
+  --warn-bg: rgba(255, 149, 0, 0.14);
 
-  /* Typography */
-  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Apple Typography — SF Pro Display / Text & Plus Jakarta Sans / Inter */
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace;
 
-  /* Radii & Shadows */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.14);
+  /* Apple Radii & Diffused Elevation Shadows */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.045), 0 1px 3px rgba(0, 0, 0, 0.025);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.065), 0 2px 6px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.16), 0 4px 16px rgba(0, 0, 0, 0.06);
 
   /* Layout */
   --max-width: 1380px;
@@ -51,22 +55,31 @@ body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-page);
+  background-image: radial-gradient(1200px 420px at 50% -140px, rgba(0, 113, 227, 0.055), transparent 70%);
+  background-repeat: no-repeat;
   color: var(--text-primary);
   font-family: var(--font-sans);
+  font-feature-settings: 'cv02' 1, 'cv03' 1, 'cv04' 1, 'cv11' 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   line-height: 1.5;
+  letter-spacing: -0.011em;
 }
 
 button,
 input,
 select {
   font-family: inherit;
+  letter-spacing: inherit;
 }
 
+/* Apple Stocks / Apple Card style tabular sans-serif numerals */
 .mono {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+  letter-spacing: -0.014em;
 }
 
 button:focus-visible,

@@ -226,8 +226,8 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
           const y = yAt(tv);
           return (
             <g key={i}>
-              <line x1={padL} y1={y} x2={width - padR} y2={y} stroke="#e5e2da" strokeDasharray="3 3" />
-              <text x={padL - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#64748b" fontFamily="JetBrains Mono, monospace">
+              <line x1={padL} y1={y} x2={width - padR} y2={y} stroke="#e5e5ea" strokeDasharray="3 3" />
+              <text x={padL - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#86868b" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
                 {tv >= 0 ? `+${tv.toFixed(0)}%` : `${tv.toFixed(0)}%`}
               </text>
             </g>
@@ -241,13 +241,13 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
             y1={yAt(0)}
             x2={width - padR}
             y2={yAt(0)}
-            stroke="#94a3b8"
+            stroke="#c7c7cc"
             strokeWidth="1"
           />
         )}
 
         {/* X-axis boundary labels */}
-        <text x={padL} y={height - 6} fontSize="10" fill="#64748b" fontFamily="JetBrains Mono, monospace">
+        <text x={padL} y={height - 6} fontSize="10" fill="#86868b" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
           {dates[0]}
         </text>
         <text
@@ -255,12 +255,12 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
           y={height - 6}
           textAnchor="middle"
           fontSize="10"
-          fill="#64748b"
-          fontFamily="JetBrains Mono, monospace"
+          fill="#86868b"
+          fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif"
         >
           {dates[Math.floor(dates.length / 2)]}
         </text>
-        <text x={width - padR} y={height - 6} textAnchor="end" fontSize="10" fill="#64748b" fontFamily="JetBrains Mono, monospace">
+        <text x={width - padR} y={height - 6} textAnchor="end" fontSize="10" fill="#86868b" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
           {dates[dates.length - 1]}
         </text>
 
@@ -278,7 +278,7 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
               key={r.id}
               fill="none"
               stroke={r.color}
-              strokeWidth={r.dashed ? '1.7' : '2.3'}
+              strokeWidth={r.dashed ? '1.75' : '2.4'}
               strokeDasharray={r.dashed ? '5 4' : undefined}
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -295,7 +295,7 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
               y1={padT}
               x2={xAt(activeIdx)}
               y2={padT + plotH}
-              stroke="#0f172a"
+              stroke="#1d1d1f"
               strokeWidth="1"
               strokeDasharray="3 3"
             />
