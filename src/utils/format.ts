@@ -1,0 +1,85 @@
+import type { ReturnMode, ReturnWindow } from '../types/data';
+
+export const RETURN_WINDOWS: Array<{ id: ReturnWindow; label: string; fullLabel: string }> = [
+  { id: 'YTD', label: 'YTD', fullLabel: 'Year to Date' },
+  { id: 'TTM', label: 'TTM', fullLabel: 'Trailing 12 Months' },
+  { id: '18M', label: '18M', fullLabel: '18 Months' },
+  { id: '2Y', label: '2Y', fullLabel: '2 Years' },
+  { id: '3Y', label: '3Y', fullLabel: '3 Years' },
+  { id: '5Y', label: '5Y', fullLabel: '5 Years' },
+];
+
+export const SECTOR_COLORS: Record<string, string> = {
+  Technology: '#1d4ed8',
+  'Communication Services': '#0284c7',
+  'Consumer Cyclical': '#0d9488',
+  'Financial Services': '#4f46e5',
+  Industrials: '#d97706',
+  Healthcare: '#059669',
+  Utilities: '#65a30d',
+  Energy: '#b45309',
+  'Consumer Defensive': '#64748b',
+  Other: '#94a3b8',
+};
+
+export function sectorColor(sector: string): string {
+  return SECTOR_COLORS[sector] ?? '#64748b';
+}
+
+export function formatUsdCompact(val: number | null | undefined): string {
+  if (val == null || !Number.isFinite(val)) return '—';
+  const abs = Math.abs(val);
+  if (abs >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `$${(val / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `$${(val / 1e3).toFixed(0)}K`;
+  return `$${val.toFixed(0)}`;
+}
+
+export function formatSignedPct(val: number | null | undefined, decimals = 1): string {
+  if (val == null || !Number.isFinite(val)) return 'N/A';
+  const sign = val > 0 ? '+' : '';
+  return `${sign}${val.toFixed(decimals)}%`;
+}
+
+export function formatPct(val: number | null | undefined, decimals = 2): string {
+  if (val == null || !Number.isFinite(val)) return '—';
+  return `${val.toFixed(decimals)}%`;
+}
+
+export function formatShares(val: number | null | undefined): string {
+  if (val == null || !Number.isFinite(val)) return '—';
+  return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+export function returnClass(val: number | null | undefined): string {
+  if (val == null || !Number.isFinite(val)) return 'ret-muted';
+  if (val > 0) return 'ret-pos';
+  if (val < 0) return 'ret-neg';
+  return 'ret-muted';
+}
+
+export function modeLabel(mode: ReturnMode): string {
+  return mode === 'quarter_end'
+    ? 'Quarter-End Attribution'
+    : '45-Day Filing-Lag Actionable';
+}
+
+export function downloadCsv(filename: string, headers: string[], rows: Array<Array<string | number | null | undefined>>): void {
+  const esc = (v: string | number | null | undefined) => {
+    const s = v == null ? '' : String(v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+  const csv = [headers.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

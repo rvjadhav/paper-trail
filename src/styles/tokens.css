@@ -1,0 +1,78 @@
+:root {
+  /* Institutional Editorial Palette — Warm Alabaster & Deep Ink */
+  --bg-page: #f7f6f2;
+  --bg-surface: #ffffff;
+  --bg-surface-subtle: #f1efe9;
+  --bg-surface-hover: #f8f7f3;
+  --bg-dark-bar: #0f172a;
+
+  --text-primary: #111827;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-inverse: #f8fafc;
+
+  --border-subtle: #e5e2da;
+  --border-strong: #cbd5e1;
+
+  --accent-primary: #1d4ed8;
+  --accent-primary-soft: #eff6ff;
+  --accent-primary-hover: #1e40af;
+
+  --pos-text: #047857;
+  --pos-bg: #ecfdf5;
+  --neg-text: #b91c1c;
+  --neg-bg: #fef2f2;
+  --warn-text: #b45309;
+  --warn-bg: #fffbeb;
+
+  /* Typography */
+  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Radii & Shadows */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.14);
+
+  /* Layout */
+  --max-width: 1380px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}

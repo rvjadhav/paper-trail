@@ -1,0 +1,11 @@
+# Dependencies & build
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Pipeline transient raw caches (cusip_cache.json & ticker_meta_cache.json ARE committed for fast CI)
+pipeline/cache/
+pipeline/__pycache__/
+*.pyc
+.DS_Store

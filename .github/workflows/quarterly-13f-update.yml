@@ -1,0 +1,86 @@
+name: Quarterly 13F Ingestion & GitHub Pages Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    # Run every 2 days during peak 13F filing seasons (Feb, May, Aug, Nov 10-20) at 23:00 UTC (after SEC 5:30 PM ET close)
+    - cron: '0 23 10,12,14,15,16,18,20 2,5,8,11 *'
+    # Weekly Monday market price & amendment refresh
+    - cron: '0 23 * * 1'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-and-13f-sync
+  cancel-in-progress: true
+
+jobs:
+  update-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python pipeline dependencies
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Run SEC EDGAR 13F & NPORT-P pipeline (scheduled/manual only)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          SEC_USER_AGENT: "TechWhale13FGitHubBot (${{ github.repository_owner }}@users.noreply.github.com)"
+        run: python3 -u pipeline/build_data.py
+
+      - name: Commit updated 13F dataset & caches
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/portfolio_data.json pipeline/cusip_cache.json pipeline/ticker_meta_cache.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(data): automated quarterly 13F & market data update"
+            git push
+          else
+            echo "No dataset changes to commit."
+          fi
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install npm dependencies & typecheck
+        run: npm ci
+
+      - name: Build static bundle
+        run: npm run build
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: update-and-build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
