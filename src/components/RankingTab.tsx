@@ -81,7 +81,7 @@ export const RankingTab: FC<RankingTabProps> = ({
 
   const handleExport = () => {
     downloadCsv(
-      `techwhale-ranking-${windowSize}-${mode}.csv`,
+      `paper-trail-ranking-${windowSize}-${mode}.csv`,
       ['Rank', 'Fund Name', 'Manager', '13F Equity AUM (USD)', 'Positions', 'Top 10 %', 'Tech/TMT %', 'YTD %', 'TTM %', '18M %', '2Y %', '3Y %', '5Y %', 'Latest Period'],
       rankedRows.map(({ fund, displayRank }) => [
         displayRank ?? 'N/A',

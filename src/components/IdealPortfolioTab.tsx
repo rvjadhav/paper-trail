@@ -120,7 +120,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
 
   const handleExport = () => {
     downloadCsv(
-      `techwhale-ideal-portfolio-${activePositions.length}names.csv`,
+      `paper-trail-ideal-portfolio-${activePositions.length}names.csv`,
       [
         'Rank',
         'Ticker',
@@ -154,7 +154,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     <section aria-label="Ideal Portfolio">
       <div className="section-toolbar">
         <div className="section-title-group">
-          <h2>Ideal Tech-Whale Portfolio ({activePositions.length} Names ≤ 50)</h2>
+          <h2>Ideal Paper Trail Portfolio ({activePositions.length} Names ≤ 50)</h2>
           <p>{idealPortfolio.methodologySummary}</p>
         </div>
 

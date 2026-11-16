@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart3, Calendar, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
 import rawDataset from './data/portfolio_data.json';
-import type { ReturnMode, ReturnWindow, TechWhaleDataset } from './types/data';
+import type { PaperTrailDataset, ReturnMode, ReturnWindow } from './types/data';
 import { formatUsdCompact } from './utils/format';
 import { RankingTab } from './components/RankingTab';
 import { HoldingsTab } from './components/HoldingsTab';
@@ -11,7 +11,7 @@ import { FundDetailDrawer } from './components/FundDetailDrawer';
 
 type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'etf';
 
-const dataset = rawDataset as unknown as TechWhaleDataset;
+const dataset = rawDataset as unknown as PaperTrailDataset;
 
 function parseHashState(): { tab: PrimaryTab; cik: string | null } {
   const h = window.location.hash.replace(/^#/, '');
@@ -136,9 +136,9 @@ export function App() {
         <div className="header-inner">
           <div className="header-top">
             <div className="brand-block">
-              <h1>TechWhale 13F</h1>
+              <h1>Paper Trail</h1>
               <p className="brand-subtitle">
-                Institutional 13F intelligence tracking concentrated technology &amp; TMT portfolios across SEC EDGAR quarterly filings.
+                Following the SEC Form 13F paper trail across concentrated technology &amp; TMT funds to gain conviction and insight.
               </p>
             </div>
 
@@ -253,7 +253,7 @@ export function App() {
       <footer className="site-footer">
         <div className="footer-inner">
           <div>
-            <strong>TechWhale 13F</strong> · Automated quarterly SEC EDGAR Form 13F-HR &amp; NPORT-P analytics pipeline.
+            <strong>Paper Trail</strong> · Automated quarterly SEC EDGAR Form 13F-HR &amp; NPORT-P analytics pipeline.
           </div>
           <div>
             13F filings reflect long U.S. equity &amp; ADR positions disclosed to the SEC and exclude cash, shorts, and private holdings. Not investment advice.
@@ -289,7 +289,7 @@ export function App() {
                   Data Methodology &amp; Quarterly Automation
                 </h2>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                  How TechWhale ingests, qualifies, and scores 13F filings every quarter
+                  How Paper Trail ingests, qualifies, and scores 13F filings every quarter
                 </p>
               </div>
               <button type="button" className="close-btn" onClick={() => setShowMethodology(false)} aria-label="Close methodology">
@@ -304,7 +304,7 @@ export function App() {
 
               <h3 style={{ color: 'var(--text-primary)' }}>2. Performance Reconstruction (Quarter-End vs. 45-Day Lag)</h3>
               <p>
-                Because SEC Form 13F discloses quarter-end U.S. long equities (with a ~45-day filing lag) and omits private stakes, cash, and shorts, TechWhale reconstructs true buy-and-hold equity returns using split/dividend-adjusted daily prices across two transparent lenses:
+                Because SEC Form 13F discloses quarter-end U.S. long equities (with a ~45-day filing lag) and omits private stakes, cash, and shorts, Paper Trail reconstructs true buy-and-hold equity returns using split/dividend-adjusted daily prices across two transparent lenses:
               </p>
               <ul>
                 <li><strong>Quarter-End Attribution:</strong> Rebalances into quarter-end equity weights at each quarter close to measure manager stock-selection skill.</li>

@@ -19,7 +19,7 @@ from typing import Any
 from lxml import etree
 
 SEC_HEADERS = {
-    "User-Agent": os.environ.get("SEC_USER_AGENT", "TechWhale13FResearch contact@techwhale.dev"),
+    "User-Agent": os.environ.get("SEC_USER_AGENT", "PaperTrail13FResearch contact@papertrail13f.dev"),
     "Accept-Encoding": "gzip, deflate",
 }
 

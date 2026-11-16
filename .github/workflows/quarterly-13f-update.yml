@@ -38,7 +38,7 @@ jobs:
       - name: Run SEC EDGAR 13F & NPORT-P pipeline (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
-          SEC_USER_AGENT: "TechWhale13FGitHubBot (${{ github.repository_owner }}@users.noreply.github.com)"
+          SEC_USER_AGENT: "PaperTrail13FGitHubBot (${{ github.repository_owner }}@users.noreply.github.com)"
         run: python3 -u pipeline/build_data.py
 
       - name: Commit updated 13F dataset & caches

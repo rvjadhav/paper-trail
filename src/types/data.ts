@@ -250,7 +250,7 @@ export interface BenchmarkSeries {
   curve: EquityPoint[];
 }
 
-export interface TechWhaleDataset {
+export interface PaperTrailDataset {
   metadata: {
     generatedAt: string;
     asOfDate: string;

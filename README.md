@@ -1,6 +1,6 @@
-# TechWhale 13F
+# Paper Trail
 
-Institutional-grade quarterly SEC Form 13F tracker for **concentrated, technology-focused investment funds**.
+Institutional-grade quarterly SEC Form 13F tracker for **concentrated, technology-focused investment funds** — following the filing paper trail to gain conviction and insight.
 
 ## Features
 

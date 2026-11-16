@@ -1,5 +1,5 @@
 """
-End-to-end TechWhale 13F data pipeline:
+End-to-end Paper Trail 13F data pipeline:
 1. Fetches 2021-present SEC EDGAR 13F-HR / 13F-HR/A filings for curated + discovered funds
 2. Resolves CUSIPs -> tickers + GICS sectors + daily adjusted-close prices
 3. Qualifies genuinely Tech/TMT-focused concentrated portfolios
@@ -448,7 +448,7 @@ def compute_ideal_portfolio_weights(
 
 
 def main() -> None:
-    print("=== TechWhale 13F Pipeline Starting ===")
+    print("=== Paper Trail 13F Pipeline Starting ===")
     known_ciks = {f["cik"] for f in CURATED_FUNDS}
     print(f"[universe] Curated funds: {len(CURATED_FUNDS)}. Scanning EDGAR for emerging tech funds...")
     discovered = discover_emerging_tech_funds(known_ciks, max_candidates=10)

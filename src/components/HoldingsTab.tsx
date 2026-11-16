@@ -70,7 +70,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
 
   const handleExport = () => {
     downloadCsv(
-      `techwhale-top30-holdings-${mode}-${weightMode}.csv`,
+      `paper-trail-top30-holdings-${mode}-${weightMode}.csv`,
       [
         'Rank',
         'Ticker',

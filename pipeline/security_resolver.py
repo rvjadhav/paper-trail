@@ -25,7 +25,7 @@ CUSIP_CACHE_PATH = Path(__file__).resolve().parent / "cusip_cache.json"
 TICKER_META_PATH = Path(__file__).resolve().parent / "ticker_meta_cache.json"
 
 YF_HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
-FIGI_HEADERS = {"Content-Type": "application/json", "User-Agent": "TechWhale13FResearch"}
+FIGI_HEADERS = {"Content-Type": "application/json", "User-Agent": "PaperTrail13FResearch"}
 
 # Authoritative manual overrides for known tricky CUSIPs / share classes
 MANUAL_CUSIP_OVERRIDES: dict[str, dict[str, str]] = {
