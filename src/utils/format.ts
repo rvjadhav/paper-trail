@@ -52,6 +52,13 @@ export function formatShares(val: number | null | undefined): string {
   return val.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
+export function compactShares(sh: number): string {
+  const abs = Math.abs(sh);
+  if (abs >= 1e6) return `${(sh / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `${(sh / 1e3).toFixed(0)}k`;
+  return sh.toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
 export function returnClass(val: number | null | undefined): string {
   if (val == null || !Number.isFinite(val)) return 'ret-muted';
   if (val > 0) return 'ret-pos';

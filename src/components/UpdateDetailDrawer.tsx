@@ -1,5 +1,6 @@
 import { useMemo, useState, type FC } from 'react';
 import {
+  ArrowLeft,
   ArrowRight,
   Download,
   ExternalLink,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { FundUpdateEntry, MoveAction, PositionMoveItem } from '../types/data';
 import {
+  compactShares,
   downloadCsv,
   formatPct,
   formatSignedPct,
@@ -22,17 +24,11 @@ interface UpdateDetailDrawerProps {
   update: FundUpdateEntry;
   onClose: () => void;
   onOpenFundProfile?: (cik: string) => void;
+  fromFundDrawer?: boolean;
 }
 
 type DiffFilter = 'ALL' | 'NEW' | 'ADDED' | 'TRIMMED' | 'EXITED' | 'OPTIONS' | 'VALUATION';
 type DiffSort = 'maxValue' | 'valueDelta' | 'bookDelta' | 'sharesDeltaPct';
-
-function formatCompactShares(sh: number): string {
-  const abs = Math.abs(sh);
-  if (abs >= 1e6) return `${(sh / 1e6).toFixed(2)}M`;
-  if (abs >= 1e3) return `${(sh / 1e3).toFixed(0)}k`;
-  return sh.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
 
 function actionChipClass(action: MoveAction): string {
   if (action === 'NEW' || action === 'ADDED') return 'pos';
@@ -53,6 +49,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
   update,
   onClose,
   onOpenFundProfile,
+  fromFundDrawer = false,
 }) => {
   const [filter, setFilter] = useState<DiffFilter>('ALL');
   const [sortBy, setSortBy] = useState<DiffSort>('maxValue');
@@ -221,13 +218,21 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-            {update.inRankings && onOpenFundProfile && (
+            {(fromFundDrawer || update.inRankings) && onOpenFundProfile && (
               <button
                 type="button"
-                className="action-btn"
+                className="action-btn back-to-profile-btn"
                 onClick={() => onOpenFundProfile(update.cik)}
               >
-                5Y Performance Profile <ArrowRight size={13} />
+                {fromFundDrawer ? (
+                  <>
+                    <ArrowLeft size={13} /> Back to Performance Profile
+                  </>
+                ) : (
+                  <>
+                    5Y Performance Profile <ArrowRight size={13} />
+                  </>
+                )}
               </button>
             )}
             <button
@@ -433,7 +438,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
                       {vs.prevBookPct.toFixed(1)}% → {vs.currBookPct.toFixed(1)}% of book
                     </div>
                     <div className="signal-tile-sub mono">
-                      Shares flat ({formatCompactShares(vs.prevShares)} → {formatCompactShares(vs.currShares)}) ·{' '}
+                      Shares flat ({compactShares(vs.prevShares)} → {compactShares(vs.currShares)}) ·{' '}
                       {formatUsdCompact(vs.prevValueUsd)} → {formatUsdCompact(vs.currValueUsd)}
                     </div>
                   </div>
@@ -560,10 +565,10 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
 
                       <td className="num mono" style={{ fontSize: '0.77rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                         {m.action === 'NEW'
-                          ? `0 → ${formatCompactShares(m.currShares)}`
+                          ? `0 → ${compactShares(m.currShares)}`
                           : m.action === 'EXITED'
-                            ? `${formatCompactShares(m.prevShares)} → 0`
-                            : `${formatCompactShares(m.prevShares)} → ${formatCompactShares(m.currShares)}`}
+                            ? `${compactShares(m.prevShares)} → 0`
+                            : `${compactShares(m.prevShares)} → ${compactShares(m.currShares)}`}
                       </td>
 
                       <td className={`num mono ${returnClass(m.action === 'NEW' ? 1 : m.sharesDeltaPct)}`}>

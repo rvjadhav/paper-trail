@@ -8,6 +8,7 @@ import { HoldingsTab } from './components/HoldingsTab';
 import { IdealPortfolioTab } from './components/IdealPortfolioTab';
 import { UpdatesTab } from './components/UpdatesTab';
 import { FundDetailDrawer } from './components/FundDetailDrawer';
+import { UpdateDetailDrawer } from './components/UpdateDetailDrawer';
 
 type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'updates';
 
@@ -28,6 +29,8 @@ export function App() {
   const [windowSize, setWindowSize] = useState<ReturnWindow>('TTM');
   const [mode, setMode] = useState<ReturnMode>('quarter_end');
   const [selectedFundCik, setSelectedFundCikState] = useState<string | null>(initial.cik);
+  const [selectedUpdateCik, setSelectedUpdateCik] = useState<string | null>(null);
+  const [updateReturnToFund, setUpdateReturnToFund] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [copiedSeeds, setCopiedSeeds] = useState(false);
   const [homeResetKey, setHomeResetKey] = useState(0);
@@ -60,6 +63,8 @@ export function App() {
   const setActiveTab = useCallback(
     (tab: PrimaryTab) => {
       setActiveTabState(tab);
+      setSelectedUpdateCik(null);
+      setUpdateReturnToFund(false);
       syncHash(tab, selectedFundCik);
     },
     [selectedFundCik, syncHash]
@@ -67,11 +72,28 @@ export function App() {
 
   const setSelectedFundCik = useCallback(
     (cik: string | null) => {
+      setSelectedUpdateCik(null);
+      setUpdateReturnToFund(false);
       setSelectedFundCikState(cik);
       syncHash(activeTab, cik);
     },
     [activeTab, syncHash]
   );
+
+  const handleDiveDeeperFromFund = useCallback(
+    (cik: string) => {
+      setSelectedFundCikState(null);
+      syncHash(activeTab, null);
+      setUpdateReturnToFund(true);
+      setSelectedUpdateCik(cik);
+    },
+    [activeTab, syncHash]
+  );
+
+  const handleDiveDeeperFromUpdates = useCallback((cik: string) => {
+    setUpdateReturnToFund(false);
+    setSelectedUpdateCik(cik);
+  }, []);
 
   const goHome = useCallback((e?: MouseEvent<HTMLAnchorElement>) => {
     if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) {
@@ -79,6 +101,8 @@ export function App() {
     }
     e?.preventDefault();
     setSelectedFundCikState(null);
+    setSelectedUpdateCik(null);
+    setUpdateReturnToFund(false);
     setShowMethodology(false);
     setActiveTabState('ranking');
     setWindowSize('TTM');
@@ -95,10 +119,15 @@ export function App() {
       const parsed = parseHashState();
       setActiveTabState(parsed.tab);
       setSelectedFundCikState(parsed.cik);
+      setSelectedUpdateCik(null);
+      setUpdateReturnToFund(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (selectedFundCik) setSelectedFundCik(null);
+        if (selectedUpdateCik) {
+          setSelectedUpdateCik(null);
+          setUpdateReturnToFund(false);
+        } else if (selectedFundCik) setSelectedFundCik(null);
         else if (showMethodology) setShowMethodology(false);
       }
     };
@@ -108,11 +137,21 @@ export function App() {
       window.removeEventListener('hashchange', onHashChange);
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [selectedFundCik, showMethodology, setSelectedFundCik]);
+  }, [selectedFundCik, selectedUpdateCik, showMethodology, setSelectedFundCik]);
 
   const selectedFund = useMemo(
     () => dataset?.funds.find((f) => f.cik === selectedFundCik) ?? null,
     [dataset, selectedFundCik]
+  );
+
+  const selectedFundUpdate = useMemo(
+    () => (selectedFundCik && dataset ? dataset.fundUpdates.find((u) => u.cik === selectedFundCik) ?? null : null),
+    [dataset, selectedFundCik]
+  );
+
+  const selectedUpdate = useMemo(
+    () => (selectedUpdateCik && dataset ? dataset.fundUpdates.find((u) => u.cik === selectedUpdateCik) ?? null : null),
+    [dataset, selectedUpdateCik]
   );
 
   const totalTrackedAum = useMemo(
@@ -351,6 +390,7 @@ export function App() {
             updates={dataset.fundUpdates}
             overview={dataset.updatesOverview}
             onSelectFund={setSelectedFundCik}
+            onDiveDeeper={handleDiveDeeperFromUpdates}
           />
         )}
       </main>
@@ -370,10 +410,29 @@ export function App() {
       {/* Fund Detail Drawer */}
       {selectedFund && (
         <FundDetailDrawer
+          key={selectedFund.cik}
           fund={selectedFund}
+          fundUpdate={selectedFundUpdate}
           mode={mode}
           benchmarks={dataset.benchmarks}
           onClose={() => setSelectedFundCik(null)}
+          onDiveDeeper={handleDiveDeeperFromFund}
+        />
+      )}
+
+      {/* Dive Deeper Filing Diff Drawer */}
+      {selectedUpdate && (
+        <UpdateDetailDrawer
+          key={selectedUpdate.cik}
+          update={selectedUpdate}
+          fromFundDrawer={updateReturnToFund}
+          onClose={() => {
+            setSelectedUpdateCik(null);
+            setUpdateReturnToFund(false);
+          }}
+          onOpenFundProfile={(cik) => {
+            setSelectedFundCik(cik);
+          }}
         />
       )}
 

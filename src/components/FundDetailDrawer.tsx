@@ -1,6 +1,12 @@
 import { useMemo, useState, type FC } from 'react';
-import { Download, ExternalLink, Search, X } from 'lucide-react';
-import type { BenchmarkSeries, FundHolding, FundSummary, ReturnMode } from '../types/data';
+import { ArrowDown, Download, ExternalLink, Search, X } from 'lucide-react';
+import type {
+  BenchmarkSeries,
+  FundHolding,
+  FundSummary,
+  FundUpdateEntry,
+  ReturnMode,
+} from '../types/data';
 import {
   downloadCsv,
   formatPct,
@@ -10,12 +16,15 @@ import {
   returnClass,
 } from '../utils/format';
 import { EquityCurveChart, SectorBreakdownBar } from './SvgCharts';
+import { UpdateSummaryContent } from './UpdateSummaryContent';
 
 interface FundDetailDrawerProps {
   fund: FundSummary;
+  fundUpdate: FundUpdateEntry | null;
   mode: ReturnMode;
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
   onClose: () => void;
+  onDiveDeeper: (cik: string) => void;
 }
 
 type HoldingFilter = 'ALL' | 'EQUITY' | 'OPTIONS' | 'INCREASED';
@@ -23,9 +32,11 @@ type HoldingSort = 'weightPct' | 'valueUsd' | 'qoqSharesChangePct';
 
 export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
   fund,
+  fundUpdate,
   mode,
   benchmarks,
   onClose,
+  onDiveDeeper,
 }) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<HoldingFilter>('ALL');
@@ -34,6 +45,13 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
 
   const activeMetrics = fund.metrics[mode];
   const activeReturns = fund.returns[mode];
+
+  const scrollToUpdates = () => {
+    document.getElementById('fund-drawer-updates')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  };
 
   const filteredHoldings = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -105,6 +123,17 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
               <span className="chip tech">{fund.styleTag}</span>
               {fund.source === 'EDGAR Discovered' && (
                 <span className="chip discovered">EDGAR Discovered</span>
+              )}
+              {fundUpdate && (
+                <button
+                  type="button"
+                  id="jump-to-fund-updates"
+                  className="chip clickable"
+                  onClick={scrollToUpdates}
+                  title={`Jump to ${fundUpdate.prevQuarterLabel} → ${fundUpdate.quarterLabel} changes`}
+                >
+                  {fundUpdate.quarterLabel} Updates <ArrowDown size={11} />
+                </button>
               )}
             </div>
             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
@@ -423,6 +452,74 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Latest Quarter Portfolio Updates */}
+          <div className="panel" id="fund-drawer-updates">
+            {fundUpdate ? (
+              <>
+                <div className="panel-header">
+                  <div>
+                    <h3
+                      className="panel-title"
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}
+                    >
+                      <span>
+                        Updates ({fundUpdate.prevQuarterLabel} → {fundUpdate.quarterLabel})
+                      </span>
+                      <span
+                        className={`chip ${
+                          fundUpdate.deadlineBadge === 'Deadline Day'
+                            ? 'pos'
+                            : fundUpdate.deadlineBadge === 'Early Filer'
+                              ? ''
+                              : 'warn'
+                        }`}
+                      >
+                        {fundUpdate.deadlineBadge}
+                      </span>
+                    </h3>
+                    <div className="fund-meta-line" style={{ marginTop: '0.25rem' }}>
+                      <span className="mono">Filed {fundUpdate.filingDate}</span>
+                      <span>·</span>
+                      <a
+                        href={fundUpdate.filingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-ext-link mono"
+                      >
+                        Accession {fundUpdate.accessionNumber} <ExternalLink size={11} />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="update-card-book">
+                    <div className="update-book-main">
+                      <span className="update-book-val mono">
+                        {formatUsdCompact(fundUpdate.currTotalReportedUsd)}
+                      </span>
+                      {fundUpdate.totalValueDeltaPct !== null && (
+                        <span
+                          className={`chip ${fundUpdate.totalValueDeltaPct >= 0 ? 'pos' : 'neg'} mono`}
+                        >
+                          {formatSignedPct(fundUpdate.totalValueDeltaPct, 1)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="update-book-sub mono">
+                      {fundUpdate.currPositionCount} positions (from{' '}
+                      {formatUsdCompact(fundUpdate.prevTotalReportedUsd)} / {fundUpdate.prevPositionCount})
+                    </div>
+                  </div>
+                </div>
+
+                <UpdateSummaryContent update={fundUpdate} onDiveDeeper={onDiveDeeper} />
+              </>
+            ) : (
+              <div style={{ padding: '1.25rem', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                No consecutive quarter-over-quarter 13F comparison available for {fund.name} yet.
+              </div>
+            )}
           </div>
         </div>
       </div>
