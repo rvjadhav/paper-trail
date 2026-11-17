@@ -50,6 +50,54 @@ MANUAL_CUSIP_OVERRIDES: dict[str, dict[str, str]] = {
     "22788C105": {"ticker": "CRWD", "name": "CrowdStrike Holdings, Inc."},
     "69608A108": {"ticker": "PLTR", "name": "Palantir Technologies Inc."},
     "03831W108": {"ticker": "APP", "name": "AppLovin Corporation"},
+    "00091G104": {
+        "ticker": "ACVA",
+        "name": "ACV Auctions Inc.",
+        "sector": "Consumer Cyclical",
+        "industry": "Auto & Truck Dealerships",
+    },
+    "N3167Y103": {
+        "ticker": "RACE",
+        "name": "Ferrari N.V.",
+        "sector": "Consumer Cyclical",
+        "industry": "Auto Manufacturers",
+    },
+    "H2927K103": {
+        "ticker": "AMRZ",
+        "name": "Amrize Ltd",
+        "sector": "Basic Materials",
+        "industry": "Building Materials",
+    },
+    "M3760D101": {
+        "ticker": "ESLT",
+        "name": "Elbit Systems Ltd.",
+        "sector": "Industrials",
+        "industry": "Aerospace & Defense",
+    },
+    "M6240T109": {
+        "ticker": "KMDA",
+        "name": "Kamada Ltd.",
+        "sector": "Healthcare",
+        "industry": "Drug Manufacturers—Specialty & Generic",
+    },
+    "08862E109": {
+        "ticker": "BYND",
+        "name": "Beyond Meat, Inc.",
+        "sector": "Consumer Defensive",
+        "industry": "Packaged Foods",
+    },
+    "94724R108": {
+        "ticker": "WEAV",
+        "name": "Weave Communications, Inc.",
+        "sector": "Technology",
+        "industry": "Software—Application",
+    },
+    "679369108": {
+        "ticker": "OLPX",
+        "name": "Olaplex Holdings, Inc.",
+        "sector": "Consumer Defensive",
+        "industry": "Household & Personal Products",
+    },
 }
 
 
@@ -143,13 +191,15 @@ def _yahoo_search(query: str) -> dict[str, Any] | None:
                 quotes = json.loads(resp.read().decode("utf-8")).get("quotes", [])
             if not quotes:
                 return None
-            # Prefer US equity without dot suffix
-            equities = [
-                x for x in quotes
-                if x.get("quoteType") in ("EQUITY", "ETF")
-                and "." not in x.get("symbol", "")
-            ]
-            best = equities[0] if equities else quotes[0]
+            # Prefer exact US equity/ETF without dot suffix
+            q_up = query.strip().upper()
+            all_equities = [x for x in quotes if x.get("quoteType") in ("EQUITY", "ETF")]
+            us_equities = [x for x in all_equities if "." not in x.get("symbol", "")]
+            exact = [x for x in us_equities if x.get("symbol", "").upper() == q_up]
+            pool = exact or us_equities or all_equities
+            if not pool:
+                return None
+            best = pool[0]
             return {
                 "ticker": best.get("symbol", "").upper(),
                 "name": best.get("longname") or best.get("shortname") or "",
@@ -179,11 +229,28 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
 
     # Apply manual overrides
     for c, ov in MANUAL_CUSIP_OVERRIDES.items():
-        if c not in cache or cache[c].get("ticker") != ov["ticker"]:
-            entry = cache.get(c, {})
-            entry["ticker"] = ov["ticker"]
-            entry["name"] = ov["name"]
-            cache[c] = entry
+        entry = cache.get(c, {})
+        changed_ticker = entry.get("ticker") != ov["ticker"]
+        entry["ticker"] = ov["ticker"]
+        entry["name"] = ov["name"]
+        entry.pop("unpriced", None)
+        entry.pop("displaySymbol", None)
+        if ov.get("sector"):
+            entry["sector"] = ov["sector"]
+        elif changed_ticker:
+            entry["sector"] = ""
+        if ov.get("industry"):
+            entry["industry"] = ov["industry"]
+        elif changed_ticker:
+            entry["industry"] = ""
+        cache[c] = entry
+        if ov.get("sector"):
+            ticker_meta[ov["ticker"]] = {
+                "ticker": ov["ticker"],
+                "name": ov["name"],
+                "sector": ov["sector"],
+                "industry": ov.get("industry", ""),
+            }
 
     missing_ticker = [c for c in cusip_to_issuer if c not in cache or not cache[c].get("ticker")]
     print(f"[resolver] Total CUSIPs: {len(cusip_to_issuer)}, missing ticker resolution: {len(missing_ticker)}")
@@ -287,7 +354,7 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                 entry["sector"] = meta["sector"]
             if meta.get("industry"):
                 entry["industry"] = meta["industry"]
-            if meta.get("name") and len(meta["name"]) > 2:
+            if c not in MANUAL_CUSIP_OVERRIDES and meta.get("name") and len(meta["name"]) > 2:
                 entry["name"] = meta["name"]
         if not entry.get("sector"):
             entry["sector"] = "Technology" if t in TECH_TMT_EXTRA_TICKERS else "Other"

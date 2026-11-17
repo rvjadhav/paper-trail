@@ -35,7 +35,7 @@ jobs:
       - name: Install Python pipeline dependencies
         run: pip install -r pipeline/requirements.txt
 
-      - name: Run SEC EDGAR 13F & NPORT-P pipeline (scheduled/manual only)
+      - name: Run SEC EDGAR 13F pipeline (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
           SEC_USER_AGENT: "PaperTrail13FGitHubBot (${{ github.repository_owner }}@users.noreply.github.com)"

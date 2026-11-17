@@ -1,5 +1,5 @@
 """
-SEC EDGAR client for fetching 13F-HR / 13F-HR/A filings, NPORT-P ETF holdings,
+SEC EDGAR client for fetching 13F-HR / 13F-HR/A filings
 and quarterly EFTS discovery of emerging concentrated tech funds.
 """
 
@@ -81,11 +81,11 @@ def fetch_json(url: str, cache_key: str | None = None, max_age_hours: float = 24
 
 def get_submissions(cik: str) -> dict[str, Any]:
     cik10 = f"{int(cik):010d}"
-    # Refresh submissions every 4 hours so new quarterly filings are picked up promptly
+    # Refresh submissions every hour so deadline-day 13F filings are picked up promptly
     return fetch_json(
         f"https://data.sec.gov/submissions/CIK{cik10}.json",
         cache_key=f"sub_{cik10}.json",
-        max_age_hours=4.0,
+        max_age_hours=1.0,
     )
 
 
@@ -316,126 +316,6 @@ def build_clean_quarterly_filings(cik: str, min_report_date: str = "2020-12-31")
             meta["rows"] = sorted(merged.values(), key=lambda x: x["valueUsd"], reverse=True)
             cleaned.append(meta)
     return cleaned
-
-
-def _parse_nport_holdings(raw: bytes, series_id: str) -> list[dict[str, Any]] | None:
-    if series_id.encode("utf-8") not in raw[:30000]:
-        return None
-    root = _parse_xml_root(raw)
-    holdings: dict[str, dict[str, Any]] = {}
-    for inv in root.xpath(".//*[local-name()='invstOrSec']"):
-        asset_cat = _find_text(inv, "assetCat").upper()
-        payoff = _find_text(inv, "payoffProfile").lower()
-        if asset_cat not in ("EC", "EP", "EQ") or payoff == "short":
-            continue
-        cusip = _find_text(inv, "cusip").upper().strip()
-        if not cusip or cusip == "000000000":
-            continue
-        cusip = cusip.zfill(9)[:9]
-        name = _find_text(inv, "name") or _find_text(inv, "title")
-        try:
-            pct = float(_find_text(inv, "pctVal", "0"))
-            val = float(_find_text(inv, "valUSD", "0"))
-        except ValueError:
-            continue
-        if pct <= 0 or val <= 0:
-            continue
-        if cusip not in holdings:
-            holdings[cusip] = {"cusip": cusip, "name": name, "pctVal": pct, "valUSD": val}
-        else:
-            holdings[cusip]["pctVal"] += pct
-            holdings[cusip]["valUSD"] += val
-
-    if not holdings:
-        return None
-
-    rows = sorted(holdings.values(), key=lambda x: x["pctVal"], reverse=True)
-    total_pct = sum(r["pctVal"] for r in rows)
-    if total_pct > 0:
-        for r in rows:
-            r["weightPct"] = (r["pctVal"] / total_pct) * 100.0
-    return rows
-
-
-def fetch_etf_nport_holdings(ticker: str, cik: int, series_id: str) -> dict[str, Any] | None:
-    """
-    Fetch the latest NPORT-P filing matching `series_id` for a registered ETF.
-    Uses SEC EFTS full-text search to jump straight to the exact filing without scanning unrelated series.
-    """
-    # Fast path: SEC EFTS direct seriesId lookup
-    efts_url = f"https://efts.sec.gov/LATEST/search-index?forms=NPORT-P&q=%22{series_id}%22"
-    try:
-        data = fetch_json(efts_url, cache_key=f"efts_nport_{series_id}.json", max_age_hours=24 * 7)
-        hits = data.get("hits", {}).get("hits", [])
-        cik_hits = [
-            h for h in hits
-            if int(cik) in [int(x) for x in h.get("_source", {}).get("ciks", [])]
-        ] or hits
-        cik_hits.sort(
-            key=lambda h: (
-                h.get("_source", {}).get("period_ending", ""),
-                h.get("_source", {}).get("file_date", ""),
-            ),
-            reverse=True,
-        )
-        for hit in cik_hits[:3]:
-            hit_id = hit.get("_id", "")
-            if ":" not in hit_id:
-                continue
-            acc, doc_clean = hit_id.split(":", 1)
-            acc_nd = acc.replace("-", "")
-            src = hit.get("_source", {})
-            rd = src.get("period_ending", "")
-            fd = src.get("file_date", "")
-            url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_nd}/{doc_clean}"
-            try:
-                raw = fetch_bytes(url, cache_key=f"nport_{cik}_{acc_nd}_{doc_clean}", max_age_hours=24 * 14)
-            except Exception:
-                continue
-            rows = _parse_nport_holdings(raw, series_id)
-            if rows:
-                return {
-                    "ticker": ticker,
-                    "cik": f"{cik:010d}",
-                    "seriesId": series_id,
-                    "reportDate": rd,
-                    "filingDate": fd,
-                    "holdings": rows,
-                }
-    except Exception:
-        pass
-
-    # Fallback path: scan recent NPORT-P filings for the trust (capped)
-    sub = get_submissions(str(cik))
-    rec = sub.get("filings", {}).get("recent", {})
-    checked = 0
-    for form, acc, doc, rd, fd in zip(
-        rec.get("form", []),
-        rec.get("accessionNumber", []),
-        rec.get("primaryDocument", []),
-        rec.get("reportDate", []),
-        rec.get("filingDate", []),
-    ):
-        if not form.startswith("NPORT-P"):
-            continue
-        checked += 1
-        if checked > 40:
-            break
-        acc_nd = acc.replace("-", "")
-        doc_clean = doc.split("/")[-1]
-        url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_nd}/{doc_clean}"
-        raw = fetch_bytes(url, cache_key=f"nport_{cik}_{acc_nd}_{doc_clean}", max_age_hours=24 * 14)
-        rows = _parse_nport_holdings(raw, series_id)
-        if rows:
-            return {
-                "ticker": ticker,
-                "cik": f"{cik:010d}",
-                "seriesId": series_id,
-                "reportDate": rd,
-                "filingDate": fd,
-                "holdings": rows,
-            }
-    return None
 
 
 def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 12) -> list[dict[str, Any]]:

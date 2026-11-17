@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, Calendar, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
+import { Activity, Calendar, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
 import rawDataset from './data/portfolio_data.json';
 import type { PaperTrailDataset, ReturnMode, ReturnWindow } from './types/data';
 import { formatUsdCompact } from './utils/format';
 import { RankingTab } from './components/RankingTab';
 import { HoldingsTab } from './components/HoldingsTab';
 import { IdealPortfolioTab } from './components/IdealPortfolioTab';
-import { EtfTab } from './components/EtfTab';
+import { UpdatesTab } from './components/UpdatesTab';
 import { FundDetailDrawer } from './components/FundDetailDrawer';
 
-type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'etf';
+type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'updates';
 
 const dataset = rawDataset as unknown as PaperTrailDataset;
 
 function parseHashState(): { tab: PrimaryTab; cik: string | null } {
   const h = window.location.hash.replace(/^#/, '');
   const [tabPart, fundPart] = h.split('/');
-  const validTabs: PrimaryTab[] = ['ranking', 'holdings', 'ideal', 'etf'];
+  const validTabs: PrimaryTab[] = ['ranking', 'holdings', 'ideal', 'updates'];
   const tab = validTabs.includes(tabPart as PrimaryTab) ? (tabPart as PrimaryTab) : 'ranking';
   const cik = fundPart && /^\d{10}$/.test(fundPart) ? fundPart : null;
   return { tab, cik };
@@ -194,13 +194,13 @@ export function App() {
 
             <button
               type="button"
-              id="tab-etf"
-              className={`nav-tab ${activeTab === 'etf' ? 'active' : ''}`}
-              onClick={() => setActiveTab('etf')}
+              id="tab-updates"
+              className={`nav-tab ${activeTab === 'updates' ? 'active' : ''}`}
+              onClick={() => setActiveTab('updates')}
             >
-              <BarChart3 size={16} />
-              <span>ETF</span>
-              <span className="nav-count">{dataset.etfs.length}</span>
+              <Activity size={16} />
+              <span>Updates</span>
+              <span className="nav-count">{dataset.fundUpdates.length}</span>
             </button>
           </nav>
         </div>
@@ -240,10 +240,10 @@ export function App() {
           />
         )}
 
-        {activeTab === 'etf' && (
-          <EtfTab
-            etfs={dataset.etfs}
-            funds={dataset.funds}
+        {activeTab === 'updates' && (
+          <UpdatesTab
+            updates={dataset.fundUpdates}
+            overview={dataset.updatesOverview}
             onSelectFund={setSelectedFundCik}
           />
         )}
@@ -253,10 +253,10 @@ export function App() {
       <footer className="site-footer">
         <div className="footer-inner">
           <div>
-            <strong>Paper Trail</strong> · Automated quarterly SEC EDGAR Form 13F-HR &amp; NPORT-P analytics pipeline.
+            <strong>Paper Trail</strong> · Automated quarterly SEC EDGAR Form 13F-HR analytics pipeline.
           </div>
           <div>
-            13F filings reflect long U.S. equity &amp; ADR positions disclosed to the SEC and exclude cash, shorts, and private holdings. Not investment advice.
+            13F filings reflect long U.S. equity, ADR, and disclosed option positions filed with the SEC and exclude cash, shorts, and private stakes unless reported. Not investment advice.
           </div>
         </div>
       </footer>
@@ -304,21 +304,21 @@ export function App() {
 
               <h3 style={{ color: 'var(--text-primary)' }}>2. Performance Reconstruction (Quarter-End vs. 45-Day Lag)</h3>
               <p>
-                Because SEC Form 13F discloses quarter-end U.S. long equities (with a ~45-day filing lag) and omits private stakes, cash, and shorts, Paper Trail reconstructs true buy-and-hold equity returns using split/dividend-adjusted daily prices across two transparent lenses:
+                Because SEC Form 13F discloses quarter-end U.S. long equities (with a ~45-day filing lag) and omits cash and short books, Paper Trail reconstructs true buy-and-hold equity returns using split/dividend-adjusted daily prices across two transparent lenses:
               </p>
               <ul>
                 <li><strong>Quarter-End Attribution:</strong> Rebalances into quarter-end equity weights at each quarter close to measure manager stock-selection skill.</li>
                 <li><strong>45-Day Filing-Lag Actionable:</strong> Rebalances only on the actual SEC filing date when the 13F became public.</li>
               </ul>
 
-              <h3 style={{ color: 'var(--text-primary)' }}>3. Ideal Portfolio &amp; ETF Correlations</h3>
+              <h3 style={{ color: 'var(--text-primary)' }}>3. Ideal Portfolio &amp; Quarterly Updates</h3>
               <p>
-                The Ideal Portfolio selects up to 50 names (default 40) from the union of Top-10 ranked funds across all six windows, scoring each stock by manager rank × √(portfolio weight) × consensus multiplier, water-filled under an 8% position cap. ETFs are ingested directly from SEC Form NPORT-P filings and matched via portfolio cosine similarity and 1Y daily return correlation.
+                The Ideal Portfolio selects up to 50 names (default 40) from the union of Top-10 ranked funds across all six windows, scoring each stock by manager rank × √(portfolio weight) × consensus multiplier, water-filled under an 8% position cap. The Updates tab diffs consecutive Form 13F-HR quarters across common shares, calls, and puts to highlight initiations, heavy adds, exits, put-hedge shifts, common-to-call rotations, and valuation markdowns on flat share counts.
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>4. Automated Quarterly Updates</h3>
               <p>
-                GitHub Actions runs automatically during every 13F filing season (February, May, August, November — plus weekly refresh checks) to pull new 13F-HR / 13F-HR/A and NPORT-P filings, update market prices, rebuild the static site, and redeploy to GitHub Pages.
+                GitHub Actions runs automatically during every 13F filing season (February, May, August, November — plus weekly refresh checks) to pull new 13F-HR / 13F-HR/A filings, update market prices, rebuild the static site, and redeploy to GitHub Pages.
               </p>
 
               <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>

@@ -1,6 +1,5 @@
 """
-Curated universe of premier tech-focused / TMT concentrated 13F filers
-plus SEC-registered Tech/Growth/Benchmark ETFs for NPORT-P comparison.
+Curated universe of premier tech-focused / TMT concentrated 13F filers.
 """
 
 CURATED_FUNDS = [
@@ -276,36 +275,6 @@ CURATED_FUNDS = [
         "styleTag": "Macro + Concentrated AI/Tech",
         "strategySummary": "Tactical concentrated family office frequently expressing high-conviction themes across AI semiconductors, power, and cloud.",
     },
-]
-
-# SEC-registered ETFs (from SEC company_tickers_mf.json) to compare via NPORT-P filings
-TARGET_ETFS = [
-    {"ticker": "QQQ",  "cik": 1067839, "seriesId": "S000101292", "name": "Invesco QQQ Trust", "category": "Nasdaq-100 Large Growth"},
-    {"ticker": "QQQM", "cik": 1378872, "seriesId": "S000069448", "name": "Invesco NASDAQ 100 ETF", "category": "Nasdaq-100 Large Growth"},
-    {"ticker": "XLK",  "cik": 1064641, "seriesId": "S000006415", "name": "Technology Select Sector SPDR", "category": "Broad US Technology"},
-    {"ticker": "VGT",  "cik": 52848,   "seriesId": "S000004452", "name": "Vanguard Information Technology ETF", "category": "Broad US Technology"},
-    {"ticker": "IYW",  "cik": 1100663, "seriesId": "S000004329", "name": "iShares U.S. Technology ETF", "category": "US Tech & Platforms"},
-    {"ticker": "SMH",  "cik": 1137360, "seriesId": "S000034411", "name": "VanEck Semiconductor ETF", "category": "Semiconductors"},
-    {"ticker": "SOXX", "cik": 1100663, "seriesId": "S000004354", "name": "iShares Semiconductor ETF", "category": "Semiconductors"},
-    {"ticker": "IGV",  "cik": 1100663, "seriesId": "S000004355", "name": "iShares Expanded Tech-Software ETF", "category": "Enterprise Software"},
-    {"ticker": "WCLD", "cik": 1350487, "seriesId": "S000066390", "name": "WisdomTree Cloud Computing Fund", "category": "Cloud / SaaS"},
-    {"ticker": "SKYY", "cik": 1364608, "seriesId": "S000033237", "name": "First Trust Cloud Computing ETF", "category": "Cloud / SaaS"},
-    {"ticker": "CIBR", "cik": 1364608, "seriesId": "S000050385", "name": "First Trust NASDAQ Cybersecurity ETF", "category": "Cybersecurity"},
-    {"ticker": "FDN",  "cik": 1329377, "seriesId": "S000012479", "name": "First Trust Dow Jones Internet Index", "category": "Internet Platforms"},
-    {"ticker": "XLC",  "cik": 1064641, "seriesId": "S000062095", "name": "Communication Services Select Sector", "category": "Digital Media & Telecom"},
-    {"ticker": "MAGS", "cik": 1683471, "seriesId": "S000079576", "name": "Roundhill Magnificent Seven ETF", "category": "Mega-Cap Tech"},
-    {"ticker": "AIQ",  "cik": 1432353, "seriesId": "S000061326", "name": "Global X Artificial Intelligence & Tech", "category": "AI & Tech"},
-    {"ticker": "CHAT", "cik": 1924868, "seriesId": "S000080348", "name": "Roundhill Generative AI & Technology", "category": "Generative AI"},
-    {"ticker": "BOTZ", "cik": 1432353, "seriesId": "S000054693", "name": "Global X Robotics & AI ETF", "category": "Robotics & AI"},
-    {"ticker": "QTUM", "cik": 1540305, "seriesId": "S000062478", "name": "Defiance Quantum ETF", "category": "Quantum & AI Compute"},
-    {"ticker": "ARKK", "cik": 1579982, "seriesId": "S000042977", "name": "ARK Innovation ETF", "category": "Disruptive Tech"},
-    {"ticker": "ARKW", "cik": 1579982, "seriesId": "S000042978", "name": "ARK Next Generation Internet ETF", "category": "Next-Gen Internet"},
-    {"ticker": "VUG",  "cik": 36405,   "seriesId": "S000002842", "name": "Vanguard Growth ETF", "category": "US Large Cap Growth"},
-    {"ticker": "MGK",  "cik": 52848,   "seriesId": "S000019700", "name": "Vanguard Mega Cap Growth ETF", "category": "Mega-Cap Growth"},
-    {"ticker": "IWF",  "cik": 1100663, "seriesId": "S000004346", "name": "iShares Russell 1000 Growth ETF", "category": "US Large Cap Growth"},
-    {"ticker": "SPMO", "cik": 1378872, "seriesId": "S000050154", "name": "Invesco S&P 500 Momentum ETF", "category": "Momentum Factor"},
-    {"ticker": "MTUM", "cik": 1100663, "seriesId": "S000040316", "name": "iShares MSCI USA Momentum Factor", "category": "Momentum Factor"},
-    {"ticker": "VOO",  "cik": 36405,   "seriesId": "S000002839", "name": "Vanguard S&P 500 ETF", "category": "Broad US Market"},
 ]
 
 # Tech-enabled digital/AI tickers in non-Technology GICS sectors

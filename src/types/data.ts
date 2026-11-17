@@ -204,40 +204,169 @@ export interface IdealPortfolioData {
   };
 }
 
-export interface EtfFundMatch {
+export type SecurityType = 'EQUITY' | 'CALL' | 'PUT' | 'NOTE';
+export type MoveAction = 'NEW' | 'ADDED' | 'TRIMMED' | 'UNCHANGED' | 'EXITED';
+
+export interface PositionMoveItem {
+  cusip: string;
+  ticker: string;
+  name: string;
+  sector: string;
+  industry: string;
+  securityType: SecurityType;
+  action: MoveAction;
+  prevShares: number;
+  currShares: number;
+  sharesDelta: number;
+  sharesDeltaPct: number | null; // null if NEW, -100 if EXITED
+  prevValueUsd: number;
+  currValueUsd: number;
+  valueDeltaUsd: number;
+  prevBookPct: number; // % of total reported 13F book in prior quarter
+  currBookPct: number; // % of total reported 13F book in current quarter
+  bookDeltaPct: number;
+  valuationShiftType: 'MARKDOWN' | 'MARKUP' | null;
+  tagNote: string | null;
+}
+
+export interface HedgeLegSummary {
+  ticker: string;
+  name: string;
+  securityType: 'PUT' | 'CALL';
+  action: MoveAction;
+  prevShares: number;
+  currShares: number;
+  prevValueUsd: number;
+  currValueUsd: number;
+  prevBookPct: number;
+  currBookPct: number;
+  sharesDeltaPct: number | null;
+}
+
+export interface InstrumentShiftSignal {
+  ticker: string;
+  name: string;
+  shiftType:
+    | 'COMMON_TO_CALL'
+    | 'CALL_TO_COMMON'
+    | 'MULTI_LEG_SURGE'
+    | 'MULTI_LEG_CUT'
+    | 'NEW_HEDGE'
+    | 'HEDGE_SURGE'
+    | 'CALL_EXIT';
+  label: string;
+  detail: string;
+  prevTotalUsd: number;
+  currTotalUsd: number;
+  currBookPct: number;
+}
+
+export interface FundUpdateEntry {
   cik: string;
   fundName: string;
-  cosineSimilarityPct: number; // 0-100 holdings cosine match
-  weightOverlapPct: number; // sum(min(w_etf, w_fund)) * 100
-  returnCorrelationPct: number | null; // trailing 1Y daily return Pearson r * 100
-  blendedScorePct: number;
-  sharedTopStocks: Array<{
-    ticker: string;
-    etfWeightPct: number;
-    fundWeightPct: number;
+  legalName: string;
+  manager: string;
+  styleTag: string;
+  source: 'Curated Core' | 'EDGAR Discovered';
+  inRankings: boolean;
+  isRankedTop10AnyWindow: boolean;
+  top10Windows: ReturnWindow[];
+
+  quarterLabel: string;
+  periodEnd: string;
+  prevQuarterLabel: string;
+  prevPeriodEnd: string;
+  filingDate: string;
+  prevFilingDate: string;
+  statutoryDeadline: string;
+  daysBeforeDeadline: number;
+  deadlineBadge: 'Deadline Day' | 'Early Filer' | 'Amended / Post-Deadline';
+  accessionNumber: string;
+  filingUrl: string;
+  edgarUrl: string;
+
+  currTotalReportedUsd: number;
+  prevTotalReportedUsd: number;
+  totalValueDeltaUsd: number;
+  totalValueDeltaPct: number | null;
+  currEquityAumUsd: number;
+  prevEquityAumUsd: number;
+  currPositionCount: number;
+  prevPositionCount: number;
+
+  currEquityBookPct: number;
+  prevEquityBookPct: number;
+  currCallUsd: number;
+  prevCallUsd: number;
+  currCallBookPct: number;
+  prevCallBookPct: number;
+  currPutUsd: number;
+  prevPutUsd: number;
+  currPutBookPct: number;
+  prevPutBookPct: number;
+  putBookDeltaPct: number;
+  hasSignificantHedge: boolean;
+
+  newCount: number;
+  addedCount: number;
+  trimmedCount: number;
+  exitedCount: number;
+  unchangedCount: number;
+  grossActivityUsd: number;
+  activityRatioPct: number;
+
+  narrativeHeadline: string;
+  narrativeLead: string;
+  narrativeFocusNotes: string[];
+  narrativeHedgeAndStructure: string | null;
+  narrativeOtherMoves: string | null;
+
+  putLegs: HedgeLegSummary[];
+  callLegs: HedgeLegSummary[];
+  instrumentShifts: InstrumentShiftSignal[];
+  valuationShifts: PositionMoveItem[];
+
+  topNew: PositionMoveItem[];
+  topAdded: PositionMoveItem[];
+  topTrimmed: PositionMoveItem[];
+  topExited: PositionMoveItem[];
+  allMoves: PositionMoveItem[];
+}
+
+export interface ConsensusMoveSummary {
+  ticker: string;
+  name: string;
+  sector: string;
+  fundCount: number;
+  totalCurrValueUsd: number;
+  totalDeltaUsd: number;
+  funds: Array<{
+    cik: string;
+    fundName: string;
+    action: 'NEW' | 'ADDED' | 'TRIMMED' | 'EXITED';
+    securityType: SecurityType;
+    currBookPct: number;
+    prevBookPct: number;
+    valueDeltaUsd: number;
+    sharesDeltaPct: number | null;
   }>;
 }
 
-export interface EtfEntry {
-  ticker: string;
-  name: string;
-  category: string;
-  reportDate: string;
-  holdingsCount: number;
-  top10WeightPct: number;
-  returns: WindowReturns;
-  topHoldings: Array<{
-    ticker: string;
-    name: string;
-    weightPct: number;
-  }>;
-  bestMatch: EtfFundMatch;
-  fundMatches: EtfFundMatch[]; // sorted descending by similarity
-  idealPortfolioMatch: {
-    cosineSimilarityPct: number;
-    weightOverlapPct: number;
-    returnCorrelationPct: number | null;
-  };
+export interface UpdatesOverview {
+  latestQuarterLabel: string;
+  latestQuarterPeriodEnd: string;
+  totalUpdateCards: number;
+  latestQuarterFilersCount: number;
+  totalEligibleFundsCount: number;
+  deadlineDayFilersCount: number;
+  fundsWithPutHedgesCount: number;
+  totalPutNotionalUsd: number;
+  totalCallNotionalUsd: number;
+  totalLatestBookUsd: number;
+  consensusNewInitiations: ConsensusMoveSummary[];
+  consensusHeavyAdds: ConsensusMoveSummary[];
+  consensusExitsAndTrims: ConsensusMoveSummary[];
+  consensusOptionMoves: ConsensusMoveSummary[];
 }
 
 export interface BenchmarkSeries {
@@ -259,7 +388,6 @@ export interface PaperTrailDataset {
     qualifiedFundsCount: number;
     rankedFundsUnionCount: number;
     total13fFilingsProcessed: number;
-    etfsProcessedCount: number;
     next13fSeasonLabel: string;
     dataSources: string[];
   };
@@ -278,5 +406,6 @@ export interface PaperTrailDataset {
     filing_lag: ConsensusHolding[];
   };
   idealPortfolio: IdealPortfolioData;
-  etfs: EtfEntry[];
+  fundUpdates: FundUpdateEntry[];
+  updatesOverview: UpdatesOverview;
 }

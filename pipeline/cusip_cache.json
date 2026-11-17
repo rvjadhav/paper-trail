@@ -42,13 +42,11 @@
     "ticker": "ABSI"
   },
   "00091G104": {
-    "displaySymbol": "ACVAUC",
-    "industry": "",
+    "industry": "Auto & Truck Dealerships",
     "isTechTmt": false,
-    "name": "ACV AUCTIONS INC",
-    "sector": "Other",
-    "ticker": "CUSIP:00091G104",
-    "unpriced": true
+    "name": "ACV Auctions Inc.",
+    "sector": "Consumer Cyclical",
+    "ticker": "ACVA"
   },
   "001026103": {
     "industry": "Computer Hardware",
@@ -393,6 +391,13 @@
     "sector": "Technology",
     "ticker": "AEHR"
   },
+  "00766T100": {
+    "industry": "Engineering & Construction",
+    "isTechTmt": false,
+    "name": "AECOM",
+    "sector": "Industrials",
+    "ticker": "ACM"
+  },
   "007800105": {
     "displaySymbol": "AEROJE",
     "industry": "",
@@ -723,14 +728,14 @@
   "02079K107": {
     "industry": "Internet Content & Information",
     "isTechTmt": true,
-    "name": "Alphabet Inc.",
+    "name": "Alphabet Inc. (Class C)",
     "sector": "Communication Services",
     "ticker": "GOOG"
   },
   "02079K305": {
     "industry": "Internet Content & Information",
     "isTechTmt": true,
-    "name": "Alphabet Inc.",
+    "name": "Alphabet Inc. (Class A)",
     "sector": "Communication Services",
     "ticker": "GOOGL"
   },
@@ -1802,6 +1807,13 @@
     "sector": "Financial Services",
     "ticker": "ABX"
   },
+  "06849F108": {
+    "industry": "Gold",
+    "isTechTmt": false,
+    "name": "Barrick Mining Corporation",
+    "sector": "Basic Materials",
+    "ticker": "B"
+  },
   "070830104": {
     "industry": "Specialty Retail",
     "isTechTmt": false,
@@ -1923,7 +1935,7 @@
     "isTechTmt": false,
     "name": "Beyond Meat, Inc.",
     "sector": "Consumer Defensive",
-    "ticker": "1BYND-MI"
+    "ticker": "BYND"
   },
   "088786108": {
     "industry": "Biotechnology",
@@ -2350,6 +2362,13 @@
     "name": "Broadcom Inc.",
     "sector": "Technology",
     "ticker": "AVGO"
+  },
+  "112463104": {
+    "industry": "Medical Care Facilities",
+    "isTechTmt": false,
+    "name": "Brookdale Senior Living Inc.",
+    "sector": "Healthcare",
+    "ticker": "BKD"
   },
   "11271J107": {
     "industry": "Asset Management",
@@ -3927,6 +3946,13 @@
     "name": "Curtiss-Wright Corporation",
     "sector": "Industrials",
     "ticker": "CW"
+  },
+  "23255M303": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Korsana Biosciences, Inc.",
+    "sector": "Healthcare",
+    "ticker": "KRSA"
   },
   "23292E108": {
     "industry": "Software\u2014Application",
@@ -10377,13 +10403,11 @@
     "ticker": "OKTA"
   },
   "679369108": {
-    "displaySymbol": "OLAPLE",
-    "industry": "",
+    "industry": "Household & Personal Products",
     "isTechTmt": false,
-    "name": "OLAPLEX HLDGS INC",
-    "sector": "Other",
-    "ticker": "CUSIP:679369108",
-    "unpriced": true
+    "name": "Olaplex Holdings, Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "OLPX"
   },
   "679580100": {
     "industry": "Trucking",
@@ -11733,6 +11757,13 @@
     "name": "RedHill Biopharma Ltd.",
     "sector": "Healthcare",
     "ticker": "RDHL"
+  },
+  "758750103": {
+    "industry": "Specialty Industrial Machinery",
+    "isTechTmt": false,
+    "name": "Regal Rexnord Corporation",
+    "sector": "Industrials",
+    "ticker": "RRX"
   },
   "758849103": {
     "industry": "REIT\u2014Retail",
@@ -13742,7 +13773,7 @@
   "874039100": {
     "industry": "Semiconductors",
     "isTechTmt": true,
-    "name": "Taiwan Semiconductor Manufacturing Company Limited",
+    "name": "Taiwan Semiconductor Manufacturing",
     "sector": "Technology",
     "ticker": "TSM"
   },
@@ -15353,6 +15384,13 @@
     "sector": "Industrials",
     "ticker": "WSO"
   },
+  "94352A104": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Wave Life Sciences, Inc.",
+    "sector": "Healthcare",
+    "ticker": "WVE"
+  },
   "94419L101": {
     "industry": "Internet Retail",
     "isTechTmt": true,
@@ -15375,13 +15413,11 @@
     "ticker": "WLTH"
   },
   "94724R108": {
-    "displaySymbol": "WEAVEC",
-    "industry": "",
-    "isTechTmt": false,
-    "name": "WEAVE COMMUNICATIONS INC",
-    "sector": "Other",
-    "ticker": "CUSIP:94724R108",
-    "unpriced": true
+    "industry": "Software\u2014Application",
+    "isTechTmt": true,
+    "name": "Weave Communications, Inc.",
+    "sector": "Technology",
+    "ticker": "WEAV"
   },
   "94770D102": {
     "industry": "Farm & Heavy Construction Machinery",
@@ -17571,9 +17607,9 @@
   "H2927K103": {
     "industry": "Building Materials",
     "isTechTmt": false,
-    "name": "Amrize AG",
+    "name": "Amrize Ltd",
     "sector": "Basic Materials",
-    "ticker": "AMRZ-SW"
+    "ticker": "AMRZ"
   },
   "H42097107": {
     "industry": "Banks\u2014Diversified",
@@ -17917,7 +17953,7 @@
     "isTechTmt": false,
     "name": "Elbit Systems Ltd.",
     "sector": "Industrials",
-    "ticker": "ESLT-TA"
+    "ticker": "ESLT"
   },
   "M3798N105": {
     "industry": "Consumer Electronics",
@@ -18107,7 +18143,7 @@
     "isTechTmt": false,
     "name": "Kamada Ltd.",
     "sector": "Healthcare",
-    "ticker": "KMDA-TA"
+    "ticker": "KMDA"
   },
   "M6372Q113": {
     "industry": "Specialty Industrial Machinery",
@@ -18487,7 +18523,7 @@
     "isTechTmt": false,
     "name": "Ferrari N.V.",
     "sector": "Consumer Cyclical",
-    "ticker": "RACE-MI"
+    "ticker": "RACE"
   },
   "N3168P101": {
     "industry": "Engineering & Construction",
@@ -18529,7 +18565,7 @@
   "N53745100": {
     "industry": "Specialty Chemicals",
     "isTechTmt": false,
-    "name": "LyondellBasell Industries N.V.",
+    "name": "LyondellBasell Industries",
     "sector": "Basic Materials",
     "ticker": "LYB"
   },

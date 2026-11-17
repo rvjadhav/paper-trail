@@ -5,7 +5,7 @@ End-to-end Paper Trail 13F data pipeline:
 3. Qualifies genuinely Tech/TMT-focused concentrated portfolios
 4. Reconstructs daily buy-and-hold equity curves for both Quarter-End and 45-Day Lag modes
 5. Computes rankings across YTD, TTM, 18M, 2Y, 3Y, 5Y windows
-6. Builds Top 30 Consensus Holdings, Ideal Portfolio (<= 50 names), and NPORT-P ETF Correlations
+6. Builds Top 30 Consensus Holdings, Ideal Portfolio (<= 50 names), and QoQ Fund Updates Digest
 7. Writes src/data/portfolio_data.json for static frontend & GitHub Pages deployment
 """
 
@@ -19,16 +19,14 @@ from typing import Any
 
 import numpy as np
 
-from funds_config import CURATED_FUNDS, NON_STOCK_ETFS, TARGET_ETFS
+from funds_config import CURATED_FUNDS, NON_STOCK_ETFS
 from sec_client import (
     build_clean_quarterly_filings,
     discover_emerging_tech_funds,
-    fetch_etf_nport_holdings,
     list_13f_filings,
 )
 from security_resolver import (
     fetch_all_prices,
-    normalize_yf_ticker,
     resolve_cusips,
 )
 
@@ -447,6 +445,733 @@ def compute_ideal_portfolio_weights(
     return capped, stock_agg
 
 
+def _fmt_usd_brief(val: float) -> str:
+    av = abs(val)
+    if av >= 1e9:
+        return f"${av / 1e9:.2f}B"
+    if av >= 1e6:
+        return f"${av / 1e6:.1f}M"
+    if av >= 1e3:
+        return f"${av / 1e3:.0f}K"
+    return f"${av:.0f}"
+
+
+def _fmt_shares_brief(sh: float) -> str:
+    ash = abs(sh)
+    if ash >= 1e6:
+        return f"{ash / 1e6:.2f}M"
+    if ash >= 1e3:
+        return f"{ash / 1e3:.0f}k"
+    return f"{ash:.0f}"
+
+
+def _fmt_period_short(date_str: str) -> str:
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%b %d")
+    except Exception:
+        return date_str
+
+
+def _short_q_label(period_end: str) -> str:
+    _, m, _ = period_end.split("-")
+    q = (int(m) - 1) // 3 + 1
+    return f"Q{q}"
+
+
+def compute_deadline_status(period_end: str, filing_date: str) -> dict[str, Any]:
+    """
+    Compute SEC statutory 13F-HR deadline (period_end + 45 calendar days,
+    rolled forward to Monday if Day 45 falls on Saturday or Sunday).
+    """
+    pe_dt = datetime.strptime(period_end, "%Y-%m-%d").date()
+    dl_dt = pe_dt + timedelta(days=45)
+    if dl_dt.weekday() == 5:  # Saturday -> Monday
+        dl_dt += timedelta(days=2)
+    elif dl_dt.weekday() == 6:  # Sunday -> Monday
+        dl_dt += timedelta(days=1)
+
+    fd_dt = datetime.strptime(filing_date, "%Y-%m-%d").date()
+    days_before = (dl_dt - fd_dt).days
+    dl_str = dl_dt.strftime("%Y-%m-%d")
+
+    if days_before == 0:
+        badge = "Deadline Day"
+        phrase = "on the deadline day"
+    elif days_before > 0:
+        badge = "Early Filer"
+        phrase = f"{days_before}d before the deadline" if days_before <= 14 else f"on {_fmt_period_short(filing_date)}"
+    else:
+        badge = "Amended / Post-Deadline"
+        phrase = f"on {filing_date} (post-deadline / amended)"
+
+    return {
+        "statutoryDeadline": dl_str,
+        "daysBeforeDeadline": days_before,
+        "deadlineBadge": badge,
+        "deadlinePhrase": phrase,
+    }
+
+
+def aggregate_filing_positions(
+    filing: dict[str, Any],
+    cusip_meta: dict[str, dict[str, Any]],
+) -> tuple[dict[tuple[str, str], dict[str, Any]], float, float]:
+    """
+    Aggregate filing rows by (rawTicker, secType).
+    Returns (agg_dict, total_reported_usd, equity_aum_usd).
+    """
+    agg: dict[tuple[str, str], dict[str, Any]] = {}
+    total_reported = 0.0
+    eq_aum = 0.0
+    for r in filing["rows"]:
+        val = float(r["valueUsd"])
+        sh = float(r["shares"])
+        if val <= 0:
+            continue
+        total_reported += val
+        if r["secType"] == "EQUITY":
+            eq_aum += val
+        meta = cusip_meta.get(r["cusip"], {})
+        raw_ticker = meta.get("ticker") or f"CUSIP:{r['cusip']}"
+        disp_ticker = meta.get("displaySymbol") or raw_ticker
+        key = (raw_ticker, r["secType"])
+        if key not in agg:
+            agg[key] = {
+                "cusip": r["cusip"],
+                "ticker": disp_ticker if raw_ticker.startswith("CUSIP:") else raw_ticker,
+                "rawTicker": raw_ticker,
+                "name": meta.get("name") or r["issuer"],
+                "sector": meta.get("sector") or "Other",
+                "industry": meta.get("industry") or "",
+                "isTechTmt": bool(meta.get("isTechTmt")),
+                "securityType": r["secType"],
+                "shares": sh,
+                "valueUsd": val,
+            }
+        else:
+            agg[key]["shares"] += sh
+            agg[key]["valueUsd"] += val
+    return agg, total_reported, eq_aum
+
+
+def build_fund_update_entry(
+    cand: dict[str, Any],
+    filings: list[dict[str, Any]],
+    cusip_meta: dict[str, dict[str, Any]],
+    in_rankings: bool,
+    top10_windows: list[str],
+) -> dict[str, Any] | None:
+    if len(filings) < 2:
+        return None
+    prev_fl = filings[-2]
+    curr_fl = filings[-1]
+
+    curr_agg, curr_rep, curr_eq_aum = aggregate_filing_positions(curr_fl, cusip_meta)
+    prev_agg, prev_rep, prev_eq_aum = aggregate_filing_positions(prev_fl, cusip_meta)
+    if curr_rep <= 0 or prev_rep <= 0:
+        return None
+
+    cik = cand["cik"]
+    acc = curr_fl["accessionNumber"]
+    acc_nd = acc.replace("-", "")
+    filing_url = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc_nd}/"
+    dl_info = compute_deadline_status(curr_fl["reportDate"], curr_fl["filingDate"])
+
+    q_label = quarter_label(curr_fl["reportDate"])
+    prev_q_label = quarter_label(prev_fl["reportDate"])
+    prev_q_short = _short_q_label(prev_fl["reportDate"])
+
+    all_keys = sorted(
+        set(curr_agg.keys()) | set(prev_agg.keys()),
+        key=lambda k: max(
+            curr_agg[k]["valueUsd"] if k in curr_agg else 0.0,
+            prev_agg[k]["valueUsd"] if k in prev_agg else 0.0,
+        ),
+        reverse=True,
+    )
+
+    all_moves: list[dict[str, Any]] = []
+    valuation_shifts: list[dict[str, Any]] = []
+    put_legs: list[dict[str, Any]] = []
+    call_legs: list[dict[str, Any]] = []
+
+    curr_eq_book = 0.0
+    prev_eq_book = 0.0
+    curr_call_usd = 0.0
+    prev_call_usd = 0.0
+    curr_put_usd = 0.0
+    prev_put_usd = 0.0
+
+    new_cnt = added_cnt = trimmed_cnt = exited_cnt = unchanged_cnt = 0
+    gross_activity = 0.0
+
+    for key in all_keys:
+        c_item = curr_agg.get(key)
+        p_item = prev_agg.get(key)
+        base = c_item or p_item
+        assert base is not None
+
+        sec_type = base["securityType"]
+        prev_sh = float(p_item["shares"]) if p_item else 0.0
+        curr_sh = float(c_item["shares"]) if c_item else 0.0
+        sh_delta = curr_sh - prev_sh
+
+        prev_val = float(p_item["valueUsd"]) if p_item else 0.0
+        curr_val = float(c_item["valueUsd"]) if c_item else 0.0
+        val_delta = curr_val - prev_val
+
+        prev_book_pct = (prev_val / prev_rep * 100.0) if (p_item and prev_rep > 0) else 0.0
+        curr_book_pct = (curr_val / curr_rep * 100.0) if (c_item and curr_rep > 0) else 0.0
+        book_delta_pct = curr_book_pct - prev_book_pct
+
+        if sec_type == "EQUITY":
+            curr_eq_book += curr_val
+            prev_eq_book += prev_val
+        elif sec_type == "CALL":
+            curr_call_usd += curr_val
+            prev_call_usd += prev_val
+        elif sec_type == "PUT":
+            curr_put_usd += curr_val
+            prev_put_usd += prev_val
+
+        sh_delta_pct: float | None = None
+        if p_item is None or prev_sh <= 0:
+            action = "NEW"
+            new_cnt += 1
+        elif c_item is None or curr_sh <= 0:
+            action = "EXITED"
+            sh_delta_pct = -100.0
+            exited_cnt += 1
+        else:
+            diff_pct = ((curr_sh / prev_sh) - 1.0) * 100.0
+            sh_delta_pct = clean_num(diff_pct, 1)
+            if diff_pct > 2.0:
+                action = "ADDED"
+                added_cnt += 1
+            elif diff_pct < -2.0:
+                action = "TRIMMED"
+                trimmed_cnt += 1
+            else:
+                action = "UNCHANGED"
+                unchanged_cnt += 1
+
+        if action != "UNCHANGED":
+            gross_activity += abs(val_delta)
+
+        # Detect valuation markdowns / markups on essentially flat share counts
+        val_shift_type = None
+        tag_note = None
+        if (
+            p_item is not None
+            and c_item is not None
+            and prev_sh > 0
+            and curr_sh > 0
+            and sh_delta_pct is not None
+            and abs(sh_delta_pct) <= 2.5
+        ):
+            sig_weight_shift = abs(book_delta_pct) >= 1.2
+            sig_val_shift = prev_val >= 25_000_000 and (abs(val_delta) / prev_val >= 0.15) and abs(book_delta_pct) >= 0.5
+            if sig_weight_shift or sig_val_shift:
+                if book_delta_pct <= -0.5 or val_delta < 0:
+                    val_shift_type = "MARKDOWN"
+                    tag_note = (
+                        f"Markdown on flat shares ({prev_book_pct:.1f}% → {curr_book_pct:.1f}%), not a sale"
+                    )
+                else:
+                    val_shift_type = "MARKUP"
+                    tag_note = f"Markup on flat shares ({prev_book_pct:.1f}% → {curr_book_pct:.1f}%)"
+
+        move_obj = {
+            "cusip": base["cusip"],
+            "ticker": base["ticker"],
+            "name": base["name"],
+            "sector": base["sector"],
+            "industry": base["industry"],
+            "securityType": sec_type,
+            "action": action,
+            "prevShares": round(prev_sh),
+            "currShares": round(curr_sh),
+            "sharesDelta": round(sh_delta),
+            "sharesDeltaPct": sh_delta_pct,
+            "prevValueUsd": round(prev_val, 2),
+            "currValueUsd": round(curr_val, 2),
+            "valueDeltaUsd": round(val_delta, 2),
+            "prevBookPct": round(prev_book_pct, 2),
+            "currBookPct": round(curr_book_pct, 2),
+            "bookDeltaPct": round(book_delta_pct, 2),
+            "valuationShiftType": val_shift_type,
+            "tagNote": tag_note,
+        }
+        all_moves.append(move_obj)
+        if val_shift_type is not None:
+            valuation_shifts.append(move_obj)
+
+        if sec_type == "PUT":
+            put_legs.append({
+                "ticker": base["ticker"],
+                "name": base["name"],
+                "securityType": "PUT",
+                "action": action,
+                "prevShares": round(prev_sh),
+                "currShares": round(curr_sh),
+                "prevValueUsd": round(prev_val, 2),
+                "currValueUsd": round(curr_val, 2),
+                "prevBookPct": round(prev_book_pct, 2),
+                "currBookPct": round(curr_book_pct, 2),
+                "sharesDeltaPct": sh_delta_pct,
+            })
+        elif sec_type == "CALL":
+            call_legs.append({
+                "ticker": base["ticker"],
+                "name": base["name"],
+                "securityType": "CALL",
+                "action": action,
+                "prevShares": round(prev_sh),
+                "currShares": round(curr_sh),
+                "prevValueUsd": round(prev_val, 2),
+                "currValueUsd": round(curr_val, 2),
+                "prevBookPct": round(prev_book_pct, 2),
+                "currBookPct": round(curr_book_pct, 2),
+                "sharesDeltaPct": sh_delta_pct,
+            })
+
+    put_legs.sort(key=lambda x: max(x["currValueUsd"], x["prevValueUsd"]), reverse=True)
+    call_legs.sort(key=lambda x: max(x["currValueUsd"], x["prevValueUsd"]), reverse=True)
+    valuation_shifts.sort(key=lambda x: abs(x["bookDeltaPct"]), reverse=True)
+
+    # Cross-instrument rotations & multi-leg issuer exposure signals
+    by_issuer: dict[str, dict[str, dict[str, float | str]]] = {}
+    for mv in all_moves:
+        t = mv["ticker"]
+        if t not in by_issuer:
+            by_issuer[t] = {"meta": {"ticker": t, "name": mv["name"]}}
+        by_issuer[t][mv["securityType"]] = {
+            "prevVal": float(mv["prevValueUsd"]),
+            "currVal": float(mv["currValueUsd"]),
+            "prevBook": float(mv["prevBookPct"]),
+            "currBook": float(mv["currBookPct"]),
+        }
+
+    instrument_shifts: list[dict[str, Any]] = []
+    for t, legs in by_issuer.items():
+        nm = str(legs["meta"]["name"])
+        eq = legs.get("EQUITY", {"prevVal": 0.0, "currVal": 0.0, "prevBook": 0.0, "currBook": 0.0})
+        ca = legs.get("CALL", {"prevVal": 0.0, "currVal": 0.0, "prevBook": 0.0, "currBook": 0.0})
+        pu = legs.get("PUT", {"prevVal": 0.0, "currVal": 0.0, "prevBook": 0.0, "currBook": 0.0})
+
+        p_eq, c_eq = float(eq["prevVal"]), float(eq["currVal"])
+        p_ca, c_ca = float(ca["prevVal"]), float(ca["currVal"])
+        p_pu, c_pu = float(pu["prevVal"]), float(pu["currVal"])
+        min_sig = max(10_000_000.0, 0.004 * max(curr_rep, prev_rep))
+
+        # Common <-> Call rotations
+        if p_eq >= min_sig and c_eq == 0.0 and c_ca >= min_sig and c_ca > p_ca * 1.4:
+            instrument_shifts.append({
+                "ticker": t,
+                "name": nm,
+                "shiftType": "COMMON_TO_CALL",
+                "label": f"{t}: Shifted from common to calls",
+                "detail": f"Exited {_fmt_usd_brief(p_eq)} common; holds {_fmt_usd_brief(c_ca)} calls ({float(ca['currBook']):.1f}% of book)",
+                "prevTotalUsd": round(p_eq + p_ca, 2),
+                "currTotalUsd": round(c_ca, 2),
+                "currBookPct": round(float(ca["currBook"]), 2),
+            })
+        elif p_ca >= min_sig and c_ca == 0.0 and c_eq > p_eq * 1.25 and c_eq >= min_sig:
+            instrument_shifts.append({
+                "ticker": t,
+                "name": nm,
+                "shiftType": "CALL_TO_COMMON",
+                "label": f"{t}: Shifted from calls to common",
+                "detail": f"Exited {_fmt_usd_brief(p_ca)} calls; common at {_fmt_usd_brief(c_eq)} ({float(eq['currBook']):.1f}% of book)",
+                "prevTotalUsd": round(p_eq + p_ca, 2),
+                "currTotalUsd": round(c_eq, 2),
+                "currBookPct": round(float(eq["currBook"]), 2),
+            })
+        elif (p_ca + c_ca > 0.0) and (p_eq + c_eq > 0.0):
+            prev_comb = p_eq + p_ca
+            curr_comb = c_eq + c_ca
+            comb_book = float(eq["currBook"]) + float(ca["currBook"])
+            if prev_comb >= min_sig and curr_comb >= max(min_sig, prev_comb * 1.45):
+                ratio = curr_comb / prev_comb
+                mult_txt = "~2×" if 1.75 <= ratio <= 2.3 else f"+{(ratio - 1.0) * 100:.0f}%"
+                parts = []
+                if p_ca > 0 or c_ca > 0:
+                    parts.append(f"calls {_fmt_usd_brief(p_ca)} → {_fmt_usd_brief(c_ca)}")
+                if c_eq > 0:
+                    parts.append(f"common {_fmt_usd_brief(c_eq)}")
+                instrument_shifts.append({
+                    "ticker": t,
+                    "name": nm,
+                    "shiftType": "MULTI_LEG_SURGE",
+                    "label": f"{t}: Total exposure {mult_txt}",
+                    "detail": f"Combined {_fmt_usd_brief(prev_comb)} → {_fmt_usd_brief(curr_comb)} ({' + '.join(parts)})",
+                    "prevTotalUsd": round(prev_comb, 2),
+                    "currTotalUsd": round(curr_comb, 2),
+                    "currBookPct": round(comb_book, 2),
+                })
+            elif prev_comb >= max(min_sig * 2, 25_000_000.0) and curr_comb <= prev_comb * 0.55:
+                comb_book = float(eq["currBook"]) + float(ca["currBook"])
+                instrument_shifts.append({
+                    "ticker": t,
+                    "name": nm,
+                    "shiftType": "MULTI_LEG_CUT",
+                    "label": f"{t}: Total exposure cut {(1 - curr_comb / prev_comb) * 100:.0f}%",
+                    "detail": f"Combined {_fmt_usd_brief(prev_comb)} → {_fmt_usd_brief(curr_comb)} (common + calls)",
+                    "prevTotalUsd": round(prev_comb, 2),
+                    "currTotalUsd": round(curr_comb, 2),
+                    "currBookPct": round(comb_book, 2),
+                })
+        elif p_ca >= min_sig and c_ca == 0.0:
+            instrument_shifts.append({
+                "ticker": t,
+                "name": nm,
+                "shiftType": "CALL_EXIT",
+                "label": f"{t} calls exited",
+                "detail": f"Closed {_fmt_usd_brief(p_ca)} {prev_q_short} call position",
+                "prevTotalUsd": round(p_ca, 2),
+                "currTotalUsd": 0.0,
+                "currBookPct": 0.0,
+            })
+
+        if c_pu >= max(20_000_000.0, 0.005 * curr_rep):
+            if p_pu <= 0:
+                instrument_shifts.append({
+                    "ticker": t,
+                    "name": nm,
+                    "shiftType": "NEW_HEDGE",
+                    "label": f"{t} puts: New {_fmt_usd_brief(c_pu)} hedge ({float(pu['currBook']):.1f}%)",
+                    "detail": f"Initiated {_fmt_shares_brief(float(next((m['currShares'] for m in all_moves if m['ticker'] == t and m['securityType'] == 'PUT'), 0)))} put contracts",
+                    "prevTotalUsd": 0.0,
+                    "currTotalUsd": round(c_pu, 2),
+                    "currBookPct": round(float(pu["currBook"]), 2),
+                })
+            elif c_pu > p_pu * 1.25 or float(pu["currBook"]) - float(pu["prevBook"]) >= 1.0:
+                instrument_shifts.append({
+                    "ticker": t,
+                    "name": nm,
+                    "shiftType": "HEDGE_SURGE",
+                    "label": f"{t} puts: {_fmt_usd_brief(p_pu)} → {_fmt_usd_brief(c_pu)}",
+                    "detail": f"{float(pu['prevBook']):.1f}% → {float(pu['currBook']):.1f}% of book",
+                    "prevTotalUsd": round(p_pu, 2),
+                    "currTotalUsd": round(c_pu, 2),
+                    "currBookPct": round(float(pu["currBook"]), 2),
+                })
+
+    instrument_shifts.sort(key=lambda x: max(x["currTotalUsd"], x["prevTotalUsd"]), reverse=True)
+
+    # Categorized top lists (prioritize Equities for standard equity buckets, fallback includes options clearly labeled)
+    top_new = sorted(
+        [m for m in all_moves if m["action"] == "NEW"],
+        key=lambda m: (m["securityType"] == "EQUITY", m["currValueUsd"]),
+        reverse=True,
+    )[:8]
+    top_added = sorted(
+        [m for m in all_moves if m["action"] == "ADDED"],
+        key=lambda m: (
+            m["securityType"] == "EQUITY",
+            max(m["valueDeltaUsd"], 0.0) * (1.35 if (m["sharesDeltaPct"] or 0) >= 100 else 1.0),
+        ),
+        reverse=True,
+    )[:8]
+    top_trimmed = sorted(
+        [m for m in all_moves if m["action"] == "TRIMMED"],
+        key=lambda m: abs(m["valueDeltaUsd"]),
+        reverse=True,
+    )[:8]
+    top_exited = sorted(
+        [m for m in all_moves if m["action"] == "EXITED"],
+        key=lambda m: m["prevValueUsd"],
+        reverse=True,
+    )[:8]
+
+    curr_eq_book_pct = (curr_eq_book / curr_rep * 100.0) if curr_rep > 0 else 0.0
+    prev_eq_book_pct = (prev_eq_book / prev_rep * 100.0) if prev_rep > 0 else 0.0
+    curr_call_book_pct = (curr_call_usd / curr_rep * 100.0) if curr_rep > 0 else 0.0
+    prev_call_book_pct = (prev_call_usd / prev_rep * 100.0) if prev_rep > 0 else 0.0
+    curr_put_book_pct = (curr_put_usd / curr_rep * 100.0) if curr_rep > 0 else 0.0
+    prev_put_book_pct = (prev_put_usd / prev_rep * 100.0) if prev_rep > 0 else 0.0
+    put_book_delta_pct = curr_put_book_pct - prev_put_book_pct
+
+    total_val_delta = curr_rep - prev_rep
+    total_val_delta_pct = ((curr_rep / prev_rep) - 1.0) * 100.0 if prev_rep > 0 else None
+    activity_ratio = (gross_activity / max(curr_rep, prev_rep) * 100.0) if max(curr_rep, prev_rep) > 0 else 0.0
+    has_sig_hedge = curr_put_book_pct >= 1.0 or prev_put_book_pct >= 1.0 or curr_put_usd >= 20_000_000.0
+
+    # Synthesize grounded, scannable Apple-editorial narrative sections
+    fund_short = cand["name"]
+    dir_word = "up" if total_val_delta >= 0 else "down"
+    delta_pct_str = f"{total_val_delta_pct:+.1f}%" if total_val_delta_pct is not None else ""
+    narrative_lead = (
+        f"{fund_short} filed {dl_info['deadlinePhrase']} — {q_label} 13F "
+        f"(ended {_fmt_period_short(curr_fl['reportDate'])}, accession {acc}), "
+        f"{_fmt_usd_brief(curr_rep)} across {len(curr_agg)} positions, "
+        f"{dir_word} from {_fmt_usd_brief(prev_rep)} / {len(prev_agg)} in {prev_q_short}."
+    )
+
+    if has_sig_hedge and abs(put_book_delta_pct) >= 3.0:
+        narrative_headline = (
+            f"Book {delta_pct_str} to {_fmt_usd_brief(curr_rep)}; put hedges shifted "
+            f"{prev_put_book_pct:.1f}% → {curr_put_book_pct:.1f}%"
+        )
+    elif top_new and top_new[0]["currBookPct"] >= 3.0:
+        m0 = top_new[0]
+        kind = f" {m0['securityType'].lower()}s" if m0["securityType"] != "EQUITY" else ""
+        narrative_headline = (
+            f"Book {delta_pct_str} to {_fmt_usd_brief(curr_rep)}; led by new {m0['ticker']}{kind} ({m0['currBookPct']:.1f}%)"
+        )
+    elif valuation_shifts:
+        vs0 = valuation_shifts[0]
+        narrative_headline = (
+            f"Book {delta_pct_str} to {_fmt_usd_brief(curr_rep)}; {vs0['ticker']} "
+            f"{'marked down' if vs0['valuationShiftType'] == 'MARKDOWN' else 'marked up'} "
+            f"{vs0['prevBookPct']:.1f}% → {vs0['currBookPct']:.1f}%"
+        )
+    else:
+        narrative_headline = (
+            f"Book {delta_pct_str} to {_fmt_usd_brief(curr_rep)} across {len(curr_agg)} positions "
+            f"({new_cnt} new, {exited_cnt} exited)"
+        )
+
+    focus_notes: list[str] = []
+    # Highlight up to 1 top Exit, 1-2 Heavy Adds, 1 Trim, 1 New
+    if top_exited:
+        ex0 = top_exited[0]
+        focus_notes.append(
+            f"{ex0['ticker']} ({ex0['securityType'].lower()}) — exited entirely. "
+            f"Prior {_fmt_shares_brief(ex0['prevShares'])} sh / {_fmt_usd_brief(ex0['prevValueUsd'])} ({ex0['prevBookPct']:.1f}%) is gone from {q_label[-2:]}."
+        )
+    added_eq = [m for m in top_added if m["securityType"] == "EQUITY"]
+    for ad in added_eq[:2]:
+        pct_s = f"+{ad['sharesDeltaPct']:,.0f}%" if (ad["sharesDeltaPct"] or 0) >= 100 else f"+{ad['sharesDeltaPct']:.1f}%"
+        focus_notes.append(
+            f"{ad['ticker']} — added heavily: {_fmt_shares_brief(ad['prevShares'])} → {_fmt_shares_brief(ad['currShares'])} sh ({pct_s}), "
+            f"{_fmt_usd_brief(ad['prevValueUsd'])} → {_fmt_usd_brief(ad['currValueUsd'])} ({ad['currBookPct']:.2f}% of book)."
+        )
+    if top_trimmed:
+        tr0 = top_trimmed[0]
+        focus_notes.append(
+            f"{tr0['ticker']} — trimmed {abs(tr0['sharesDeltaPct'] or 0):.1f}%: "
+            f"{_fmt_shares_brief(tr0['prevShares'])} → {_fmt_shares_brief(tr0['currShares'])} sh, "
+            f"{_fmt_usd_brief(tr0['prevValueUsd'])} → {_fmt_usd_brief(tr0['currValueUsd'])}."
+        )
+    new_eq = [m for m in top_new if m["securityType"] == "EQUITY"]
+    if new_eq:
+        nw0 = new_eq[0]
+        focus_notes.append(
+            f"{nw0['ticker']} — new initiation: {_fmt_shares_brief(nw0['currShares'])} sh / "
+            f"{_fmt_usd_brief(nw0['currValueUsd'])} ({nw0['currBookPct']:.2f}% of book)."
+        )
+
+    hedge_parts: list[str] = []
+    if has_sig_hedge and put_legs:
+        leg_strs = []
+        for pl in put_legs[:2]:
+            if pl["action"] == "NEW":
+                leg_strs.append(f"new {pl['ticker']} puts of {_fmt_usd_brief(pl['currValueUsd'])} ({pl['currBookPct']:.1f}%)")
+            elif pl["action"] == "EXITED":
+                leg_strs.append(f"exited {pl['ticker']} puts ({_fmt_usd_brief(pl['prevValueUsd'])})")
+            else:
+                leg_strs.append(
+                    f"{pl['ticker']} puts {_fmt_usd_brief(pl['prevValueUsd'])} → {_fmt_usd_brief(pl['currValueUsd'])} "
+                    f"({pl['prevBookPct']:.1f}% → {pl['currBookPct']:.1f}%)"
+                )
+        hedge_parts.append(
+            f"Hedging & Puts: {'; '.join(leg_strs)}. Combined puts sit at {curr_put_book_pct:.1f}% of the book "
+            f"(vs {prev_put_book_pct:.1f}% in {prev_q_short})."
+        )
+    if valuation_shifts:
+        vs = valuation_shifts[0]
+        kind_w = "markdown, not a sale" if vs["valuationShiftType"] == "MARKDOWN" else "markup, not a buy"
+        hedge_parts.append(
+            f"{vs['ticker']} shifted {vs['prevBookPct']:.1f}% → {vs['currBookPct']:.1f}% on flat shares "
+            f"({_fmt_shares_brief(vs['currShares'])} sh) — a {kind_w}."
+        )
+    narrative_hedge = " ".join(hedge_parts) if hedge_parts else None
+
+    other_bits: list[str] = []
+    non_hedge_shifts = [s for s in instrument_shifts if s["shiftType"] not in ("NEW_HEDGE", "HEDGE_SURGE")]
+    for sh_sig in non_hedge_shifts[:3]:
+        other_bits.append(sh_sig["label"])
+    extra_new = [m for m in top_new if m["securityType"] != "EQUITY" or m not in new_eq[:1]][:4]
+    if extra_new:
+        lbls = [
+            f"{m['ticker']}{' ' + m['securityType'].lower() + 's' if m['securityType'] != 'EQUITY' else ''} ({_fmt_usd_brief(m['currValueUsd'])})"
+            for m in extra_new
+        ]
+        other_bits.append(f"New names: {', '.join(lbls)}")
+    narrative_other = "; ".join(other_bits) + "." if other_bits else None
+
+    return {
+        "cik": cik,
+        "fundName": fund_short,
+        "legalName": curr_fl["entityName"],
+        "manager": cand["manager"],
+        "styleTag": cand["styleTag"],
+        "source": cand.get("source", "Curated Core"),
+        "inRankings": in_rankings,
+        "isRankedTop10AnyWindow": bool(top10_windows),
+        "top10Windows": top10_windows,
+        "quarterLabel": q_label,
+        "periodEnd": curr_fl["reportDate"],
+        "prevQuarterLabel": prev_q_label,
+        "prevPeriodEnd": prev_fl["reportDate"],
+        "filingDate": curr_fl["filingDate"],
+        "prevFilingDate": prev_fl["filingDate"],
+        "statutoryDeadline": dl_info["statutoryDeadline"],
+        "daysBeforeDeadline": dl_info["daysBeforeDeadline"],
+        "deadlineBadge": dl_info["deadlineBadge"],
+        "accessionNumber": acc,
+        "filingUrl": filing_url,
+        "edgarUrl": f"https://www.sec.gov/edgar/browse/?CIK={int(cik):010d}",
+        "currTotalReportedUsd": round(curr_rep, 2),
+        "prevTotalReportedUsd": round(prev_rep, 2),
+        "totalValueDeltaUsd": round(total_val_delta, 2),
+        "totalValueDeltaPct": clean_num(total_val_delta_pct, 1),
+        "currEquityAumUsd": round(curr_eq_aum, 2),
+        "prevEquityAumUsd": round(prev_eq_aum, 2),
+        "currPositionCount": len(curr_agg),
+        "prevPositionCount": len(prev_agg),
+        "currEquityBookPct": round(curr_eq_book_pct, 1),
+        "prevEquityBookPct": round(prev_eq_book_pct, 1),
+        "currCallUsd": round(curr_call_usd, 2),
+        "prevCallUsd": round(prev_call_usd, 2),
+        "currCallBookPct": round(curr_call_book_pct, 1),
+        "prevCallBookPct": round(prev_call_book_pct, 1),
+        "currPutUsd": round(curr_put_usd, 2),
+        "prevPutUsd": round(prev_put_usd, 2),
+        "currPutBookPct": round(curr_put_book_pct, 1),
+        "prevPutBookPct": round(prev_put_book_pct, 1),
+        "putBookDeltaPct": round(put_book_delta_pct, 1),
+        "hasSignificantHedge": has_sig_hedge,
+        "newCount": new_cnt,
+        "addedCount": added_cnt,
+        "trimmedCount": trimmed_cnt,
+        "exitedCount": exited_cnt,
+        "unchangedCount": unchanged_cnt,
+        "grossActivityUsd": round(gross_activity, 2),
+        "activityRatioPct": round(activity_ratio, 1),
+        "narrativeHeadline": narrative_headline,
+        "narrativeLead": narrative_lead,
+        "narrativeFocusNotes": focus_notes,
+        "narrativeHedgeAndStructure": narrative_hedge,
+        "narrativeOtherMoves": narrative_other,
+        "putLegs": put_legs,
+        "callLegs": call_legs,
+        "instrumentShifts": instrument_shifts,
+        "valuationShifts": valuation_shifts,
+        "topNew": top_new,
+        "topAdded": top_added,
+        "topTrimmed": top_trimmed,
+        "topExited": top_exited,
+        "allMoves": all_moves,
+    }
+
+
+def build_updates_overview(fund_updates: list[dict[str, Any]], total_eligible: int) -> dict[str, Any]:
+    if not fund_updates:
+        return {
+            "latestQuarterLabel": "2026 Q3",
+            "latestQuarterPeriodEnd": "2026-09-30",
+            "totalUpdateCards": 0,
+            "latestQuarterFilersCount": 0,
+            "totalEligibleFundsCount": total_eligible,
+            "deadlineDayFilersCount": 0,
+            "fundsWithPutHedgesCount": 0,
+            "totalPutNotionalUsd": 0.0,
+            "totalCallNotionalUsd": 0.0,
+            "totalLatestBookUsd": 0.0,
+            "consensusNewInitiations": [],
+            "consensusHeavyAdds": [],
+            "consensusExitsAndTrims": [],
+            "consensusOptionMoves": [],
+        }
+
+    latest_q = max(u["quarterLabel"] for u in fund_updates)
+    latest_pe = max(u["periodEnd"] for u in fund_updates if u["quarterLabel"] == latest_q)
+    latest_pool = [u for u in fund_updates if u["quarterLabel"] == latest_q]
+
+    deadline_cnt = sum(1 for u in latest_pool if u["deadlineBadge"] == "Deadline Day")
+    hedge_cnt = sum(1 for u in latest_pool if u["hasSignificantHedge"])
+    tot_puts = sum(u["currPutUsd"] for u in latest_pool)
+    tot_calls = sum(u["currCallUsd"] for u in latest_pool)
+    tot_book = sum(u["currTotalReportedUsd"] for u in latest_pool)
+
+    def _agg_consensus(
+        actions: tuple[str, ...],
+        sec_types: tuple[str, ...],
+        min_funds: int = 2,
+        limit: int = 10,
+        sort_by_abs_delta: bool = False,
+    ) -> list[dict[str, Any]]:
+        buckets: dict[str, dict[str, Any]] = {}
+        for u in latest_pool:
+            for mv in u["allMoves"]:
+                if mv["action"] not in actions or mv["securityType"] not in sec_types:
+                    continue
+                t = mv["ticker"]
+                if t.startswith("CUSIP:"):
+                    continue
+                if t not in buckets:
+                    buckets[t] = {
+                        "ticker": t,
+                        "name": mv["name"],
+                        "sector": mv["sector"],
+                        "seenCiks": set(),
+                        "totalCurrValueUsd": 0.0,
+                        "totalDeltaUsd": 0.0,
+                        "funds": [],
+                    }
+                b = buckets[t]
+                b["totalCurrValueUsd"] += mv["currValueUsd"]
+                b["totalDeltaUsd"] += mv["valueDeltaUsd"]
+                b["seenCiks"].add(u["cik"])
+                b["funds"].append({
+                    "cik": u["cik"],
+                    "fundName": u["fundName"],
+                    "action": mv["action"],
+                    "securityType": mv["securityType"],
+                    "currBookPct": mv["currBookPct"],
+                    "prevBookPct": mv["prevBookPct"],
+                    "valueDeltaUsd": mv["valueDeltaUsd"],
+                    "sharesDeltaPct": mv["sharesDeltaPct"],
+                })
+        out: list[dict[str, Any]] = []
+        for b in buckets.values():
+            fcnt = len(b.pop("seenCiks"))
+            if fcnt < min_funds:
+                continue
+            b["fundCount"] = fcnt
+            b["totalCurrValueUsd"] = round(b["totalCurrValueUsd"], 2)
+            b["totalDeltaUsd"] = round(b["totalDeltaUsd"], 2)
+            b["funds"].sort(key=lambda x: abs(x["valueDeltaUsd"]), reverse=True)
+            out.append(b)
+        out.sort(
+            key=lambda x: (
+                x["fundCount"],
+                abs(x["totalDeltaUsd"]) if sort_by_abs_delta else max(x["totalCurrValueUsd"], abs(x["totalDeltaUsd"])),
+            ),
+            reverse=True,
+        )
+        return out[:limit]
+
+    return {
+        "latestQuarterLabel": latest_q,
+        "latestQuarterPeriodEnd": latest_pe,
+        "totalUpdateCards": len(fund_updates),
+        "latestQuarterFilersCount": len(latest_pool),
+        "totalEligibleFundsCount": total_eligible,
+        "deadlineDayFilersCount": deadline_cnt,
+        "fundsWithPutHedgesCount": hedge_cnt,
+        "totalPutNotionalUsd": round(tot_puts, 2),
+        "totalCallNotionalUsd": round(tot_calls, 2),
+        "totalLatestBookUsd": round(tot_book, 2),
+        "consensusNewInitiations": _agg_consensus(("NEW",), ("EQUITY",), min_funds=2, limit=12),
+        "consensusHeavyAdds": _agg_consensus(("ADDED",), ("EQUITY",), min_funds=2, limit=12, sort_by_abs_delta=True),
+        "consensusExitsAndTrims": _agg_consensus(("EXITED", "TRIMMED"), ("EQUITY",), min_funds=2, limit=12, sort_by_abs_delta=True),
+        "consensusOptionMoves": _agg_consensus(("NEW", "ADDED", "TRIMMED", "EXITED"), ("CALL", "PUT"), min_funds=1, limit=12, sort_by_abs_delta=True),
+    }
+
+
 def main() -> None:
     print("=== Paper Trail 13F Pipeline Starting ===")
     known_ciks = {f["cik"] for f in CURATED_FUNDS}
@@ -487,41 +1212,22 @@ def main() -> None:
                 continue
             raw_fund_filings[cik] = filings
             for idx_fl, fl in enumerate(filings):
-                is_latest = idx_fl == len(filings) - 1
+                is_recent_q = idx_fl >= len(filings) - 2
                 for row in fl["rows"]:
-                    if row["secType"] == "EQUITY" or is_latest:
+                    if row["secType"] == "EQUITY" or is_recent_q:
                         if row["cusip"] not in all_cusips:
                             all_cusips[row["cusip"]] = row["issuer"]
             print(f"  [ok]   {cand['name']:28s} ({cik}): {len(filings):2d} quarters, latest={latest_rd} (filed {filings[-1]['filingDate']})")
         except Exception as e:
             print(f"  [err]  {cand['name']} ({cik}): {e}")
 
-    # Step 2: Fetch ETF NPORT-P holdings from SEC EDGAR
-    etf_raw_list: list[dict[str, Any]] = []
-    for etf_cfg in TARGET_ETFS:
-        try:
-            res = fetch_etf_nport_holdings(etf_cfg["ticker"], etf_cfg["cik"], etf_cfg["seriesId"])
-            if res:
-                res["name"] = etf_cfg["name"]
-                res["category"] = etf_cfg["category"]
-                etf_raw_list.append(res)
-                for h in res["holdings"]:
-                    if h["cusip"] not in all_cusips:
-                        all_cusips[h["cusip"]] = h["name"]
-                print(f"  [etf]  {etf_cfg['ticker']:6s} NPORT-P rd={res['reportDate']}, holdings={len(res['holdings'])}")
-            else:
-                print(f"  [etf-skip] {etf_cfg['ticker']:6s}: NPORT-P not matched")
-        except Exception as e:
-            print(f"  [etf-err]  {etf_cfg['ticker']:6s}: {e}")
-
-    # Step 3: Resolve all CUSIPs -> Tickers, Sectors, Industries
+    # Step 2: Resolve all CUSIPs -> Tickers, Sectors, Industries
     cusip_meta = resolve_cusips(all_cusips)
 
-    # Step 4: Evaluate Tech-Focused & Concentrated qualification on each fund's latest filing
+    # Step 3: Evaluate Tech-Focused & Concentrated qualification on each fund's latest filing
     qualified_cands: list[dict[str, Any]] = []
+    update_cands: list[dict[str, Any]] = []
     needed_tickers: set[str] = {"QQQ", "SPY", "XLK"}
-    for etf in etf_raw_list:
-        needed_tickers.add(etf["ticker"])
 
     print("\n=== Fund Qualification Audit (Tech/TMT >= 45% & Concentrated) ===")
     for cand in all_candidates:
@@ -535,7 +1241,7 @@ def main() -> None:
         is_tech = tech_pct >= 45.0
         is_conc = (top10_pct >= 45.0 or pos_cnt <= 75) and pos_cnt >= 7
         is_size = eq_aum >= 100_000_000
-        # Require at least 4 quarters of filings so TTM works
+        # Require at least 4 quarters of filings so TTM works in Rankings
         has_hist = len(filings) >= 4
 
         status_str = "PASS" if (is_tech and is_conc and is_size and has_hist) else "FILTERED"
@@ -545,12 +1251,16 @@ def main() -> None:
         )
         if status_str == "PASS":
             qualified_cands.append(cand)
+            update_cands.append(cand)
             for fl in filings:
                 for row in fl["rows"]:
                     if row["secType"] == "EQUITY":
                         t = cusip_meta.get(row["cusip"], {}).get("ticker", "")
                         if t and not t.startswith("CUSIP:"):
                             needed_tickers.add(t)
+        elif cand.get("source") == "Curated Core" and len(filings) >= 2 and rep_aum >= 100_000_000:
+            # Include emerging Curated funds (e.g., <4 quarters) in Quarterly Updates feed
+            update_cands.append(cand)
 
     # Step 5: Fetch historical daily adjusted prices
     raw_prices = fetch_all_prices(sorted(needed_tickers))
@@ -660,18 +1370,15 @@ def main() -> None:
 
         # Latest holdings table (all rows: Equity + Options + Notes)
         lat_weights, eq_aum, rep_aum, pos_cnt, top10_pct, tech_pct = extract_equity_weights(latest, cusip_meta)
-        fund_equity_weights[cik] = lat_weights
 
-        # Previous quarter shares/weights for QoQ change
-        prev_eq_shares: dict[str, float] = {}
+        # Previous quarter aggregated shares/weights across all security types (Equity + Options + Notes)
+        prev_agg_rows: dict[tuple[str, str], dict[str, Any]] = {}
         prev_eq_weights: dict[str, float] = {}
+        prev_rep_aum = 0.0
         if prev:
             p_weights, _, _, _, _, _ = extract_equity_weights(prev, cusip_meta)
             prev_eq_weights = p_weights
-            for r in prev["rows"]:
-                if r["secType"] == "EQUITY":
-                    t = cusip_meta.get(r["cusip"], {}).get("ticker") or f"CUSIP:{r['cusip']}"
-                    prev_eq_shares[t] = prev_eq_shares.get(t, 0.0) + r["shares"]
+            prev_agg_rows, prev_rep_aum, _ = aggregate_filing_positions(prev, cusip_meta)
 
         # Aggregate latest rows by (ticker, secType) so multi-bucket rows combine cleanly
         combined_rows: dict[tuple[str, str], dict[str, Any]] = {}
@@ -712,9 +1419,9 @@ def main() -> None:
             qoq_sh_pct = None
             qoq_w_delta = None
             status = "UNCHANGED"
-            if is_eq and prev:
-                psh = prev_eq_shares.get(rt, 0.0)
-                pw = prev_eq_weights.get(rt, 0.0) * 100.0
+            if prev:
+                p_row = prev_agg_rows.get((rt, item["securityType"]))
+                psh = float(p_row["shares"]) if p_row else 0.0
                 if psh <= 0:
                     status = "NEW"
                 else:
@@ -724,7 +1431,12 @@ def main() -> None:
                         status = "ADDED"
                     elif diff_pct < -2.0:
                         status = "TRIMMED"
-                qoq_w_delta = clean_num(w_eq - pw, 2)
+                if is_eq:
+                    pw = prev_eq_weights.get(rt, 0.0) * 100.0
+                    qoq_w_delta = clean_num(w_eq - pw, 2)
+                else:
+                    pw_rep = (float(p_row["valueUsd"]) / prev_rep_aum * 100.0) if (p_row and prev_rep_aum > 0) else 0.0
+                    qoq_w_delta = clean_num(w_rep - pw_rep, 2)
 
             px_last = None
             if rt in aligned_prices:
@@ -1114,123 +1826,33 @@ def main() -> None:
         },
     }
 
-    # Step 10: Compute ETF Holdings Similarity & Return Correlations
-    etfs_out: list[dict[str, Any]] = []
-    corr_start = max(0, n_dates - 253)
-
-    def _cosine_and_overlap(w_a: dict[str, float], w_b: dict[str, float]) -> tuple[float, float, list[dict[str, Any]]]:
-        norm_a = math.sqrt(sum(v * v for v in w_a.values()))
-        norm_b = math.sqrt(sum(v * v for v in w_b.values()))
-        if norm_a <= 0 or norm_b <= 0:
-            return 0.0, 0.0, []
-        common = set(w_a.keys()) & set(w_b.keys())
-        dot = sum(w_a[t] * w_b[t] for t in common)
-        overlap = sum(min(w_a[t], w_b[t]) for t in common)
-        shared = sorted(
-            [
-                {
-                    "ticker": t,
-                    "etfWeightPct": round(w_a[t] * 100.0, 2),
-                    "fundWeightPct": round(w_b[t] * 100.0, 2),
-                }
-                for t in common
-            ],
-            key=lambda x: min(x["etfWeightPct"], x["fundWeightPct"]),
-            reverse=True,
-        )[:6]
-        return (dot / (norm_a * norm_b)) * 100.0, overlap * 100.0, shared
-
-    def _daily_return_corr(nav_a: np.ndarray, nav_b: np.ndarray) -> float | None:
-        sub_a = nav_a[corr_start:]
-        sub_b = nav_b[corr_start:]
-        valid = (~np.isnan(sub_a)) & (~np.isnan(sub_b))
-        if int(np.sum(valid)) < 60:
-            return None
-        sa = sub_a[valid]
-        sb = sub_b[valid]
-        ra = np.diff(sa) / sa[:-1]
-        rb = np.diff(sb) / sb[:-1]
-        if len(ra) < 30 or np.std(ra) == 0 or np.std(rb) == 0:
-            return None
-        r = float(np.corrcoef(ra, rb)[0, 1])
-        return clean_num(r * 100.0, 1)
-
-    for etf in etf_raw_list:
-        etf_sym = etf["ticker"]
-        # Build normalized ticker weight dict for ETF
-        etf_w: dict[str, float] = {}
-        etf_holdings_named: list[dict[str, Any]] = []
-        for h in etf["holdings"]:
-            meta = cusip_meta.get(h["cusip"], {})
-            t = meta.get("ticker") or h["cusip"]
-            if t.startswith("CUSIP:"):
-                continue
-            w = h["weightPct"] / 100.0
-            etf_w[t] = etf_w.get(t, 0.0) + w
-            etf_holdings_named.append({
-                "ticker": t,
-                "name": meta.get("name") or h["name"],
-                "weightPct": round(h["weightPct"], 2),
-            })
-
-        total_ew = sum(etf_w.values())
-        if total_ew <= 0:
+    # Step 10: Build QoQ Fund Updates Digest & Cross-Fund Consensus Signals
+    fund_updates_out: list[dict[str, Any]] = []
+    seen_update_ciks: set[str] = set()
+    ranked_any_ciks = set(ranked_union_ciks["quarter_end"])
+    for cand in update_cands:
+        cik = cand["cik"]
+        if cik in seen_update_ciks or cik not in raw_fund_filings:
             continue
-        etf_w = {t: v / total_ew for t, v in etf_w.items()}
-        etf_holdings_named.sort(key=lambda x: x["weightPct"], reverse=True)
+        seen_update_ciks.add(cik)
+        filings = raw_fund_filings[cik]
+        in_rankings = cik in fund_by_cik
+        top10_w = fund_top10_windows["quarter_end"].get(cik, [])
+        upd = build_fund_update_entry(
+            cand=cand,
+            filings=filings,
+            cusip_meta=cusip_meta,
+            in_rankings=in_rankings,
+            top10_windows=top10_w,
+        )
+        if upd:
+            fund_updates_out.append(upd)
 
-        etf_nav = None
-        if etf_sym in aligned_prices:
-            arr, _, _ = aligned_prices[etf_sym]
-            etf_nav = arr / arr[0] * 100.0 if not math.isnan(arr[0]) else arr
-            etf_rets, _ = compute_returns_and_metrics(etf_nav, qqq_nav, win_indices)
-        else:
-            etf_rets = {w: None for w in WINDOWS}
-
-        matches: list[dict[str, Any]] = []
-        for f in funds_out:
-            cik = f["cik"]
-            f_w = fund_equity_weights[cik]
-            cos_pct, ov_pct, shared = _cosine_and_overlap(etf_w, f_w)
-            ret_corr = _daily_return_corr(etf_nav, fund_navs["quarter_end"][cik]) if etf_nav is not None else None
-            blended = 0.65 * cos_pct + 0.35 * max(0.0, ret_corr or 0.0)
-            matches.append({
-                "cik": cik,
-                "fundName": f["name"],
-                "cosineSimilarityPct": round(cos_pct, 1),
-                "weightOverlapPct": round(ov_pct, 1),
-                "returnCorrelationPct": ret_corr,
-                "blendedScorePct": round(blended, 1),
-                "sharedTopStocks": shared,
-            })
-
-        matches.sort(key=lambda x: (x["cosineSimilarityPct"], x["returnCorrelationPct"] or 0.0), reverse=True)
-        if not matches:
-            continue
-
-        ideal_cos, ideal_ov, _ = _cosine_and_overlap(etf_w, ideal_weights)
-        ideal_corr = _daily_return_corr(etf_nav, ideal_nav_qe) if etf_nav is not None else None
-
-        etfs_out.append({
-            "ticker": etf_sym,
-            "name": etf["name"],
-            "category": etf["category"],
-            "reportDate": etf["reportDate"],
-            "holdingsCount": len(etf_holdings_named),
-            "top10WeightPct": round(sum(x["weightPct"] for x in etf_holdings_named[:10]), 1),
-            "returns": etf_rets,
-            "topHoldings": etf_holdings_named[:10],
-            "bestMatch": matches[0],
-            "fundMatches": matches,
-            "idealPortfolioMatch": {
-                "cosineSimilarityPct": round(ideal_cos, 1),
-                "weightOverlapPct": round(ideal_ov, 1),
-                "returnCorrelationPct": ideal_corr,
-            },
-        })
-
-    # Sort ETFs by how closely their best match mirrors one of our top tech funds
-    etfs_out.sort(key=lambda x: x["bestMatch"]["cosineSimilarityPct"], reverse=True)
+    fund_updates_out.sort(
+        key=lambda u: (u["periodEnd"], u["filingDate"], u["grossActivityUsd"]),
+        reverse=True,
+    )
+    updates_overview = build_updates_overview(fund_updates_out, total_eligible=len(update_cands))
 
     # Sort funds by TTM performance by default
     funds_out.sort(key=lambda f: f["returns"]["quarter_end"]["TTM"] or -999.0, reverse=True)
@@ -1256,13 +1878,11 @@ def main() -> None:
             "latestQuarterCovered": latest_q_overall,
             "fundsEvaluatedCount": len(all_candidates),
             "qualifiedFundsCount": len(funds_out),
-            "rankedFundsUnionCount": len(ranked_union_ciks["quarter_end"]),
+            "rankedFundsUnionCount": len(ranked_any_ciks),
             "total13fFilingsProcessed": total_filings_cnt,
-            "etfsProcessedCount": len(etfs_out),
             "next13fSeasonLabel": next_season,
             "dataSources": [
                 "SEC EDGAR Form 13F-HR / 13F-HR/A XML Filings",
-                "SEC EDGAR Form NPORT-P ETF Holdings",
                 "OpenFIGI CUSIP Security Master",
                 "Yahoo Finance Daily Split & Dividend Adjusted Closes",
             ],
@@ -1273,7 +1893,8 @@ def main() -> None:
         "rankedUnionCiks": ranked_union_ciks,
         "topHoldings": top_holdings_out,
         "idealPortfolio": ideal_portfolio_data,
-        "etfs": etfs_out,
+        "fundUpdates": fund_updates_out,
+        "updatesOverview": updates_overview,
     }
 
     OUTPUT_JSON.parent.mkdir(parents=True, exist_ok=True)
@@ -1281,7 +1902,7 @@ def main() -> None:
     size_kb = OUTPUT_JSON.stat().st_size / 1024.0
     print(f"\n=== Pipeline Complete ===")
     print(f"Wrote {OUTPUT_JSON} ({size_kb:.1f} KB)")
-    print(f"Qualified Funds: {len(funds_out)} | Ranked Union: {len(ranked_union_ciks['quarter_end'])} | ETFs: {len(etfs_out)}")
+    print(f"Qualified Funds: {len(funds_out)} | Ranked Union: {len(ranked_union_ciks['quarter_end'])} | Fund Updates: {len(fund_updates_out)}")
     print(f"Ideal Portfolio: {len(ideal_positions)} names | TTM QE Return: {ideal_rets_qe['TTM']}% | QQQ TTM: {benchmarks['QQQ']['returns']['TTM']}%")
 
 

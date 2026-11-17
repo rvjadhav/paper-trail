@@ -149,6 +149,12 @@
     "sector": "Technology",
     "ticker": "ACLS"
   },
+  "ACM": {
+    "industry": "Engineering & Construction",
+    "name": "AECOM",
+    "sector": "Industrials",
+    "ticker": "ACM"
+  },
   "ACMR": {
     "industry": "Semiconductor Equipment & Materials",
     "name": "ACM Research, Inc.",
@@ -160,6 +166,12 @@
     "name": "Accenture plc",
     "sector": "Technology",
     "ticker": "ACN"
+  },
+  "ACVA": {
+    "industry": "Auto & Truck Dealerships",
+    "name": "ACV Auctions Inc.",
+    "sector": "Consumer Cyclical",
+    "ticker": "ACVA"
   },
   "ACWI": {
     "industry": "",
@@ -592,6 +604,12 @@
     "name": "Alpha Metallurgical Resources, Inc.",
     "sector": "Basic Materials",
     "ticker": "AMR"
+  },
+  "AMRZ": {
+    "industry": "Building Materials",
+    "name": "Amrize Ltd",
+    "sector": "Basic Materials",
+    "ticker": "AMRZ"
   },
   "AMSC": {
     "industry": "Specialty Industrial Machinery",
@@ -1067,6 +1085,12 @@
     "sector": "Consumer Cyclical",
     "ticker": "AZO"
   },
+  "B": {
+    "industry": "Gold",
+    "name": "Barrick Mining Corporation",
+    "sector": "Basic Materials",
+    "ticker": "B"
+  },
   "BA": {
     "industry": "Aerospace & Defense",
     "name": "The Boeing Company",
@@ -1324,6 +1348,12 @@
     "name": "BJ's Wholesale Club Holdings, Inc.",
     "sector": "Consumer Defensive",
     "ticker": "BJ"
+  },
+  "BKD": {
+    "industry": "Medical Care Facilities",
+    "name": "Brookdale Senior Living Inc.",
+    "sector": "Healthcare",
+    "ticker": "BKD"
   },
   "BKE": {
     "industry": "Apparel Retail",
@@ -1648,6 +1678,12 @@
     "name": "BYD Company Limited",
     "sector": "Consumer Cyclical",
     "ticker": "BYDDY"
+  },
+  "BYND": {
+    "industry": "Packaged Foods",
+    "name": "Beyond Meat, Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "BYND"
   },
   "BZ": {
     "industry": "Internet Content & Information",
@@ -3370,6 +3406,12 @@
     "name": "Vanguard ESG U.S. Stock ETF",
     "sector": "",
     "ticker": "ESGV"
+  },
+  "ESLT": {
+    "industry": "Aerospace & Defense",
+    "name": "Elbit Systems Ltd.",
+    "sector": "Industrials",
+    "ticker": "ESLT"
   },
   "ESS": {
     "industry": "REIT\u2014Residential",
@@ -5597,6 +5639,12 @@
     "sector": "Consumer Defensive",
     "ticker": "KMB"
   },
+  "KMDA": {
+    "industry": "Drug Manufacturers\u2014Specialty & Generic",
+    "name": "Kamada Ltd.",
+    "sector": "Healthcare",
+    "ticker": "KMDA"
+  },
   "KMI": {
     "industry": "Oil & Gas Midstream",
     "name": "Kinder Morgan, Inc.",
@@ -5704,6 +5752,12 @@
     "name": "Keros Therapeutics, Inc.",
     "sector": "Healthcare",
     "ticker": "KROS"
+  },
+  "KRSA": {
+    "industry": "Biotechnology",
+    "name": "Korsana Biosciences, Inc.",
+    "sector": "Healthcare",
+    "ticker": "KRSA"
   },
   "KSA": {
     "industry": "",
@@ -7337,6 +7391,12 @@
     "sector": "Industrials",
     "ticker": "OLOX"
   },
+  "OLPX": {
+    "industry": "Household & Personal Products",
+    "name": "Olaplex Holdings, Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "OLPX"
+  },
   "OM": {
     "industry": "Medical Devices",
     "name": "Outset Medical, Inc.",
@@ -8243,6 +8303,12 @@
     "sector": "Technology",
     "ticker": "QUBT"
   },
+  "RACE": {
+    "industry": "Auto Manufacturers",
+    "name": "Ferrari N.V.",
+    "sector": "Consumer Cyclical",
+    "ticker": "RACE"
+  },
   "RAL": {
     "industry": "Electronic Components",
     "name": "Ralliant Corporation",
@@ -8608,6 +8674,12 @@
     "name": "Richtech Robotics Inc.",
     "sector": "Industrials",
     "ticker": "RR"
+  },
+  "RRX": {
+    "industry": "Specialty Industrial Machinery",
+    "name": "Regal Rexnord Corporation",
+    "sector": "Industrials",
+    "ticker": "RRX"
   },
   "RSG": {
     "industry": "Waste Management",
@@ -10912,6 +10984,12 @@
     "name": "Woodside Energy Group Ltd",
     "sector": "Energy",
     "ticker": "WDS"
+  },
+  "WEAV": {
+    "industry": "Software\u2014Application",
+    "name": "Weave Communications, Inc.",
+    "sector": "Technology",
+    "ticker": "WEAV"
   },
   "WEC": {
     "industry": "Utilities\u2014Regulated Electric",
