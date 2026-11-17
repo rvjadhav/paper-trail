@@ -54,6 +54,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
           p = Path("src/data/portfolio_data.json")
           assert p.exists() and p.stat().st_size >= 500_000, f"Dataset too small: {p.stat().st_size if p.exists() else 0}B"
@@ -65,6 +66,44 @@ jobs:
           assert len(d.get("fundUpdates", [])) >= 15, "Missing fundUpdates list"
           assert len(d.get("idealPortfolio", {}).get("positions", [])) >= 15, "Missing idealPortfolio positions"
           print(f"Dataset verified: {m['qualifiedFundsCount']} funds, {m['total13fFilingsProcessed']} filings, {len(d['fundUpdates'])} updates")
+
+          wl = m.get("discoveryWatchlist") or {}
+          cands = wl.get("emergingSeedCandidates") or []
+          urgent = [c for c in cands if c.get("alertTier") == "URGENT"]
+          stale = wl.get("staleSeeds") or []
+          if urgent:
+              tickers_csv = ", ".join(f"{c['ticker']} ({c['cusip']})" for c in urgent[:6])
+              print(
+                  f"::warning title=Discovery Seed Radar: Add {len(urgent)} Emerging Must-Hold Stocks to DISCOVERY_SEED_PAIRS"
+                  f"::Top-75 funds surged into unseeded Tech/TMT names: {tickers_csv}. Review pipeline/funds_config.py or open Methodology -> Discovery Seed Radar."
+              )
+          if stale:
+              stale_csv = ", ".join(s["ticker"] for s in stale)
+              print(f"::warning title=Discovery Seed Radar: Stale EFTS Seed Tickers::Low-coverage seeds: {stale_csv}")
+
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              lines = [
+                  f"## Paper Trail 13F Pipeline Summary ({m.get('latestQuarterCovered', '')})",
+                  f"- **Qualified Funds:** {m['qualifiedFundsCount']} | **Filings:** {m['total13fFilingsProcessed']} | **EFTS Seed Pairs:** {wl.get('seedPairCount', 28)}",
+              ]
+              if cands:
+                  lines.extend([
+                      "",
+                      f"### Discovery Seed Radar ({len(cands)} Unseeded Breakout Tech/TMT Stocks, {len(urgent)} Urgent)",
+                      "Consider appending high-conviction disruptors below to `DISCOVERY_SEED_PAIRS` in `pipeline/funds_config.py`:",
+                      "",
+                      "| Tier | Ticker | CUSIP | Holders (Top-75 / All) | QoQ New + Heavy Adds | TTM | Suggested Seed Pair |",
+                      "|---|---|---|---|---|---|---|",
+                  ])
+                  for c in cands:
+                      ttm_s = f"{c['stockTtmPct']:+.1f}%" if c.get("stockTtmPct") is not None else "N/A"
+                      lines.append(
+                          f"| {c['alertTier']} | **{c['ticker']}** | `{c['cusip']}` | {c['holderCount']} / {c['allQualifiedHolders']} | "
+                          f"{c['newInitiationsCount']} new + {c['heavyAddsCount']} adds ({c['surgePct']:.0f}%) | {ttm_s} | `{c['suggestedPair']}` |"
+                      )
+              with open(summary_path, "a", encoding="utf-8") as sf:
+                  sf.write("\n".join(lines) + "\n")
           PY
 
       - name: Commit updated 13F dataset & caches

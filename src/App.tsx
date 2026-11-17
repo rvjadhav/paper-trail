@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
-import { Activity, Calendar, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
+import { Activity, AlertTriangle, Calendar, Check, Copy, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
 import datasetUrl from './data/portfolio_data.json?url';
 import type { PaperTrailDataset, ReturnMode, ReturnWindow } from './types/data';
-import { formatUsdCompact } from './utils/format';
+import { formatPct, formatSignedPct, formatUsdCompact, returnClass } from './utils/format';
 import { RankingTab } from './components/RankingTab';
 import { HoldingsTab } from './components/HoldingsTab';
 import { IdealPortfolioTab } from './components/IdealPortfolioTab';
@@ -29,6 +29,7 @@ export function App() {
   const [mode, setMode] = useState<ReturnMode>('quarter_end');
   const [selectedFundCik, setSelectedFundCikState] = useState<string | null>(initial.cik);
   const [showMethodology, setShowMethodology] = useState(false);
+  const [copiedSeeds, setCopiedSeeds] = useState(false);
   const [homeResetKey, setHomeResetKey] = useState(0);
 
   useEffect(() => {
@@ -169,6 +170,20 @@ export function App() {
     );
   }
 
+  const watchlist = dataset.metadata.discoveryWatchlist;
+  const flaggedSeeds = watchlist?.emergingSeedCandidates ?? [];
+  const urgentSeedCount = watchlist?.urgentCount ?? 0;
+
+  const copySeedTuples = () => {
+    const snippet = flaggedSeeds.map((c) => `    ${c.copyTuple}`).join('\n');
+    if (snippet && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(snippet).then(() => {
+        setCopiedSeeds(true);
+        window.setTimeout(() => setCopiedSeeds(false), 2000);
+      }).catch(() => {});
+    }
+  };
+
   return (
     <div className="app-shell">
       {/* Live SEC EDGAR Pipeline Status Bar */}
@@ -201,6 +216,12 @@ export function App() {
             onClick={() => setShowMethodology(true)}
           >
             <Info size={12} /> Methodology &amp; Quarterly Sync
+            {flaggedSeeds.length > 0 && (
+              <span className="seed-radar-pill" title="Emerging unseeded Tech/TMT stocks flagged for DISCOVERY_SEED_PAIRS review">
+                <AlertTriangle size={10} />
+                {urgentSeedCount > 0 ? `${urgentSeedCount} Seed Alert${urgentSeedCount > 1 ? 's' : ''}` : `${flaggedSeeds.length} Seed Watch`}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -367,7 +388,7 @@ export function App() {
             if (e.target === e.currentTarget) setShowMethodology(false);
           }}
         >
-          <div className="drawer-panel" style={{ width: 'min(640px, 100vw)' }}>
+          <div className="drawer-panel" style={{ width: 'min(740px, 100vw)' }}>
             <div className="drawer-header">
               <div>
                 <h2 id="meth-title" style={{ margin: 0, fontSize: '1.25rem' }}>
@@ -384,7 +405,7 @@ export function App() {
             <div className="drawer-body" style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
               <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>1. Tech-Focused Concentrated Screening</h3>
               <p>
-                Every quarter, our pipeline combines 100 curated AI/TMT &amp; crossover funds with an automated SEC EDGAR full-text scan across diverse tech sub-sector clusters (up to 1,000 candidates with $200M+ reported value). Qualified funds maintain ≥20% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥35% or ≤75 equity positions).
+                Every quarter, our pipeline combines 100 curated AI/TMT &amp; crossover funds with an automated SEC EDGAR full-text scan across {watchlist?.seedPairCount ?? 28} configured sub-sector CUSIP seed pairs (up to 1,000 candidates with $200M+ reported value). Qualified funds maintain ≥20% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥35% or ≤75 equity positions).
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>2. Performance Reconstruction (Quarter-End vs. 45-Day Lag)</h3>
@@ -405,6 +426,101 @@ export function App() {
               <p>
                 GitHub Actions runs automatically during every 13F filing season (February, May, August, November — plus weekly refresh checks) to pull new 13F-HR / 13F-HR/A filings, update market prices, rebuild the static site, and redeploy to GitHub Pages.
               </p>
+
+              <h3 style={{ color: 'var(--text-primary)' }}>5. Discovery Seed Radar (Hardcoded Seed Drift Monitor)</h3>
+              <p style={{ marginBottom: '0.45rem' }}>
+                SEC EDGAR EFTS queries depend on seeded CUSIP pairs in <code>DISCOVERY_SEED_PAIRS</code> (<code>pipeline/funds_config.py</code>). Every pipeline run audits all unseeded public Tech/TMT stocks held across Top-75 funds and automatically raises an alert here and in GitHub Actions logs when newly emerging &ldquo;must-hold&rdquo; stocks show surging institutional adoption.
+              </p>
+
+              {watchlist && (
+                <div className="seed-radar-panel">
+                  <div className={`seed-radar-banner ${flaggedSeeds.length === 0 ? 'calm' : ''}`}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <AlertTriangle size={15} color={flaggedSeeds.length > 0 ? '#b25000' : '#00823b'} />
+                        {flaggedSeeds.length > 0
+                          ? `${flaggedSeeds.length} Unseeded Breakout Stocks Flagged (${urgentSeedCount} Urgent)`
+                          : 'Seed List Aligned — No Urgent Unseeded Breakouts'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                        Monitoring {watchlist.seedPairCount} EFTS seed pairs across {watchlist.activeSeedTickers.length} tickers
+                      </div>
+                    </div>
+
+                    {flaggedSeeds.length > 0 && (
+                      <button type="button" className="seed-copy-btn" onClick={copySeedTuples}>
+                        {copiedSeeds ? <Check size={13} /> : <Copy size={13} />}
+                        {copiedSeeds ? 'Copied tuples!' : 'Copy DISCOVERY_SEED_PAIRS'}
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ padding: '0.7rem 0.95rem 0.35rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
+                      Active Seed Tickers ({watchlist.activeSeedTickers.length})
+                    </div>
+                    <div className="seed-radar-tickers">
+                      {watchlist.activeSeedTickers.map((t) => (
+                        <span key={t} className="seed-mini-chip">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {flaggedSeeds.length > 0 && (
+                    <div className="table-scroll">
+                      <table className="data-table compact" aria-label="Emerging unseeded stocks">
+                        <thead>
+                          <tr>
+                            <th>Stock</th>
+                            <th>CUSIP</th>
+                            <th className="num">Top-75 / All</th>
+                            <th className="num">New + Surge</th>
+                            <th className="num">TTM</th>
+                            <th>Suggested Pair</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {flaggedSeeds.map((c) => (
+                            <tr key={c.ticker}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                  <span className="ticker-badge">{c.ticker}</span>
+                                  <span className={`chip ${c.alertTier === 'URGENT' ? 'warn' : ''}`} style={{ fontSize: '0.67rem' }}>
+                                    {c.alertTier}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                                  {c.name}
+                                  {c.idealRank ? ` · Ideal #${c.idealRank}` : ''}
+                                  {c.consensusRank ? ` · Top-30 #${c.consensusRank}` : ''}
+                                </div>
+                              </td>
+                              <td className="mono" style={{ fontSize: '0.75rem' }}>{c.cusip}</td>
+                              <td className="num mono">{c.holderCount} / {c.allQualifiedHolders}</td>
+                              <td className="num mono">
+                                {c.newInitiationsCount}+{c.heavyAddsCount} ({formatPct(c.surgePct, 0)})
+                              </td>
+                              <td className={`num mono ${returnClass(c.stockTtmPct)}`}>
+                                {formatSignedPct(c.stockTtmPct, 0)}
+                              </td>
+                              <td className="mono" style={{ fontSize: '0.76rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
+                                {c.suggestedPair}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {watchlist.staleSeeds.length > 0 && (
+                    <div style={{ padding: '0.65rem 0.95rem', borderTop: '1px solid var(--border-hairline)', fontSize: '0.76rem', color: 'var(--warn-text)' }}>
+                      <strong>Low-coverage seeds:</strong>{' '}
+                      {watchlist.staleSeeds.map((s) => `${s.ticker} (${s.rankedHolders}/${s.allQualifiedHolders})`).join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
                 <strong>Data Sources:</strong>

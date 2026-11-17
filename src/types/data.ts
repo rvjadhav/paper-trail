@@ -379,6 +379,48 @@ export interface BenchmarkSeries {
   curve: EquityPoint[];
 }
 
+export interface DiscoveryWatchlistCandidate {
+  ticker: string;
+  cusip: string;
+  name: string;
+  sector: string;
+  industry: string;
+  holderCount: number;
+  allQualifiedHolders: number;
+  newInitiationsCount: number;
+  heavyAddsCount: number;
+  highConvictionCount: number;
+  surgePct: number;
+  rankedBookValueUsd: number;
+  stockTtmPct: number | null;
+  idealRank: number | null;
+  consensusRank: number | null;
+  breakoutScore: number;
+  alertTier: 'URGENT' | 'WATCH';
+  suggestedPair: string;
+  anchorTicker: string;
+  anchorCusip: string;
+  copyTuple: string;
+  triggerReason: string;
+}
+
+export interface StaleSeedWarning {
+  ticker: string;
+  rankedHolders: number;
+  allQualifiedHolders: number;
+  note: string;
+}
+
+export interface DiscoveryWatchlist {
+  seedPairCount: number;
+  activeSeedTickers: string[];
+  watchlistRuleSummary: string;
+  urgentCount: number;
+  totalFlaggedCount: number;
+  emergingSeedCandidates: DiscoveryWatchlistCandidate[];
+  staleSeeds: StaleSeedWarning[];
+}
+
 export interface PaperTrailDataset {
   metadata: {
     generatedAt: string;
@@ -390,6 +432,7 @@ export interface PaperTrailDataset {
     total13fFilingsProcessed: number;
     next13fSeasonLabel: string;
     dataSources: string[];
+    discoveryWatchlist?: DiscoveryWatchlist;
   };
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
   funds: FundSummary[];

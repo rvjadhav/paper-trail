@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from funds_config import CURATED_FUNDS, NON_STOCK_ETFS
+from funds_config import CURATED_FUNDS, DISCOVERY_SEED_PAIRS, NON_STOCK_ETFS
 from sec_client import (
     build_clean_quarterly_filings,
     discover_emerging_tech_funds,
@@ -1182,6 +1182,208 @@ def build_updates_overview(fund_updates: list[dict[str, Any]], total_eligible: i
     }
 
 
+def build_discovery_watchlist(
+    funds_out: list[dict[str, Any]],
+    ranked_ciks: list[str],
+    top_holdings: list[dict[str, Any]],
+    ideal_positions: list[dict[str, Any]],
+    aligned_prices: dict[str, tuple[np.ndarray, int, int]],
+    ttm_start_idx: int,
+) -> dict[str, Any]:
+    """
+    Audit current 13F holdings against DISCOVERY_SEED_PAIRS to flag emerging
+    disruptive Tech/TMT "must-hold" stocks surging across Top-75 funds that are not yet
+    seeded in SEC EDGAR EFTS discovery queries (plus any stale/acquired seed tickers).
+    """
+    seeded_tickers: set[str] = set()
+    for ta, _ca, tb, _cb, _theme in DISCOVERY_SEED_PAIRS:
+        if ta:
+            seeded_tickers.add(ta.upper())
+        if tb:
+            seeded_tickers.add(tb.upper())
+    if "GOOGL" in seeded_tickers:
+        seeded_tickers.add("GOOG")
+
+    ranked_set = set(ranked_ciks)
+    top30_rank_map = {h["ticker"]: h["rank"] for h in top_holdings}
+    ideal_rank_map = {p["ticker"]: p["rank"] for p in ideal_positions}
+    non_seedable = {"SPCX"} | NON_STOCK_ETFS
+
+    stock_stats: dict[str, dict[str, Any]] = {}
+    for f in funds_out:
+        is_rnk = f["cik"] in ranked_set
+        for h in f["holdings"]:
+            if h["securityType"] != "EQUITY" or h["weightPct"] <= 0:
+                continue
+            t = h["ticker"]
+            c = (h.get("cusip") or "").strip().upper()
+            if not t or t.startswith("CUSIP:") or t in non_seedable or len(c) != 9:
+                continue
+            if not h.get("isTechTmt") or h.get("pricePerShare") is None:
+                continue
+
+            rec = stock_stats.get(t)
+            if rec is None:
+                rec = {
+                    "ticker": t,
+                    "name": h["name"],
+                    "sector": h["sector"] or "Other",
+                    "industry": h.get("industry") or "",
+                    "cusipUsd": {},
+                    "allHolders": 0,
+                    "rankedHolders": 0,
+                    "newRanked": 0,
+                    "heavyAddRanked": 0,
+                    "highConvRanked": 0,
+                    "rankedUsd": 0.0,
+                }
+                stock_stats[t] = rec
+
+            rec["cusipUsd"][c] = rec["cusipUsd"].get(c, 0.0) + float(h["valueUsd"])
+            rec["allHolders"] += 1
+            if is_rnk:
+                rec["rankedHolders"] += 1
+                rec["rankedUsd"] += float(h["valueUsd"])
+                if h["weightPct"] >= 2.0:
+                    rec["highConvRanked"] += 1
+                if h["status"] == "NEW":
+                    rec["newRanked"] += 1
+                elif h["status"] == "ADDED" and (
+                    (h.get("qoqSharesChangePct") or 0.0) >= 25.0
+                    or (h.get("qoqWeightDeltaPct") or 0.0) >= 0.5
+                ):
+                    rec["heavyAddRanked"] += 1
+
+    # Audit stale/delisted/acquired active seeds
+    stale_seeds: list[dict[str, Any]] = []
+    for t in sorted(seeded_tickers - {"GOOG"}):
+        rec = stock_stats.get(t)
+        rnk_h = rec["rankedHolders"] if rec else 0
+        all_h = rec["allHolders"] if rec else 0
+        if rnk_h < 5 and all_h < 10:
+            stale_seeds.append({
+                "ticker": t,
+                "rankedHolders": rnk_h,
+                "allQualifiedHolders": all_h,
+                "note": f"Only {rnk_h} Top-75 / {all_h} qualified holders — verify ticker or M&A status",
+            })
+
+    # Score unseeded Tech/TMT breakout stocks
+    flagged: list[dict[str, Any]] = []
+    for t, rec in stock_stats.items():
+        if t in seeded_tickers:
+            continue
+        rnk_h = rec["rankedHolders"]
+        new_r = rec["newRanked"]
+        hadd_r = rec["heavyAddRanked"]
+        hi_c = rec["highConvRanked"]
+        if rnk_h < 8 or hi_c < 3:
+            continue
+
+        surge_cnt = new_r + hadd_r
+        surge_ratio = surge_cnt / max(1, rnk_h)
+        surge_pct = round(surge_ratio * 100.0, 1)
+        t30_rank = top30_rank_map.get(t)
+        id_rank = ideal_rank_map.get(t)
+
+        qual_surge = new_r >= 5 and surge_pct >= 42.0
+        qual_consensus = (id_rank is not None or (t30_rank is not None and t30_rank <= 25)) and surge_pct >= 35.0
+        if not (qual_surge or qual_consensus):
+            continue
+
+        ttm_pct = None
+        if t in aligned_prices:
+            arr, first_i, last_i = aligned_prices[t]
+            if first_i <= ttm_start_idx + 5:
+                s_i = max(ttm_start_idx, first_i)
+                ttm_pct = clean_num(((arr[last_i] / arr[s_i]) - 1.0) * 100.0, 1)
+
+        perf_mult = 1.0
+        if ttm_pct is not None:
+            if ttm_pct >= 50.0:
+                perf_mult = 1.25
+            elif ttm_pct >= 15.0:
+                perf_mult = 1.12
+            elif ttm_pct < -15.0:
+                perf_mult = 0.72
+
+        ideal_bonus = 1.35 if (id_rank and id_rank <= 25) else (1.15 if id_rank else 1.0)
+        t30_bonus = 1.20 if t30_rank else 1.0
+        raw_score = (
+            (new_r * 3.2 + hadd_r * 1.8 + hi_c * 1.5)
+            * (0.55 + min(1.0, surge_ratio))
+            * (1.0 + 0.12 * math.log1p(rnk_h))
+            * perf_mult
+            * ideal_bonus
+            * t30_bonus
+        )
+
+        primary_cusip = max(rec["cusipUsd"].items(), key=lambda x: x[1])[0]
+        ind_low = rec["industry"].lower()
+        is_saas = any(k in ind_low for k in ("software", "internet", "interactive")) and "infrastructure" not in ind_low
+        anchor_t, anchor_c = ("MSFT", "594918104") if is_saas else ("NVDA", "67066G104")
+        theme_label = f"Emerging {rec['industry'] or rec['sector']} & {anchor_t}"
+        suggested_pair = f"{t}+{anchor_t}"
+
+        reasons: list[str] = []
+        if t30_rank is not None:
+            reasons.append(f"Top-30 Consensus #{t30_rank}")
+        if id_rank is not None:
+            reasons.append(f"Ideal Portfolio #{id_rank}")
+        reasons.append(f"{new_r} new + {hadd_r} heavy adds ({surge_pct:.0f}% surge)")
+        if hi_c >= 5:
+            reasons.append(f"{hi_c} funds >=2% conviction")
+
+        alert_tier = (
+            "URGENT"
+            if (raw_score >= 140.0 or (id_rank is not None and id_rank <= 25) or (t30_rank is not None and t30_rank <= 25))
+            else "WATCH"
+        )
+        copy_tuple = f'("{t}", "{primary_cusip}", "{anchor_t}", "{anchor_c}", "{theme_label}"),'
+
+        flagged.append({
+            "ticker": t,
+            "cusip": primary_cusip,
+            "name": rec["name"],
+            "sector": rec["sector"],
+            "industry": rec["industry"],
+            "holderCount": rnk_h,
+            "allQualifiedHolders": rec["allHolders"],
+            "newInitiationsCount": new_r,
+            "heavyAddsCount": hadd_r,
+            "highConvictionCount": hi_c,
+            "surgePct": surge_pct,
+            "rankedBookValueUsd": round(rec["rankedUsd"], 2),
+            "stockTtmPct": ttm_pct,
+            "idealRank": id_rank,
+            "consensusRank": t30_rank,
+            "breakoutScore": round(raw_score, 1),
+            "alertTier": alert_tier,
+            "suggestedPair": suggested_pair,
+            "anchorTicker": anchor_t,
+            "anchorCusip": anchor_c,
+            "copyTuple": copy_tuple,
+            "triggerReason": " · ".join(reasons),
+        })
+
+    flagged.sort(key=lambda x: x["breakoutScore"], reverse=True)
+    top_flagged = flagged[:10]
+    urgent_cnt = sum(1 for c in top_flagged if c["alertTier"] == "URGENT")
+
+    return {
+        "seedPairCount": len(DISCOVERY_SEED_PAIRS),
+        "activeSeedTickers": sorted(seeded_tickers - {"GOOG"}),
+        "watchlistRuleSummary": (
+            "Flags public Tech/TMT equities absent from DISCOVERY_SEED_PAIRS with >=8 Top-75 holders, "
+            ">=3 positions sized >=2%, and either >=5 new initiations (>=42% book surge) or Top-25 Ideal/Consensus standing."
+        ),
+        "urgentCount": urgent_cnt,
+        "totalFlaggedCount": len(flagged),
+        "emergingSeedCandidates": top_flagged,
+        "staleSeeds": stale_seeds,
+    }
+
+
 def _merge_period_filings(period_filings: list[dict[str, Any]]) -> dict[str, Any] | None:
     parsed_group: list[dict[str, Any]] = []
     for f in sorted(period_filings, key=lambda x: (x["filingDate"], x["accessionNumber"])):
@@ -2119,6 +2321,14 @@ def main() -> None:
         reverse=True,
     )
     updates_overview = build_updates_overview(fund_updates_out, total_eligible=len(update_cands))
+    discovery_watchlist = build_discovery_watchlist(
+        funds_out=funds_out,
+        ranked_ciks=ranked_union_ciks["quarter_end"],
+        top_holdings=top_holdings_out["quarter_end"],
+        ideal_positions=ideal_positions,
+        aligned_prices=aligned_prices,
+        ttm_start_idx=win_indices["TTM"],
+    )
 
     # Sort funds by TTM performance by default
     funds_out.sort(key=lambda f: f["returns"]["quarter_end"]["TTM"] or -999.0, reverse=True)
@@ -2127,9 +2337,9 @@ def main() -> None:
     ranked_union_all_modes = set(ranked_union_ciks["quarter_end"]) | set(ranked_union_ciks["filing_lag"])
     for f in funds_out:
         is_vip = f["source"] == "Curated Core" or f["cik"] in ranked_union_all_modes
-        if not is_vip and len(f["holdings"]) > 80:
-            opts = [h for h in f["holdings"] if h["securityType"] != "EQUITY"]
-            eqs = [h for h in f["holdings"] if h["securityType"] == "EQUITY"][:80]
+        if not is_vip and len(f["holdings"]) > 45:
+            opts = [h for h in f["holdings"] if h["securityType"] != "EQUITY"][:20]
+            eqs = [h for h in f["holdings"] if h["securityType"] == "EQUITY"][:45]
             seen_k = {(h["cusip"], h["securityType"]) for h in eqs}
             f["holdings"] = sorted(
                 eqs + [h for h in opts if (h["cusip"], h["securityType"]) not in seen_k],
@@ -2140,17 +2350,17 @@ def main() -> None:
     for u in fund_updates_out:
         is_vip = u["source"] == "Curated Core" or u["cik"] in ranked_union_all_modes
         if is_vip:
-            if len(u["allMoves"]) > 250:
+            if len(u["allMoves"]) > 150:
                 u["allMoves"] = [
                     m for m in u["allMoves"]
                     if not (
                         m["action"] == "UNCHANGED"
                         and m["securityType"] == "EQUITY"
                         and m["valuationShiftType"] is None
-                        and max(m["currBookPct"], m["prevBookPct"]) < 0.15
+                        and max(m["currBookPct"], m["prevBookPct"]) < 0.2
                     )
                 ]
-        elif len(u["allMoves"]) > 60:
+        elif len(u["allMoves"]) > 40:
             keep_keys: set[tuple[str, str]] = set()
             kept: list[dict[str, Any]] = []
             for bucket in (u["topNew"], u["topAdded"], u["topTrimmed"], u["topExited"], u["valuationShifts"]):
@@ -2160,19 +2370,24 @@ def main() -> None:
                         keep_keys.add(k)
                         kept.append(m)
             for m in u["allMoves"]:
-                if m["securityType"] in ("CALL", "PUT") or m["valuationShiftType"] is not None:
+                if (
+                    (m["securityType"] in ("CALL", "PUT") and max(m["currBookPct"], m["prevBookPct"]) >= 0.25)
+                    or m["valuationShiftType"] is not None
+                ):
                     k = (m["cusip"], m["securityType"])
                     if k not in keep_keys:
                         keep_keys.add(k)
                         kept.append(m)
+                    if len(kept) >= 48:
+                        break
             for m in u["allMoves"]:
-                if len(kept) >= 65 and (m["action"] == "UNCHANGED" or max(m["currBookPct"], m["prevBookPct"]) < 0.3):
+                if len(kept) >= 45 or (len(kept) >= 32 and (m["action"] == "UNCHANGED" or max(m["currBookPct"], m["prevBookPct"]) < 0.35)):
                     continue
                 k = (m["cusip"], m["securityType"])
                 if k not in keep_keys:
                     keep_keys.add(k)
                     kept.append(m)
-                if len(kept) >= 90:
+                if len(kept) >= 45:
                     break
             u["allMoves"] = sorted(kept, key=lambda x: max(x["currValueUsd"], x["prevValueUsd"]), reverse=True)
 
@@ -2205,6 +2420,7 @@ def main() -> None:
                 "OpenFIGI CUSIP Security Master",
                 "Yahoo Finance Daily Split & Dividend Adjusted Closes",
             ],
+            "discoveryWatchlist": discovery_watchlist,
         },
         "benchmarks": benchmarks,
         "funds": funds_out,
@@ -2244,6 +2460,20 @@ def main() -> None:
     print(f"Wrote {OUTPUT_JSON} ({size_kb:.1f} KB)")
     print(f"Qualified Funds: {len(funds_out)} | Ranked Union: {len(ranked_union_ciks['quarter_end'])} | Fund Updates: {len(fund_updates_out)}")
     print(f"Ideal Portfolio: {len(ideal_positions)} names | TTM QE Return: {ideal_rets_qe['TTM']}% | QQQ TTM: {benchmarks['QQQ']['returns']['TTM']}%")
+
+    wl_cands = discovery_watchlist["emergingSeedCandidates"]
+    if wl_cands:
+        print(
+            f"\n[SEED WATCHLIST ALERT] {len(wl_cands)} unseeded breakout Tech/TMT stocks detected "
+            f"({discovery_watchlist['urgentCount']} urgent) — consider adding to DISCOVERY_SEED_PAIRS in pipeline/funds_config.py:"
+        )
+        for item in wl_cands:
+            print(
+                f"  [{item['alertTier']:6s}] {item['ticker']:6s} ({item['cusip']}) | holders={item['holderCount']:2d}/{item['allQualifiedHolders']:3d} | "
+                f"{item['triggerReason']} -> add {item['copyTuple']}"
+            )
+    if discovery_watchlist["staleSeeds"]:
+        print(f"[SEED WATCHLIST STALE] {len(discovery_watchlist['staleSeeds'])} low-coverage seeds: {discovery_watchlist['staleSeeds']}")
 
 
 if __name__ == "__main__":

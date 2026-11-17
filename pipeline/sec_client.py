@@ -21,6 +21,8 @@ from pathlib import Path
 from typing import Any
 from lxml import etree
 
+from funds_config import DISCOVERY_SEED_PAIRS
+
 _DEFAULT_SEC_UA = "PaperTrail13FResearch contact@papertrail13f.dev"
 _env_sec_ua = os.environ.get("SEC_USER_AGENT", "").strip()
 if not _env_sec_ua or "noreply.github.com" in _env_sec_ua.lower():
@@ -399,7 +401,7 @@ def _format_entity_name(cname: str) -> str:
 def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 1000) -> list[dict[str, Any]]:
     """
     Scan recent SEC EDGAR 13F-HR filings via breadth-first paginated EFTS full-text
-    queries across 16 distinct AI/semiconductor/cloud/cyber/power subsector CUSIP pairs,
+    queries across configured DISCOVERY_SEED_PAIRS CUSIP clusters,
     returning concentrated ($200M+ reported value) candidates not yet in the curated list.
     """
     now = datetime.now(timezone.utc)
@@ -428,29 +430,21 @@ def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 100
         "legal & general", "schroder", "univest", "citizens & northern", "south plains financial",
     )
 
-    # Diverse AI, Semiconductor, Foundry/WFE, Cloud SaaS, Cyber, Power, Platform & Fintech CUSIP pairs
-    queries = [
-        '"67066G104" "22788C105"',   # NVDA + CRWD  (AI Compute & Cybersecurity)
-        '"67066G104" "69608A108"',   # NVDA + PLTR  (AI Compute & Enterprise AI)
-        '"67066G104" "11135F101"',   # NVDA + AVGO  (AI Silicon & Custom ASICs)
-        '"874039100" "N07059210"',   # TSM + ASML   (Foundry & EUV Lithography)
-        '"594918104" "81762P102"',   # MSFT + NOW   (Enterprise Cloud & Agentic SaaS)
-        '"30303M102" "023135106"',   # META + AMZN  (Hyperscale Platforms & AI Cloud/Ads)
-        '"02079K305" "64110L106"',   # GOOGL + NFLX (Search/AI & Streaming Platforms)
-        '"833445109" "23804L103"',   # SNOW + DDOG  (Cloud Data & Observability)
-        '"22788C105" "697435105"',   # CRWD + PANW  (Cybersecurity Platforms)
-        '"92537N108" "21037T109"',   # VRT + CEG    (AI Data Center Thermal & Power)
-        '"007903107" "040413205"',   # AMD + ANET   (Merchant GPUs & AI Switching)
-        '"595112103" "482480100"',   # MU + KLAC    (HBM Memory & Fab Process Control)
-        '"03831W108" "69608A108"',   # APP + PLTR   (Applied AI Software & AdTech)
-        '"82509L107" "G66721104"',   # SHOP + NU    (E-Commerce & Digital Fintech)
-        '"038222105" "512807306"',   # AMAT + LRCX  (Wafer Fab Equipment)
-        '"18915M107" "98980G102"',   # NET + ZS     (Edge Cloud & Zero-Trust Security)
-    ]
+    # Build deduplicated EFTS CUSIP pair queries from funds_config.DISCOVERY_SEED_PAIRS
+    queries: list[str] = []
+    seen_pairs: set[tuple[str, str]] = set()
+    for _ta, ca, _tb, cb, _theme in DISCOVERY_SEED_PAIRS:
+        ca_u = ca.strip().upper()
+        cb_u = cb.strip().upper()
+        canon = (min(ca_u, cb_u), max(ca_u, cb_u))
+        if not ca_u or not cb_u or ca_u == cb_u or canon in seen_pairs:
+            continue
+        seen_pairs.add(canon)
+        queries.append(f'"{ca_u}" "{cb_u}"')
 
     discovered_ciks: list[tuple[str, str]] = []
     seen = set(known_ciks)
-    raw_cap = max(max_candidates * 2, 1800)
+    raw_cap = max(max_candidates * 2 + 500, 2500)
     exhausted_queries: set[str] = set()
 
     for page in range(5):
