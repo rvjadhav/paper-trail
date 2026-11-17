@@ -119,7 +119,7 @@ export interface StockHolderDetail {
   valueUsd: number;
   status: 'NEW' | 'ADDED' | 'UNCHANGED' | 'TRIMMED';
   qoqSharesChangePct: number | null;
-  top10Windows: ReturnWindow[];
+  rankedWindows: ReturnWindow[];
 }
 
 export interface ConsensusHolding {
@@ -269,8 +269,8 @@ export interface FundUpdateEntry {
   styleTag: string;
   source: 'Curated Core' | 'EDGAR Discovered';
   inRankings: boolean;
-  isRankedTop10AnyWindow: boolean;
-  top10Windows: ReturnWindow[];
+  isRankedTop75AnyWindow: boolean;
+  rankedWindows: ReturnWindow[];
 
   quarterLabel: string;
   periodEnd: string;

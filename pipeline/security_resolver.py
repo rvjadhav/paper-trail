@@ -181,7 +181,10 @@ def _pick_best_figi(candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
     return pool[0] if pool else None
 
 
-def _yahoo_search(query: str) -> dict[str, Any] | None:
+US_YAHOO_EXCHANGES = {"NMS", "NYQ", "NGM", "NCM", "ASE", "PCX", "BTS", "NAS", "NYS"}
+
+
+def _yahoo_search(query: str, strict_us_cusip: bool = False) -> dict[str, Any] | None:
     q = urllib.parse.quote(query)
     url = f"https://query1.finance.yahoo.com/v1/finance/search?q={q}&quotesCount=6&newsCount=0"
     for attempt in range(3):
@@ -191,9 +194,26 @@ def _yahoo_search(query: str) -> dict[str, Any] | None:
                 quotes = json.loads(resp.read().decode("utf-8")).get("quotes", [])
             if not quotes:
                 return None
-            # Prefer exact US equity/ETF without dot suffix
             q_up = query.strip().upper()
             all_equities = [x for x in quotes if x.get("quoteType") in ("EQUITY", "ETF")]
+            if strict_us_cusip:
+                us_strict = [
+                    x for x in all_equities
+                    if x.get("exchange") in US_YAHOO_EXCHANGES
+                    and "." not in x.get("symbol", "")
+                    and re.fullmatch(r"[A-Z]{1,5}(?:-[A-Z])?", (x.get("symbol") or "").upper())
+                ]
+                if not us_strict:
+                    return None
+                best = us_strict[0]
+                return {
+                    "ticker": best.get("symbol", "").upper(),
+                    "name": best.get("longname") or best.get("shortname") or "",
+                    "sector": best.get("sector") or "",
+                    "industry": best.get("industry") or "",
+                }
+
+            # General search: prefer exact US equity/ETF without dot suffix
             us_equities = [x for x in all_equities if "." not in x.get("symbol", "")]
             exact = [x for x in us_equities if x.get("symbol", "").upper() == q_up]
             pool = exact or us_equities or all_equities
@@ -222,7 +242,7 @@ def _yahoo_search(query: str) -> dict[str, Any] | None:
 def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]:
     """
     Resolve all CUSIPs to ticker, canonical name, sector, industry, isTechTmt.
-    Uses persistent cusip_cache.json + OpenFIGI + Yahoo Finance search.
+    Uses persistent cusip_cache.json + fast US Yahoo search + OpenFIGI + issuer fallback.
     """
     cache = load_json_dict(CUSIP_CACHE_PATH)
     ticker_meta = load_json_dict(TICKER_META_PATH)
@@ -250,19 +270,61 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                 "name": ov["name"],
                 "sector": ov["sector"],
                 "industry": ov.get("industry", ""),
+                "metaChecked": True,
             }
 
     missing_ticker = [c for c in cusip_to_issuer if c not in cache or not cache[c].get("ticker")]
-    print(f"[resolver] Total CUSIPs: {len(cusip_to_issuer)}, missing ticker resolution: {len(missing_ticker)}")
+    print(f"[resolver] Total CUSIPs: {len(cusip_to_issuer)}, missing ticker resolution: {len(missing_ticker)}", flush=True)
 
-    # Step 1: Try OpenFIGI in batches of 10 with exchCode="US"
+    # Step 1a: Fast parallel strict-US Yahoo CUSIP lookup (resolves ~85-90% of US equities w/ sector metadata in 1 call)
     if missing_ticker:
+        figi_candidates: list[str] = []
+        if len(missing_ticker) > 25:
+            def _fast_us_lookup(c: str) -> tuple[str, dict[str, Any] | None]:
+                return c, _yahoo_search(c, strict_us_cusip=True)
+
+            resolved_fast = 0
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                futs = [ex.submit(_fast_us_lookup, c) for c in missing_ticker]
+                for idx_done, fut in enumerate(as_completed(futs), 1):
+                    c, hit = fut.result()
+                    if hit and hit.get("ticker"):
+                        t_norm = normalize_yf_ticker(hit["ticker"])
+                        sec_val = hit.get("sector") or ("Technology" if t_norm in TECH_TMT_EXTRA_TICKERS else "Other")
+                        cache[c] = {
+                            "ticker": t_norm,
+                            "name": hit.get("name") or cusip_to_issuer.get(c, c),
+                            "sector": sec_val,
+                            "industry": hit.get("industry") or "",
+                        }
+                        if t_norm not in ticker_meta or (hit.get("sector") and not ticker_meta[t_norm].get("sector")):
+                            ticker_meta[t_norm] = {
+                                "ticker": t_norm,
+                                "name": cache[c]["name"],
+                                "sector": sec_val,
+                                "industry": hit.get("industry", ""),
+                                "metaChecked": True,
+                            }
+                        resolved_fast += 1
+                    else:
+                        figi_candidates.append(c)
+                    if idx_done % 500 == 0:
+                        save_json_dict(CUSIP_CACHE_PATH, cache)
+                        save_json_dict(TICKER_META_PATH, ticker_meta)
+                        print(f"[resolver] Fast US lookup progress {idx_done}/{len(missing_ticker)} ({resolved_fast} hits)...", flush=True)
+            save_json_dict(CUSIP_CACHE_PATH, cache)
+            save_json_dict(TICKER_META_PATH, ticker_meta)
+            print(f"[resolver] Fast US lookup resolved {resolved_fast}/{len(missing_ticker)} CUSIPs; {len(figi_candidates)} queued for OpenFIGI", flush=True)
+        else:
+            figi_candidates = list(missing_ticker)
+
+        # Step 1b: Authoritative OpenFIGI US mapping in batches of 10 for foreign ADRs / Cayman CINS / edge CUSIPs
         still_missing: list[str] = []
-        total_batches = (len(missing_ticker) + 9) // 10
-        for i in range(0, len(missing_ticker), 10):
+        total_batches = (len(figi_candidates) + 9) // 10
+        for i in range(0, len(figi_candidates), 10):
             t0 = time.monotonic()
             batch_num = (i // 10) + 1
-            batch = missing_ticker[i : i + 10]
+            batch = figi_candidates[i : i + 10]
             jobs = [{"idType": "ID_CUSIP", "idValue": c, "exchCode": "US"} for c in batch]
             results = _openfigi_batch(jobs)
             for c, res in zip(batch, results):
@@ -277,70 +339,93 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                     }
                 else:
                     still_missing.append(c)
-            # OpenFIGI unauthenticated cap is 25 req/min (~2.4s/req); 2.45s cycle avoids 429 penalties
+            # OpenFIGI unauthenticated cap is 25 req/min (~2.4s/req); 2.55s cycle avoids 429 penalties
             if batch_num % 10 == 0 or batch_num == total_batches:
                 save_json_dict(CUSIP_CACHE_PATH, cache)
                 print(f"[resolver] OpenFIGI batch {batch_num}/{total_batches} saved ({len(cache)} cached)", flush=True)
-            if i + 10 < len(missing_ticker):
+            if i + 10 < len(figi_candidates):
                 elapsed = time.monotonic() - t0
                 if elapsed < 2.55:
                     time.sleep(2.55 - elapsed)
         save_json_dict(CUSIP_CACHE_PATH, cache)
 
-        # Step 2: Yahoo Finance fallback for CUSIPs not resolved by OpenFIGI US
+        # Step 2: Yahoo issuer-name fallback for CUSIPs not resolved by OpenFIGI US
         if still_missing:
-            print(f"[resolver] Falling back to Yahoo search for {len(still_missing)} CUSIPs...")
+            print(f"[resolver] Falling back to Yahoo issuer search for {len(still_missing)} CUSIPs...", flush=True)
             def _resolve_one(c: str) -> tuple[str, dict[str, Any]]:
-                hit = _yahoo_search(c)
-                if not hit:
-                    # Clean issuer name fallback
-                    raw_name = cusip_to_issuer.get(c, "")
-                    cleaned = re.sub(r"\b(INC|CORP|LTD|PLC|LP|LLC|NV|SA|AG|SE|HLDG|HLDGS|HOLDINGS|CLASS [A-C]|CL [A-C]|COM|ORD)\b\.?", "", raw_name, flags=re.I).strip()
-                    if len(cleaned) >= 3:
-                        hit = _yahoo_search(cleaned)
+                raw_name = cusip_to_issuer.get(c, "")
+                cleaned = re.sub(r"\b(INC|CORP|LTD|PLC|LP|LLC|NV|SA|AG|SE|HLDG|HLDGS|HOLDINGS|CLASS [A-C]|CL [A-C]|COM|ORD)\b\.?", "", raw_name, flags=re.I).strip()
+                hit = _yahoo_search(cleaned) if len(cleaned) >= 3 else None
                 if hit and hit.get("ticker"):
+                    t_norm = normalize_yf_ticker(hit["ticker"])
+                    sec_val = hit.get("sector") or ("Technology" if t_norm in TECH_TMT_EXTRA_TICKERS else "Other")
                     return c, {
-                        "ticker": normalize_yf_ticker(hit["ticker"]),
-                        "name": hit.get("name") or cusip_to_issuer.get(c, c),
-                        "sector": hit.get("sector") or "",
+                        "ticker": t_norm,
+                        "name": hit.get("name") or raw_name or c,
+                        "sector": sec_val,
                         "industry": hit.get("industry") or "",
                     }
                 # Unresolvable (e.g. delisted / private / foreign OTC without US ticker)
-                fallback_sym = re.sub(r"[^A-Z0-9]", "", cusip_to_issuer.get(c, c).upper())[:6] or c[:6]
+                fallback_sym = re.sub(r"[^A-Z0-9]", "", raw_name.upper())[:6] or c[:6]
                 return c, {
                     "ticker": f"CUSIP:{c}",
                     "displaySymbol": fallback_sym,
-                    "name": cusip_to_issuer.get(c, c),
+                    "name": raw_name or c,
                     "sector": "Other",
                     "industry": "",
                     "unpriced": True,
                 }
 
-            with ThreadPoolExecutor(max_workers=6) as ex:
-                for c, entry in ex.map(_resolve_one, still_missing):
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                futs = [ex.submit(_resolve_one, c) for c in still_missing]
+                for idx_done, fut in enumerate(as_completed(futs), 1):
+                    c, entry = fut.result()
                     cache[c] = entry
+                    if idx_done % 250 == 0:
+                        save_json_dict(CUSIP_CACHE_PATH, cache)
+                        print(f"[resolver] Issuer fallback progress {idx_done}/{len(still_missing)}...", flush=True)
 
-    # Step 3: Enrich sector/industry/name via Yahoo search for resolved tickers missing sector
+    # Step 3: Enrich sector/industry/name via Yahoo search for resolved tickers not yet metadata-checked
     need_meta_tickers = sorted({
         cache[c]["ticker"]
         for c in cusip_to_issuer
         if c in cache
         and cache[c].get("ticker")
         and not cache[c]["ticker"].startswith("CUSIP:")
-        and (not cache[c].get("sector") or cache[c]["ticker"] not in ticker_meta)
+        and (
+            cache[c]["ticker"] not in ticker_meta
+            or (not cache[c].get("sector") and not ticker_meta[cache[c]["ticker"]].get("metaChecked"))
+        )
     })
 
     if need_meta_tickers:
-        print(f"[resolver] Enriching sector/industry metadata for {len(need_meta_tickers)} tickers...")
+        print(f"[resolver] Enriching sector/industry metadata for {len(need_meta_tickers)} tickers...", flush=True)
         def _fetch_meta(t: str) -> tuple[str, dict[str, Any] | None]:
-            if t in ticker_meta and ticker_meta[t].get("sector"):
+            if t in ticker_meta and (ticker_meta[t].get("sector") or ticker_meta[t].get("metaChecked")):
                 return t, ticker_meta[t]
-            return t, _yahoo_search(t)
+            hit = _yahoo_search(t)
+            if hit:
+                hit["metaChecked"] = True
+                if not hit.get("sector"):
+                    hit["sector"] = "Technology" if t in TECH_TMT_EXTRA_TICKERS else "Other"
+                return t, hit
+            return t, {
+                "ticker": t,
+                "name": "",
+                "sector": "Technology" if t in TECH_TMT_EXTRA_TICKERS else "Other",
+                "industry": "",
+                "metaChecked": True,
+            }
 
-        with ThreadPoolExecutor(max_workers=6) as ex:
-            for t, meta in ex.map(_fetch_meta, need_meta_tickers):
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            futs = [ex.submit(_fetch_meta, t) for t in need_meta_tickers]
+            for idx_done, fut in enumerate(as_completed(futs), 1):
+                t, meta = fut.result()
                 if meta:
                     ticker_meta[t] = meta
+                if idx_done % 250 == 0:
+                    save_json_dict(TICKER_META_PATH, ticker_meta)
+                    print(f"[resolver] Metadata enrich progress {idx_done}/{len(need_meta_tickers)}...", flush=True)
 
     # Sync enriched metadata back into cache
     for c in cusip_to_issuer:
@@ -425,11 +510,11 @@ def fetch_daily_prices(ticker: str, start_ts: int = 1609459200, max_age_hours: f
 
 def fetch_all_prices(tickers: list[str]) -> dict[str, dict[str, float]]:
     clean_tickers = sorted({t for t in tickers if t and not t.startswith("CUSIP:")})
-    print(f"[prices] Fetching daily adjusted prices for {len(clean_tickers)} tickers...")
+    print(f"[prices] Fetching daily adjusted prices for {len(clean_tickers)} tickers...", flush=True)
     prices: dict[str, dict[str, float]] = {}
-    with ThreadPoolExecutor(max_workers=8) as ex:
+    with ThreadPoolExecutor(max_workers=12) as ex:
         fut_map = {ex.submit(fetch_daily_prices, t): t for t in clean_tickers}
-        for fut in as_completed(fut_map):
+        for idx_done, fut in enumerate(as_completed(fut_map), 1):
             t = fut_map[fut]
             try:
                 series = fut.result()
@@ -437,5 +522,7 @@ def fetch_all_prices(tickers: list[str]) -> dict[str, dict[str, float]]:
                     prices[t] = series
             except Exception:
                 pass
-    print(f"[prices] Loaded valid price series for {len(prices)}/{len(clean_tickers)} tickers.")
+            if idx_done % 400 == 0 or idx_done == len(clean_tickers):
+                print(f"[prices] Progress {idx_done}/{len(clean_tickers)} ({len(prices)} valid)...", flush=True)
+    print(f"[prices] Loaded valid price series for {len(prices)}/{len(clean_tickers)} tickers.", flush=True)
     return prices

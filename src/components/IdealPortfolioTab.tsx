@@ -317,7 +317,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                 Construction Rules
               </div>
               <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                <li><strong>Universe:</strong> Holdings from all {idealPortfolio.rankedFundsCount} ranked Top-10 tech funds.</li>
+                <li><strong>Universe:</strong> Holdings from all {idealPortfolio.rankedFundsCount} ranked Top-75 tech funds.</li>
                 <li><strong>Conviction Score:</strong> Weighted sum of manager multi-window rank × √(position weight).</li>
                 <li><strong>Consensus Multiplier:</strong> Rewards stocks independently owned across ≥2 top funds.</li>
                 <li><strong>Risk Cap:</strong> Single-stock ceiling of <strong>{capPct}%</strong> via water-filling normalization.</li>

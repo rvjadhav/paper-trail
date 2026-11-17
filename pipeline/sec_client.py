@@ -5,15 +5,18 @@ and quarterly EFTS discovery of emerging concentrated tech funds.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import statistics
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from lxml import etree
@@ -35,7 +38,7 @@ _rate_lock = threading.Lock()
 _last_req_ts = 0.0
 
 
-def _throttle(min_interval: float = 0.13) -> None:
+def _throttle(min_interval: float = 0.105) -> None:
     global _last_req_ts
     with _rate_lock:
         now = time.monotonic()
@@ -54,7 +57,7 @@ def fetch_bytes(url: str, cache_key: str | None = None, max_age_hours: float = 2
                 return cpath.read_bytes()
 
     for attempt in range(4):
-        _throttle(0.12)
+        _throttle(0.105)
         req = urllib.request.Request(url, headers=SEC_HEADERS)
         try:
             with urllib.request.urlopen(req, timeout=25) as resp:
@@ -89,11 +92,11 @@ def fetch_json(url: str, cache_key: str | None = None, max_age_hours: float = 24
 
 def get_submissions(cik: str) -> dict[str, Any]:
     cik10 = f"{int(cik):010d}"
-    # Refresh submissions every hour so deadline-day 13F filings are picked up promptly
+    # Refresh submissions twice daily so filings stay fresh across multi-stage runs
     return fetch_json(
         f"https://data.sec.gov/submissions/CIK{cik10}.json",
         cache_key=f"sub_{cik10}.json",
-        max_age_hours=1.0,
+        max_age_hours=12.0,
     )
 
 
@@ -125,7 +128,8 @@ def list_13f_filings(cik: str, min_report_date: str = "2020-12-31") -> list[dict
     _collect(recent)
 
     # Also check older archive pagination files if recent doesn't go back far enough
-    oldest_recent = min(recent.get("reportDate", ["9999-12-31"]) or ["9999-12-31"])
+    recent_fds = [d for d in recent.get("filingDate", []) if d]
+    oldest_recent = min(recent_fds) if recent_fds else "9999-12-31"
     if oldest_recent > min_report_date:
         for fmeta in sub.get("filings", {}).get("files", []):
             if fmeta.get("filingTo", "9999-12-31") >= min_report_date:
@@ -156,12 +160,24 @@ def _find_text(el: etree._Element, local_name: str, default: str = "") -> str:
 def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
     cik_int = int(filing["cik"])
     acc_nd = filing["accessionNumber"].replace("-", "")
+    parsed_cache_path = CACHE_DIR / f"parsed_v1_{filing['cik']}_{acc_nd}.json"
+    if parsed_cache_path.exists():
+        try:
+            cached = json.loads(parsed_cache_path.read_text(encoding="utf-8"))
+            if cached.get("empty"):
+                return None
+            cached["entityName"] = filing["entityName"]
+            return cached
+        except Exception:
+            pass
+
     idx_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/index.json"
     idx = fetch_json(idx_url, cache_key=f"idx_{filing['cik']}_{acc_nd}.json")
     items = [it["name"] for it in idx.get("directory", {}).get("item", [])]
 
     xml_files = [fn for fn in items if fn.lower().endswith(".xml") and not fn.lower().startswith("xsl")]
     if not xml_files:
+        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
         return None
 
     primary_doc = None
@@ -178,7 +194,7 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
             cache_key=f"xml_{filing['cik']}_{acc_nd}_{fn}",
         )
         root = _parse_xml_root(raw)
-        local_root = root.tag.split("}")[-1].lower()
+        local_root = root.tag.rsplit("}", 1)[-1].lower()
         if local_root == "edgarsubmission":
             primary_doc = root
         elif local_root == "informationtable":
@@ -187,6 +203,7 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
                 break
 
     if info_doc is None:
+        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
         return None
 
     amendment_type = ""
@@ -196,14 +213,37 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
     raw_rows: list[dict[str, Any]] = []
     ratios: list[float] = []
 
-    for row_el in info_doc.xpath("./*[local-name()='infoTable']"):
-        issuer = _find_text(row_el, "nameOfIssuer")
-        title = _find_text(row_el, "titleOfClass")
-        cusip = _find_text(row_el, "cusip").upper().zfill(9)[:9]
-        val_str = _find_text(row_el, "value", "0")
-        sh_str = _find_text(row_el, "sshPrnamt", "0")
-        sh_type = _find_text(row_el, "sshPrnamtType", "SH").upper()
-        put_call = _find_text(row_el, "putCall", "").upper()
+    for row_el in info_doc:
+        if not isinstance(row_el.tag, str) or row_el.tag.rsplit("}", 1)[-1] != "infoTable":
+            continue
+        issuer = ""
+        title = ""
+        cusip = ""
+        val_str = "0"
+        sh_str = "0"
+        sh_type = "SH"
+        put_call = ""
+        for sub in row_el.iter():
+            if not isinstance(sub.tag, str):
+                continue
+            lname = sub.tag.rsplit("}", 1)[-1]
+            txt = sub.text.strip() if sub.text else ""
+            if not txt:
+                continue
+            if lname == "nameOfIssuer" and not issuer:
+                issuer = txt
+            elif lname == "titleOfClass" and not title:
+                title = txt
+            elif lname == "cusip" and not cusip:
+                cusip = txt.upper().zfill(9)[:9]
+            elif lname == "value":
+                val_str = txt
+            elif lname == "sshPrnamt":
+                sh_str = txt
+            elif lname == "sshPrnamtType":
+                sh_type = txt.upper()
+            elif lname == "putCall":
+                put_call = txt.upper()
 
         try:
             val = float(val_str.replace(",", ""))
@@ -236,6 +276,7 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
         })
 
     if not raw_rows:
+        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
         return None
 
     # SEC switched 13F value units from $1,000s to $1 on Jan 3, 2023.
@@ -268,7 +309,7 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
             agg[key]["valueUsd"] += val_usd
             agg[key]["shares"] += r["shares"]
 
-    return {
+    res = {
         "cik": filing["cik"],
         "entityName": filing["entityName"],
         "form": filing["form"],
@@ -278,6 +319,11 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
         "accessionNumber": filing["accessionNumber"],
         "rows": list(agg.values()),
     }
+    try:
+        parsed_cache_path.write_text(json.dumps(res, separators=(",", ":")), encoding="utf-8")
+    except Exception:
+        pass
+    return res
 
 
 def build_clean_quarterly_filings(cik: str, min_report_date: str = "2020-12-31") -> list[dict[str, Any]]:
@@ -326,120 +372,241 @@ def build_clean_quarterly_filings(cik: str, min_report_date: str = "2020-12-31")
     return cleaned
 
 
-def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 12) -> list[dict[str, Any]]:
+_ENTITY_TOKEN_RE = re.compile(
+    r"\b(llc|lp|llp|ltd|inc|corp|co|plc|pte|sa|ag|gmbh|sarl|capital|management|mgmt|"
+    r"partners|advisors|advisers|asset|assets|fund|funds|investment|investments|"
+    r"global|equity|equities|holdings|office|group|associates|ventures|strategies)\b"
+)
+
+
+def _format_entity_name(cname: str) -> str:
+    words = cname.split()
+    fmt_words = []
+    for w in words:
+        up = w.upper().rstrip(",.")
+        trail = w[len(w.rstrip(",.")):]
+        if up in ("LLC", "LP", "LLP", "LTD", "INC", "CO", "CORP"):
+            base = "Ltd." if up == "LTD" else "L.P." if up == "LP" else "Inc." if up == "INC" else up
+            fmt_w = base + ("" if base.endswith(".") and trail == "." else trail)
+        elif len(up) <= 3 and w.isupper() and up not in ("THE", "AND", "FOR"):
+            fmt_w = up + trail
+        else:
+            fmt_w = w.title()
+        fmt_words.append(fmt_w)
+    return re.sub(r"\s+,", ",", " ".join(fmt_words)).strip(" ,")
+
+
+def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 1000) -> list[dict[str, Any]]:
     """
-    Scan recent SEC EDGAR 13F-HR filings for emerging concentrated funds holding
-    flagship AI/cloud/semi names that are not yet in the curated list.
+    Scan recent SEC EDGAR 13F-HR filings via breadth-first paginated EFTS full-text
+    queries across 16 distinct AI/semiconductor/cloud/cyber/power subsector CUSIP pairs,
+    returning concentrated ($200M+ reported value) candidates not yet in the curated list.
     """
-    # Search for filings mentioning NVIDIA (67066G104) + Microsoft (594918104) or CrowdStrike (22788C105)
-    # in the most recent ~120 days
-    from datetime import datetime, timedelta, timezone
     now = datetime.now(timezone.utc)
-    start_dt = (now - timedelta(days=120)).strftime("%Y-%m-%d")
+    today_date = now.date()
+    start_dt = (now - timedelta(days=145)).strftime("%Y-%m-%d")
     end_dt = now.strftime("%Y-%m-%d")
 
     exclude_keywords = (
-        "bank", "trust", "wealth", "advisors, llc", "retirement", "insurance",
-        "pension", "university", "foundation", "bnp", "jpmorgan", "morgan stanley",
-        "goldman", "wells fargo", "ubs", "barclays", "citigroup", "royal bank",
+        "bank", "bancorp", "banco ", "banque", "banca ", "caisse", "unibanco", "trust", "wealth",
+        "financial advisor", "financial adviser", "financial planning", "financial services",
+        "financial group", "financial counsel", "private wealth", "private bank", "trust company",
+        "family wealth", "retirement", "insurance", "reinsurance", "assurance", "pension",
+        "provident", "kranot", "university", "endowment", "foundation", "brokerage", "credit union",
+        "savings", "clearing", "sovereign", "leasing", "bnp", "jpmorgan", "morgan stanley",
+        "goldman", "wells fargo", "ubs", "barclays", "citigroup", "royal bank", "natwest", "mufg",
+        "scotiabank", "sumitomo", "mitsui", "mitsubishi", "mizuho", "daiwa", "jefferies financial",
         "state street", "blackrock", "vanguard", "invesco", "schwab", "fidelity",
         "northern trust", "bny", "ameriprise", "raymond james", "edward jones",
         "stifel", "lpl", "merrill", "hsbc", "nomura", "credit suisse", "deutsche",
-        "pacific life", "prudential", "metlife", "manulife", "allianz", "axa",
+        "bochk", "pko ", "norges", "temasek", "mubadala", "korea investment", "british columbia",
+        "harvard management", "gates foundation", "pacific life", "prudential", "metlife",
+        "new york life", "nippon life", "asahi life", "empire life", "life investments",
+        "life insurance", "life asset", "cna financial", "allstate", "chubb", "travelers",
+        "aflac", "aviva", "aegon", "zurich", "manulife", "allianz", "axa", "tiaa",
+        "geode", "dimensional", "nuveen", "macquarie", "amundi", "natixis",
+        "legal & general", "schroder", "univest", "citizens & northern", "south plains financial",
     )
+
+    # Diverse AI, Semiconductor, Foundry/WFE, Cloud SaaS, Cyber, Power, Platform & Fintech CUSIP pairs
+    queries = [
+        '"67066G104" "22788C105"',   # NVDA + CRWD  (AI Compute & Cybersecurity)
+        '"67066G104" "69608A108"',   # NVDA + PLTR  (AI Compute & Enterprise AI)
+        '"67066G104" "11135F101"',   # NVDA + AVGO  (AI Silicon & Custom ASICs)
+        '"874039100" "N07059210"',   # TSM + ASML   (Foundry & EUV Lithography)
+        '"594918104" "81762P102"',   # MSFT + NOW   (Enterprise Cloud & Agentic SaaS)
+        '"30303M102" "023135106"',   # META + AMZN  (Hyperscale Platforms & AI Cloud/Ads)
+        '"02079K305" "64110L106"',   # GOOGL + NFLX (Search/AI & Streaming Platforms)
+        '"833445109" "23804L103"',   # SNOW + DDOG  (Cloud Data & Observability)
+        '"22788C105" "697435105"',   # CRWD + PANW  (Cybersecurity Platforms)
+        '"92537N108" "21037T109"',   # VRT + CEG    (AI Data Center Thermal & Power)
+        '"007903107" "040413205"',   # AMD + ANET   (Merchant GPUs & AI Switching)
+        '"595112103" "482480100"',   # MU + KLAC    (HBM Memory & Fab Process Control)
+        '"03831W108" "69608A108"',   # APP + PLTR   (Applied AI Software & AdTech)
+        '"82509L107" "G66721104"',   # SHOP + NU    (E-Commerce & Digital Fintech)
+        '"038222105" "512807306"',   # AMAT + LRCX  (Wafer Fab Equipment)
+        '"18915M107" "98980G102"',   # NET + ZS     (Edge Cloud & Zero-Trust Security)
+    ]
 
     discovered_ciks: list[tuple[str, str]] = []
     seen = set(known_ciks)
+    raw_cap = max(max_candidates * 2, 1800)
+    exhausted_queries: set[str] = set()
 
-    # Queries pairing high-conviction modern tech stocks (NVDA + CRWD, NVDA + PLTR, MSFT + AVGO)
-    queries = [
-        '"67066G104" "22788C105"',   # NVDA + CRWD
-        '"67066G104" "69608A108"',   # NVDA + PLTR
-        '"67066G104" "11135F101"',   # NVDA + AVGO
-    ]
-
-    for q_raw in queries:
-        q = urllib.parse.quote(q_raw)
-        url = (
-            f"https://efts.sec.gov/LATEST/search-index?forms=13F-HR&q={q}"
-            f"&dateRange=custom&startdt={start_dt}&enddt={end_dt}"
-        )
-        try:
-            data = fetch_json(url, cache_key=f"efts_{abs(hash(q_raw))}_{end_dt}.json", max_age_hours=12)
-        except Exception:
-            continue
-
-        for hit in data.get("hits", {}).get("hits", []):
-            src = hit.get("_source", {})
-            ciks = src.get("ciks", [])
-            names = src.get("display_names", [])
-            for cik, dname in zip(ciks, names):
-                cik10 = f"{int(cik):010d}"
-                if cik10 in seen:
-                    continue
-                low = dname.lower()
-                if any(kw in low for kw in exclude_keywords):
-                    continue
-                clean_name = dname.split("(CIK")[0].strip()
-                seen.add(cik10)
-                discovered_ciks.append((cik10, clean_name))
-                if len(discovered_ciks) >= max_candidates * 3:
-                    break
-            if len(discovered_ciks) >= max_candidates * 3:
-                break
-
-    # Quick pre-screen via submissions + latest primary_doc tableEntryTotal / tableValueTotal
-    shortlist: list[dict[str, Any]] = []
-    for cik10, cname in discovered_ciks:
-        try:
-            filings = list_13f_filings(cik10, min_report_date="2024-01-01")
-            if len(filings) < 4:
+    for page in range(5):
+        offset = page * 100
+        for q_raw in queries:
+            if q_raw in exhausted_queries or len(discovered_ciks) >= raw_cap:
                 continue
-            latest = filings[-1]
+            q = urllib.parse.quote(q_raw)
+            url = (
+                f"https://efts.sec.gov/LATEST/search-index?forms=13F-HR&q={q}"
+                f"&dateRange=custom&startdt={start_dt}&enddt={end_dt}&from={offset}&size=100"
+            )
+            q_hash = hashlib.md5(f"{q_raw}_p{page}".encode("utf-8")).hexdigest()[:12]
+            try:
+                data = fetch_json(url, cache_key=f"efts_{q_hash}_{end_dt}.json", max_age_hours=12)
+            except Exception:
+                continue
+
+            hits = data.get("hits", {}).get("hits", [])
+            if len(hits) < 100:
+                exhausted_queries.add(q_raw)
+
+            for hit in hits:
+                src = hit.get("_source", {})
+                ciks = src.get("ciks", [])
+                names = src.get("display_names", [])
+                for cik, dname in zip(ciks, names):
+                    cik10 = f"{int(cik):010d}"
+                    if cik10 in seen:
+                        continue
+                    clean_name = dname.split("(CIK")[0].strip()
+                    low = clean_name.lower()
+                    if any(kw in low for kw in exclude_keywords):
+                        seen.add(cik10)
+                        continue
+                    if not _ENTITY_TOKEN_RE.search(low.replace(".", "")):
+                        seen.add(cik10)
+                        continue
+                    seen.add(cik10)
+                    discovered_ciks.append((cik10, clean_name))
+                    if len(discovered_ciks) >= raw_cap:
+                        break
+                if len(discovered_ciks) >= raw_cap:
+                    break
+        if len(discovered_ciks) >= raw_cap or len(exhausted_queries) == len(queries):
+            break
+
+    print(f"[discovery] Collected {len(discovered_ciks)} filtered candidate CIKs from {len(queries)} subsector clusters; pre-screening...", flush=True)
+
+    # Concurrent pre-screen via submissions + latest primary_doc tableEntryTotal / tableValueTotal
+    def _prescreen_one(item: tuple[int, str, str]) -> tuple[int, dict[str, Any]] | None:
+        order_idx, cik10, cname = item
+        try:
+            sub = get_submissions(cik10)
+            ent_name = sub.get("name") or cname
+            ent_low = ent_name.lower()
+            if any(kw in ent_low for kw in exclude_keywords):
+                return None
+
+            recent = sub.get("filings", {}).get("recent", {})
+            forms = recent.get("form", [])
+            accs = recent.get("accessionNumber", [])
+            docs = recent.get("primaryDocument", [])
+            rds = recent.get("reportDate", [])
+            fds = recent.get("filingDate", [])
+
+            recent_13f: list[dict[str, Any]] = []
+            for form, acc, doc, rd, fd in zip(forms, accs, docs, rds, fds):
+                if form in ("13F-HR", "13F-HR/A") and rd:
+                    recent_13f.append({
+                        "form": form,
+                        "accessionNumber": acc,
+                        "primaryDocument": doc,
+                        "reportDate": rd,
+                        "filingDate": fd,
+                    })
+
+            if not recent_13f:
+                return None
+
+            recent_13f.sort(key=lambda x: (x["reportDate"], x["filingDate"], x["accessionNumber"]))
+            latest = recent_13f[-1]
+            latest_rd = latest["reportDate"]
+            age_days = (today_date - datetime.strptime(latest_rd, "%Y-%m-%d").date()).days
+            if age_days > 210:
+                return None
+
             acc_nd = latest["accessionNumber"].replace("-", "")
             cik_int = int(cik10)
-            idx = fetch_json(
-                f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/index.json",
-                cache_key=f"idx_{cik10}_{acc_nd}.json",
-            )
-            items = [it["name"] for it in idx.get("directory", {}).get("item", [])]
-            pdoc = next((fn for fn in items if fn.lower() == "primary_doc.xml"), None)
-            if pdoc:
-                raw = fetch_bytes(
-                    f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/{pdoc}",
-                    cache_key=f"xml_{cik10}_{acc_nd}_{pdoc}",
+            pdoc_base = (latest.get("primaryDocument") or "").split("/")[-1]
+            raw = None
+            if pdoc_base and pdoc_base.lower().endswith(".xml"):
+                try:
+                    raw = fetch_bytes(
+                        f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/{pdoc_base}",
+                        cache_key=f"xml_{cik10}_{acc_nd}_{pdoc_base}",
+                    )
+                except Exception:
+                    raw = None
+            if raw is None:
+                idx = fetch_json(
+                    f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/index.json",
+                    cache_key=f"idx_{cik10}_{acc_nd}.json",
                 )
-                root = _parse_xml_root(raw)
-                cnt = int(float(_find_text(root, "tableEntryTotal", "0") or 0))
-                val = float(_find_text(root, "tableValueTotal", "0") or 0)
-                # Concentrated ($250M+ AUM, 8-85 line items)
-                if 8 <= cnt <= 85 and val >= 250_000_000:
-                    import re
-                    words = cname.split()
-                    fmt_words = []
-                    for w in words:
-                        up = w.upper().rstrip(",.")
-                        trail = w[len(w.rstrip(",.")):]
-                        if up in ("LLC", "LP", "LLP", "LTD", "INC", "CO", "CORP"):
-                            base = "Ltd." if up == "LTD" else "L.P." if up == "LP" else "Inc." if up == "INC" else up
-                            fmt_w = base + ("" if base.endswith(".") and trail == "." else trail)
-                        elif len(up) <= 3 and w.isupper() and up not in ("THE", "AND", "FOR"):
-                            fmt_w = up + trail
-                        else:
-                            fmt_w = w.title()
-                        fmt_words.append(fmt_w)
-                    fmt_name = re.sub(r"\s+,", ",", " ".join(fmt_words)).strip(" ,")
-                    shortlist.append({
-                        "cik": cik10,
-                        "name": fmt_name,
-                        "manager": "SEC EDGAR Discovered",
-                        "hq": "United States",
-                        "styleTag": "Discovered Tech Concentrated",
-                        "strategySummary": f"Automatically surfaced from SEC EDGAR quarterly 13F scan ({cnt} filing entries, high AI/tech concentration).",
-                        "source": "EDGAR Discovered",
-                    })
-                    if len(shortlist) >= max_candidates:
-                        break
+                items = [it["name"] for it in idx.get("directory", {}).get("item", [])]
+                pdoc = next((fn for fn in items if fn.lower() == "primary_doc.xml"), None)
+                if pdoc:
+                    raw = fetch_bytes(
+                        f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/{pdoc}",
+                        cache_key=f"xml_{cik10}_{acc_nd}_{pdoc}",
+                    )
+            if not raw:
+                return None
+
+            root = _parse_xml_root(raw)
+            cnt = int(float(_find_text(root, "tableEntryTotal", "0") or 0))
+            val = float(_find_text(root, "tableValueTotal", "0") or 0)
+            # Pre-screen for $200M+ reported value and manageable entry count (allow puts/calls + up to ~450 lines)
+            if not (1 <= cnt <= 450 and val >= 200_000_000):
+                return None
+
+            # Verify >= 4 distinct quarters of 13F history since 2024-01-01 (only after structure check passes)
+            distinct_qtrs = {r["reportDate"] for r in recent_13f if r["reportDate"] >= "2024-01-01"}
+            if len(distinct_qtrs) < 4:
+                recent_fds = [d for d in fds if d]
+                oldest_recent = min(recent_fds) if recent_fds else "9999-12-31"
+                if oldest_recent > "2024-01-01":
+                    filings_full = list_13f_filings(cik10, min_report_date="2024-01-01")
+                    distinct_qtrs = {f["reportDate"] for f in filings_full}
+                if len(distinct_qtrs) < 4:
+                    return None
+
+            fmt_name = _format_entity_name(cname)
+            return order_idx, {
+                "cik": cik10,
+                "name": fmt_name,
+                "manager": "SEC EDGAR Discovered",
+                "hq": "United States",
+                "styleTag": "Discovered Tech Concentrated",
+                "strategySummary": f"Automatically surfaced from SEC EDGAR quarterly 13F scan ({cnt} filing entries, AI/tech exposure).",
+                "source": "EDGAR Discovered",
+            }
         except Exception:
-            continue
-    return shortlist
+            return None
+
+    matched: list[tuple[int, dict[str, Any]]] = []
+    work_items = [(i, cik10, cname) for i, (cik10, cname) in enumerate(discovered_ciks)]
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futs = [ex.submit(_prescreen_one, w) for w in work_items]
+        for done_cnt, fut in enumerate(as_completed(futs), 1):
+            res = fut.result()
+            if res is not None:
+                matched.append(res)
+            if done_cnt % 250 == 0 or done_cnt == len(work_items):
+                print(f"[discovery] Pre-screened {done_cnt}/{len(work_items)} CIKs ({len(matched)} passed $200M+ & structure gate)", flush=True)
+
+    matched.sort(key=lambda x: x[0])
+    return [item for _, item in matched[:max_candidates]]
+

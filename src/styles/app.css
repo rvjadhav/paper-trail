@@ -1469,12 +1469,25 @@
     padding: 0.62rem 0.68rem;
     font-size: 0.81rem;
   }
+  .controls-row {
+    max-width: 100%;
+  }
+  .segmented-group {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .seg-btn {
+    padding: 0.34rem 0.62rem;
+    font-size: 0.76rem;
+  }
   .updates-search-wrap {
     width: 100%;
+    max-width: 100%;
   }
   .search-input,
   .updates-search-input {
-    min-width: 160px;
+    min-width: 0;
     width: 100%;
+    box-sizing: border-box;
   }
 }

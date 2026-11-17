@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { Activity, Calendar, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
-import rawDataset from './data/portfolio_data.json';
+import datasetUrl from './data/portfolio_data.json?url';
 import type { PaperTrailDataset, ReturnMode, ReturnWindow } from './types/data';
 import { formatUsdCompact } from './utils/format';
 import { RankingTab } from './components/RankingTab';
@@ -10,8 +10,6 @@ import { UpdatesTab } from './components/UpdatesTab';
 import { FundDetailDrawer } from './components/FundDetailDrawer';
 
 type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'updates';
-
-const dataset = rawDataset as unknown as PaperTrailDataset;
 
 function parseHashState(): { tab: PrimaryTab; cik: string | null } {
   const h = window.location.hash.replace(/^#/, '');
@@ -23,6 +21,8 @@ function parseHashState(): { tab: PrimaryTab; cik: string | null } {
 }
 
 export function App() {
+  const [dataset, setDataset] = useState<PaperTrailDataset | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const initial = useMemo(() => parseHashState(), []);
   const [activeTab, setActiveTabState] = useState<PrimaryTab>(initial.tab);
   const [windowSize, setWindowSize] = useState<ReturnWindow>('TTM');
@@ -30,6 +30,24 @@ export function App() {
   const [selectedFundCik, setSelectedFundCikState] = useState<string | null>(initial.cik);
   const [showMethodology, setShowMethodology] = useState(false);
   const [homeResetKey, setHomeResetKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(datasetUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<PaperTrailDataset>;
+      })
+      .then((data) => {
+        if (!cancelled) setDataset(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load dataset');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const syncHash = useCallback((tab: PrimaryTab, cik: string | null) => {
     const nextHash = cik ? `#${tab}/${cik}` : `#${tab}`;
@@ -92,16 +110,17 @@ export function App() {
   }, [selectedFundCik, showMethodology, setSelectedFundCik]);
 
   const selectedFund = useMemo(
-    () => dataset.funds.find((f) => f.cik === selectedFundCik) ?? null,
-    [selectedFundCik]
+    () => dataset?.funds.find((f) => f.cik === selectedFundCik) ?? null,
+    [dataset, selectedFundCik]
   );
 
   const totalTrackedAum = useMemo(
-    () => dataset.funds.reduce((s, f) => s + f.equityAumUsd, 0),
-    []
+    () => (dataset ? dataset.funds.reduce((s, f) => s + f.equityAumUsd, 0) : 0),
+    [dataset]
   );
 
   const generatedFormatted = useMemo(() => {
+    if (!dataset) return 'Loading...';
     try {
       return new Date(dataset.metadata.generatedAt).toLocaleDateString('en-US', {
         month: 'short',
@@ -111,7 +130,44 @@ export function App() {
     } catch {
       return dataset.metadata.asOfDate;
     }
-  }, []);
+  }, [dataset]);
+
+  if (loadError) {
+    return (
+      <div className="app-shell">
+        <main className="main-content" style={{ padding: '3rem 1.25rem', textAlign: 'center' }}>
+          <h2>Unable to load 13F portfolio dataset</h2>
+          <p style={{ color: 'var(--text-secondary)' }}>{loadError}</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (!dataset) {
+    return (
+      <div className="app-shell">
+        <header className="site-header">
+          <div className="header-inner">
+            <div className="header-top">
+              <div className="brand-block">
+                <h1>
+                  <span className="brand-home-link">Paper Trail</span>
+                </h1>
+                <p className="brand-subtitle">
+                  Loading SEC Form 13F filings &amp; multi-year performance intelligence...
+                </p>
+              </div>
+            </div>
+          </div>
+        </header>
+        <main className="main-content" style={{ padding: '2.5rem 1.25rem', color: 'var(--text-secondary)' }}>
+          <div className="panel" style={{ padding: '2rem', textAlign: 'center' }}>
+            Loading institutional 13F intelligence...
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -195,7 +251,7 @@ export function App() {
             >
               <Trophy size={16} />
               <span>Ranking</span>
-              <span className="nav-count">Top 10</span>
+              <span className="nav-count">Top 75</span>
             </button>
 
             <button
@@ -328,7 +384,7 @@ export function App() {
             <div className="drawer-body" style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
               <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>1. Tech-Focused Concentrated Screening</h3>
               <p>
-                Every quarter, our pipeline combines a curated core of premier TMT/crossover managers with an automated SEC EDGAR full-text scan for emerging concentrated tech filers. Funds must maintain ≥45% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥45% or ≤75 equity positions).
+                Every quarter, our pipeline combines 100 curated AI/TMT &amp; crossover funds with an automated SEC EDGAR full-text scan across diverse tech sub-sector clusters (up to 1,000 candidates with $200M+ reported value). Qualified funds maintain ≥20% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥35% or ≤75 equity positions).
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>2. Performance Reconstruction (Quarter-End vs. 45-Day Lag)</h3>
@@ -342,7 +398,7 @@ export function App() {
 
               <h3 style={{ color: 'var(--text-primary)' }}>3. Ideal Portfolio &amp; Quarterly Updates</h3>
               <p>
-                The Ideal Portfolio selects up to 50 names (default 40) from the union of Top-10 ranked funds across all six windows, scoring each stock by manager rank × √(portfolio weight) × consensus multiplier, water-filled under an 8% position cap. The Updates tab diffs consecutive Form 13F-HR quarters across common shares, calls, and puts to highlight initiations, heavy adds, exits, put-hedge shifts, common-to-call rotations, and valuation markdowns on flat share counts.
+                The Ideal Portfolio selects up to 50 names (default 40) from the union of Top-75 ranked funds across all six windows, scoring each stock by manager rank × √(portfolio weight) × consensus multiplier, water-filled under an 8% position cap. The Updates tab diffs consecutive Form 13F-HR quarters across common shares, calls, and puts to highlight initiations, heavy adds, exits, put-hedge shifts, common-to-call rotations, and valuation markdowns on flat share counts.
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>4. Automated Quarterly Updates</h3>

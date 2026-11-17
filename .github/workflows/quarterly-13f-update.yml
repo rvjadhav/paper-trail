@@ -35,6 +35,15 @@ jobs:
       - name: Install Python pipeline dependencies
         run: pip install -r pipeline/requirements.txt
 
+      - name: Restore SEC EDGAR & Yahoo cache (scheduled/manual only)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v4
+        with:
+          path: pipeline/cache
+          key: sec-edgar-cache-v1-${{ github.run_id }}
+          restore-keys: |
+            sec-edgar-cache-v1-
+
       - name: Run SEC EDGAR 13F pipeline (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
@@ -50,9 +59,9 @@ jobs:
           assert p.exists() and p.stat().st_size >= 500_000, f"Dataset too small: {p.stat().st_size if p.exists() else 0}B"
           d = json.loads(p.read_text(encoding="utf-8"))
           m = d["metadata"]
-          assert m["qualifiedFundsCount"] >= 12, f"Too few qualified funds: {m}"
+          assert m["qualifiedFundsCount"] >= 25, f"Too few qualified funds: {m}"
           assert m["total13fFilingsProcessed"] >= 100, f"Too few filings: {m}"
-          assert len(d.get("funds", [])) >= 12, "Missing funds list"
+          assert len(d.get("funds", [])) >= 25, "Missing funds list"
           assert len(d.get("fundUpdates", [])) >= 15, "Missing fundUpdates list"
           assert len(d.get("idealPortfolio", {}).get("positions", [])) >= 15, "Missing idealPortfolio positions"
           print(f"Dataset verified: {m['qualifiedFundsCount']} funds, {m['total13fFilingsProcessed']} filings, {len(d['fundUpdates'])} updates")

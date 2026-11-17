@@ -28,7 +28,7 @@ interface UpdatesTabProps {
   onSelectFund: (cik: string) => void;
 }
 
-type UpdateFilter = 'ALL' | 'HEDGED' | 'OPTIONS_SHIFTS' | 'TOP10';
+type UpdateFilter = 'ALL' | 'HEDGED' | 'OPTIONS_SHIFTS' | 'TOP75';
 type UpdateSort = 'latest' | 'activity' | 'hedge' | 'aum';
 
 function compactShares(sh: number): string {
@@ -59,6 +59,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
   const [search, setSearch] = useState('');
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [selectedUpdateCik, setSelectedUpdateCik] = useState<string | null>(null);
+  const [visibleLimit, setVisibleLimit] = useState<number>(40);
 
   useEffect(() => {
     if (!selectedUpdateCik) return;
@@ -81,7 +82,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
       shifts: updates.filter(
         (u) => u.instrumentShifts.length > 0 || u.callLegs.length > 0 || u.putLegs.length > 0
       ).length,
-      top10: updates.filter((u) => u.isRankedTop10AnyWindow).length,
+      top75: updates.filter((u) => u.isRankedTop75AnyWindow).length,
     }),
     [updates]
   );
@@ -100,7 +101,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
         ) {
           return false;
         }
-        if (filter === 'TOP10' && !u.isRankedTop10AnyWindow) return false;
+        if (filter === 'TOP75' && !u.isRankedTop75AnyWindow) return false;
         if (selUpper && !u.allMoves.some((m) => m.ticker.toUpperCase() === selUpper)) {
           return false;
         }
@@ -142,6 +143,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
   const togglePulseTicker = (ticker: string) => {
     setSearch('');
     setSelectedTicker((prev) => (prev === ticker ? null : ticker));
+    setVisibleLimit(40);
   };
 
   const getMatchedTickerMoves = (u: FundUpdateEntry): PositionMoveItem[] => {
@@ -224,6 +226,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
               onClick={() => {
                 setSelectedTicker(null);
                 setSearch('');
+                setVisibleLimit(40);
               }}
             >
               <X size={13} /> Clear &ldquo;{selectedTicker || trimmedQuery}&rdquo;
@@ -364,14 +367,17 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
                 { id: 'ALL', label: `All (${counts.all})` },
                 { id: 'HEDGED', label: `Put Hedges (${counts.hedged})` },
                 { id: 'OPTIONS_SHIFTS', label: `Options / Shifts (${counts.shifts})` },
-                { id: 'TOP10', label: `Top 10 Ranked (${counts.top10})` },
+                { id: 'TOP75', label: `Top 75 Ranked (${counts.top75})` },
               ] as const
             ).map((opt) => (
               <button
                 key={opt.id}
                 type="button"
                 className={`seg-btn ${filter === opt.id ? 'active' : ''}`}
-                onClick={() => setFilter(opt.id)}
+                onClick={() => {
+                  setFilter(opt.id);
+                  setVisibleLimit(40);
+                }}
               >
                 {opt.label}
               </button>
@@ -404,7 +410,10 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
             <button
               type="button"
               className="action-btn primary"
-              onClick={() => setSelectedTicker(null)}
+              onClick={() => {
+                setSelectedTicker(null);
+                setVisibleLimit(40);
+              }}
               title="Clear selected ticker filter"
             >
               <span className="mono">Ticker: {selectedTicker}</span>
@@ -422,6 +431,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
               onChange={(e) => {
                 setSelectedTicker(null);
                 setSearch(e.target.value);
+                setVisibleLimit(40);
               }}
             />
           </div>
@@ -430,7 +440,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
 
       {/* Fund Update Feed Cards */}
       <div className="updates-feed">
-        {filteredUpdates.map((u) => {
+        {filteredUpdates.slice(0, visibleLimit).map((u) => {
           const matchedMoves = getMatchedTickerMoves(u);
           const hasDerivativeBook = u.currCallBookPct > 0 || u.currPutBookPct > 0 || u.prevCallBookPct > 0 || u.prevPutBookPct > 0;
           const totalMix = Math.max(0.01, u.currEquityBookPct + u.currCallBookPct + u.currPutBookPct);
@@ -461,13 +471,13 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
                     >
                       {u.deadlineBadge}
                     </span>
-                    {u.isRankedTop10AnyWindow && (
-                      <span className="chip">Top 10 ({u.top10Windows.slice(0, 2).join('/')})</span>
+                    {u.isRankedTop75AnyWindow && (
+                      <span className="chip">Top 75 ({u.rankedWindows.slice(0, 2).join('/')})</span>
                     )}
                     {!u.inRankings && (
                       <span
                         className="chip"
-                        title="Tracked in Quarterly Updates watchlist (excluded from long-equity Top 10 Ranking screen due to option weight, fewer than 7 common holdings, or non-tech equity threshold)"
+                        title="Tracked in Quarterly Updates watchlist (excluded from long-equity Top 75 Ranking screen due to option weighting or Tech/TMT & concentration thresholds)"
                       >
                         Curated Watchlist
                       </span>
@@ -732,6 +742,25 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
             </article>
           );
         })}
+
+        {filteredUpdates.length > visibleLimit && (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', padding: '0.5rem 0 0.75rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="action-btn primary"
+              onClick={() => setVisibleLimit((v) => v + 40)}
+            >
+              Show Next {Math.min(40, filteredUpdates.length - visibleLimit)} Updates ({filteredUpdates.length - visibleLimit} remaining)
+            </button>
+            <button
+              type="button"
+              className="action-btn"
+              onClick={() => setVisibleLimit(filteredUpdates.length)}
+            >
+              Show All {filteredUpdates.length}
+            </button>
+          </div>
+        )}
 
         {filteredUpdates.length === 0 && (
           <div className="panel" style={{ padding: '2.5rem 1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>

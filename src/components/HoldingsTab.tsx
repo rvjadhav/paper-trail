@@ -108,7 +108,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         <div className="section-title-group">
           <h2>Top 30 Consensus Holdings Across All Ranked Funds</h2>
           <p>
-            Aggregated across all {poolSize} funds that place in the Top 10 of any window (YTD, TTM, 18M, 2Y, 3Y, 5Y). Expand any row for every holder&apos;s exact weight.
+            Aggregated across all {poolSize} funds that place in the Top 75 of any window (YTD, TTM, 18M, 2Y, 3Y, 5Y). Expand any row for every holder&apos;s exact weight.
           </p>
         </div>
 
@@ -165,7 +165,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         <div className="metric-card">
           <div className="metric-label">Combined Capital Deployed</div>
           <div className="metric-value">{formatUsdCompact(totalTop30Usd)}</div>
-          <div className="metric-sub">Across {poolSize} Top-10 ranked tech funds</div>
+          <div className="metric-sub">Across {poolSize} Top-75 ranked tech funds</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Highest Conviction Ownership</div>
@@ -377,7 +377,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                                     {h.fundName}
                                   </button>
                                   <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                                    {formatUsdCompact(h.valueUsd)} · Top 10 in: {h.top10Windows.join(', ') || 'Pool'}
+                                    {formatUsdCompact(h.valueUsd)} · Top 75 in: {h.rankedWindows.join(', ') || 'Pool'}
                                   </div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
