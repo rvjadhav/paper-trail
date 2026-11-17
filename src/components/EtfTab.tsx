@@ -9,15 +9,22 @@ interface EtfTabProps {
   onSelectFund: (cik: string) => void;
 }
 
-type CorrMetric = 'cosine' | 'returnCorr' | 'overlap';
+type CorrMetric = 'overlap' | 'cosine' | 'returnCorr';
 
 export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
   const [selectedFundCik, setSelectedFundCik] = useState<string>('ALL');
-  const [metric, setMetric] = useState<CorrMetric>('cosine');
+  const [metric, setMetric] = useState<CorrMetric>('overlap');
   const [search, setSearch] = useState('');
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const metricValue = (m: EtfEntry['bestMatch']) =>
+      metric === 'overlap'
+        ? m.weightOverlapPct
+        : metric === 'returnCorr'
+          ? m.returnCorrelationPct ?? -999
+          : m.cosineSimilarityPct;
+
     return etfs
       .filter((e) => {
         if (!q) return true;
@@ -32,16 +39,10 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
       .map((etf) => {
         const focusMatch =
           selectedFundCik === 'ALL'
-            ? etf.bestMatch
+            ? [...etf.fundMatches].sort((a, b) => metricValue(b) - metricValue(a))[0] ?? etf.bestMatch
             : etf.fundMatches.find((m) => m.cik === selectedFundCik) ?? etf.bestMatch;
 
-        const score =
-          metric === 'cosine'
-            ? focusMatch.cosineSimilarityPct
-            : metric === 'returnCorr'
-              ? focusMatch.returnCorrelationPct ?? -999
-              : focusMatch.weightOverlapPct;
-
+        const score = metricValue(focusMatch);
         return { etf, focusMatch, score };
       })
       .sort((a, b) => b.score - a.score);
@@ -59,6 +60,20 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
   };
 
   const bestOverall = rows[0];
+  const metricLabel =
+    metric === 'overlap'
+      ? 'Weight Overlap'
+      : metric === 'returnCorr'
+        ? '1Y Return Correlation'
+        : 'Holdings Match';
+
+  const bestScorePct = bestOverall
+    ? metric === 'overlap'
+      ? bestOverall.focusMatch.weightOverlapPct
+      : metric === 'returnCorr'
+        ? bestOverall.focusMatch.returnCorrelationPct
+        : bestOverall.focusMatch.cosineSimilarityPct
+    : null;
 
   return (
     <section aria-label="Similar ETFs and Fund Correlations">
@@ -89,6 +104,16 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
           <div className="segmented-group" role="group" aria-label="Correlation metric">
             <button
               type="button"
+              id="etf-metric-overlap"
+              className={`seg-btn ${metric === 'overlap' ? 'active' : ''}`}
+              onClick={() => setMetric('overlap')}
+              title="Sum of minimum overlapping portfolio weights"
+            >
+              Weight Overlap %
+            </button>
+            <button
+              type="button"
+              id="etf-metric-cosine"
               className={`seg-btn ${metric === 'cosine' ? 'active' : ''}`}
               onClick={() => setMetric('cosine')}
               title="Portfolio weight vector cosine similarity (0–100%)"
@@ -97,19 +122,12 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
             </button>
             <button
               type="button"
+              id="etf-metric-corr"
               className={`seg-btn ${metric === 'returnCorr' ? 'active' : ''}`}
               onClick={() => setMetric('returnCorr')}
               title="1-Year daily return Pearson correlation %"
             >
               Return Corr %
-            </button>
-            <button
-              type="button"
-              className={`seg-btn ${metric === 'overlap' ? 'active' : ''}`}
-              onClick={() => setMetric('overlap')}
-              title="Sum of minimum overlapping portfolio weights"
-            >
-              Weight Overlap %
             </button>
           </div>
         </div>
@@ -118,11 +136,11 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
       {/* KPI Summary */}
       <div className="metrics-strip">
         <div className="metric-card">
-          <div className="metric-label">Highest Similarity ETF</div>
+          <div className="metric-label">Highest {metricLabel} ETF</div>
           <div className="metric-value">
             {bestOverall ? bestOverall.etf.ticker : '—'}{' '}
             <span style={{ fontSize: '0.95rem', color: 'var(--accent-primary)' }}>
-              {bestOverall ? formatPct(bestOverall.focusMatch.cosineSimilarityPct, 1) : ''}
+              {bestScorePct !== null ? formatPct(bestScorePct, 1) : ''}
             </span>
           </div>
           <div className="metric-sub">
@@ -149,19 +167,26 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
         <div className="metric-card">
           <div className="metric-label">Top Ideal Portfolio ETF Proxy</div>
           {(() => {
-            const bestIdeal = [...etfs].sort(
-              (a, b) => b.idealPortfolioMatch.cosineSimilarityPct - a.idealPortfolioMatch.cosineSimilarityPct
-            )[0];
+            const idealVal = (e: EtfEntry) =>
+              metric === 'overlap'
+                ? e.idealPortfolioMatch.weightOverlapPct
+                : metric === 'returnCorr'
+                  ? e.idealPortfolioMatch.returnCorrelationPct ?? -999
+                  : e.idealPortfolioMatch.cosineSimilarityPct;
+            const bestIdeal = [...etfs].sort((a, b) => idealVal(b) - idealVal(a))[0];
+            const bestIdealPct = bestIdeal ? idealVal(bestIdeal) : null;
             return (
               <>
                 <div className="metric-value">
                   {bestIdeal ? bestIdeal.ticker : '—'}{' '}
                   <span style={{ fontSize: '0.95rem', color: 'var(--pos-text)' }}>
-                    {bestIdeal ? `${bestIdeal.idealPortfolioMatch.cosineSimilarityPct.toFixed(1)}%` : ''}
+                    {bestIdealPct !== null && bestIdealPct > -900 ? `${bestIdealPct.toFixed(1)}%` : ''}
                   </span>
                 </div>
                 <div className="metric-sub">
-                  {bestIdeal ? `Return corr: ${bestIdeal.idealPortfolioMatch.returnCorrelationPct ?? '—'}%` : '—'}
+                  {bestIdeal
+                    ? `Overlap: ${bestIdeal.idealPortfolioMatch.weightOverlapPct.toFixed(1)}% · Corr: ${bestIdeal.idealPortfolioMatch.returnCorrelationPct ?? '—'}%`
+                    : '—'}
                 </div>
               </>
             );
@@ -198,17 +223,17 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
                 <th>Category</th>
                 <th className="num">ETF TTM</th>
                 <th>Similar Fund</th>
-                <th className="num">Holdings Match %</th>
-                <th className="num">Return Corr %</th>
-                <th className="num">Overlap</th>
-                <th>Shared Top Holdings (ETF / Fund)</th>
+                <th className={`num ${metric === 'overlap' ? 'active-col' : ''}`}>Overlap %</th>
+                <th className={`num ${metric === 'cosine' ? 'active-col' : ''}`}>Match %</th>
+                <th className={`num ${metric === 'returnCorr' ? 'active-col' : ''}`}>Corr %</th>
+                <th>Shared Holdings (ETF / Fund)</th>
                 <th>Also Similar To</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(({ etf, focusMatch }) => (
                 <tr key={etf.ticker}>
-                  <td style={{ minWidth: '140px', maxWidth: '210px' }}>
+                  <td style={{ minWidth: '130px', maxWidth: '195px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <span className="ticker-badge">{etf.ticker}</span>
                       <span style={{ fontWeight: 600, fontSize: '0.82rem' }}>{etf.name}</span>
@@ -238,9 +263,34 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
                     </button>
                   </td>
 
-                  <td className="num">
+                  <td className={`num ${metric === 'overlap' ? 'active-col' : ''}`}>
                     <div className="weight-cell">
-                      <span className="mono" style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '0.9rem' }}>
+                      <span
+                        className="mono"
+                        style={{
+                          fontWeight: metric === 'overlap' ? 700 : 600,
+                          color: metric === 'overlap' ? 'var(--accent-primary)' : 'var(--text-primary)',
+                          fontSize: metric === 'overlap' ? '0.9rem' : '0.84rem',
+                        }}
+                      >
+                        {focusMatch.weightOverlapPct.toFixed(1)}%
+                      </span>
+                      <div className="bar-track" style={{ width: '54px' }}>
+                        <div className="bar-fill" style={{ width: `${Math.min(100, focusMatch.weightOverlapPct)}%` }} />
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className={`num ${metric === 'cosine' ? 'active-col' : ''}`}>
+                    <div className="weight-cell">
+                      <span
+                        className="mono"
+                        style={{
+                          fontWeight: metric === 'cosine' ? 700 : 600,
+                          color: metric === 'cosine' ? 'var(--accent-primary)' : 'var(--text-primary)',
+                          fontSize: metric === 'cosine' ? '0.9rem' : '0.84rem',
+                        }}
+                      >
                         {focusMatch.cosineSimilarityPct.toFixed(1)}%
                       </span>
                       <div className="bar-track" style={{ width: '54px' }}>
@@ -249,15 +299,13 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
                     </div>
                   </td>
 
-                  <td className="num mono">
-                    <strong>
+                  <td className={`num mono ${metric === 'returnCorr' ? 'active-col' : ''}`}>
+                    <strong style={{ color: metric === 'returnCorr' ? 'var(--accent-primary)' : 'inherit' }}>
                       {focusMatch.returnCorrelationPct !== null
                         ? `${focusMatch.returnCorrelationPct.toFixed(1)}%`
                         : '—'}
                     </strong>
                   </td>
-
-                  <td className="num mono">{focusMatch.weightOverlapPct.toFixed(1)}%</td>
 
                   <td style={{ maxWidth: '235px' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.22rem' }}>
@@ -278,20 +326,43 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
 
                   <td style={{ maxWidth: '175px' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.22rem' }}>
-                      {etf.fundMatches
+                      {[...etf.fundMatches]
                         .filter((m) => m.cik !== focusMatch.cik)
+                        .sort((a, b) => {
+                          const va =
+                            metric === 'overlap'
+                              ? a.weightOverlapPct
+                              : metric === 'returnCorr'
+                                ? a.returnCorrelationPct ?? -999
+                                : a.cosineSimilarityPct;
+                          const vb =
+                            metric === 'overlap'
+                              ? b.weightOverlapPct
+                              : metric === 'returnCorr'
+                                ? b.returnCorrelationPct ?? -999
+                                : b.cosineSimilarityPct;
+                          return vb - va;
+                        })
                         .slice(0, 2)
-                        .map((m) => (
-                          <button
-                            key={m.cik}
-                            type="button"
-                            className="chip clickable"
-                            onClick={() => onSelectFund(m.cik)}
-                          >
-                            <span>{m.fundName.split(' ')[0]}</span>
-                            <strong className="mono">{m.cosineSimilarityPct.toFixed(0)}%</strong>
-                          </button>
-                        ))}
+                        .map((m) => {
+                          const val =
+                            metric === 'overlap'
+                              ? m.weightOverlapPct
+                              : metric === 'returnCorr'
+                                ? m.returnCorrelationPct
+                                : m.cosineSimilarityPct;
+                          return (
+                            <button
+                              key={m.cik}
+                              type="button"
+                              className="chip clickable"
+                              onClick={() => onSelectFund(m.cik)}
+                            >
+                              <span>{m.fundName.split(' ')[0]}</span>
+                              <strong className="mono">{val !== null ? `${val.toFixed(0)}%` : '—'}</strong>
+                            </button>
+                          );
+                        })}
                     </div>
                   </td>
                 </tr>
@@ -363,7 +434,7 @@ export const EtfTab: FC<EtfTabProps> = ({ etfs, funds, onSelectFund }) => {
                         key={f.cik}
                         className="matrix-cell"
                         style={{ backgroundColor: cellBg(val) }}
-                        title={`${etf.ticker} vs ${f.name}: Holdings Match ${m?.cosineSimilarityPct ?? 0}%, Return Corr ${m?.returnCorrelationPct ?? 'N/A'}%`}
+                        title={`${etf.ticker} vs ${f.name}: Weight Overlap ${m?.weightOverlapPct ?? 0}%, Holdings Match ${m?.cosineSimilarityPct ?? 0}%, Return Corr ${m?.returnCorrelationPct ?? 'N/A'}%`}
                       >
                         {val !== null ? `${val.toFixed(1)}%` : '—'}
                       </td>
