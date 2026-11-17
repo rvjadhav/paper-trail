@@ -109,6 +109,23 @@
   color: var(--text-primary);
 }
 
+.brand-home-link {
+  color: inherit;
+  text-decoration: none;
+  display: inline-block;
+  border-radius: 8px;
+  transition: color 0.16s ease;
+}
+
+.brand-home-link:hover {
+  color: var(--accent-primary);
+}
+
+.brand-home-link:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 4px;
+}
+
 .brand-subtitle {
   margin: 0.35rem 0 0;
   font-size: 0.92rem;

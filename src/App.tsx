@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { Activity, Calendar, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
 import rawDataset from './data/portfolio_data.json';
 import type { PaperTrailDataset, ReturnMode, ReturnWindow } from './types/data';
@@ -29,6 +29,7 @@ export function App() {
   const [mode, setMode] = useState<ReturnMode>('quarter_end');
   const [selectedFundCik, setSelectedFundCikState] = useState<string | null>(initial.cik);
   const [showMethodology, setShowMethodology] = useState(false);
+  const [homeResetKey, setHomeResetKey] = useState(0);
 
   const syncHash = useCallback((tab: PrimaryTab, cik: string | null) => {
     const nextHash = cik ? `#${tab}/${cik}` : `#${tab}`;
@@ -52,6 +53,23 @@ export function App() {
     },
     [activeTab, syncHash]
   );
+
+  const goHome = useCallback((e?: MouseEvent<HTMLAnchorElement>) => {
+    if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) {
+      return;
+    }
+    e?.preventDefault();
+    setSelectedFundCikState(null);
+    setShowMethodology(false);
+    setActiveTabState('ranking');
+    setWindowSize('TTM');
+    setMode('quarter_end');
+    setHomeResetKey((k) => k + 1);
+    if (window.location.hash) {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -136,7 +154,17 @@ export function App() {
         <div className="header-inner">
           <div className="header-top">
             <div className="brand-block">
-              <h1>Paper Trail</h1>
+              <h1>
+                <a
+                  id="brand-home-link"
+                  href="./"
+                  className="brand-home-link"
+                  onClick={goHome}
+                  aria-label="Paper Trail home"
+                >
+                  Paper Trail
+                </a>
+              </h1>
               <p className="brand-subtitle">
                 Following the SEC Form 13F paper trail across concentrated technology &amp; TMT funds to gain conviction and insight.
               </p>
@@ -210,6 +238,7 @@ export function App() {
       <main className="main-content">
         {activeTab === 'ranking' && (
           <RankingTab
+            key={homeResetKey}
             funds={dataset.funds}
             rankings={dataset.rankings}
             benchmarks={dataset.benchmarks}
