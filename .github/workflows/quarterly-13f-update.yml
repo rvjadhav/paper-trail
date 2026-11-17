@@ -75,7 +75,7 @@ jobs:
               tickers_csv = ", ".join(f"{c['ticker']} ({c['cusip']})" for c in urgent[:6])
               print(
                   f"::warning title=Discovery Seed Radar: Add {len(urgent)} Emerging Must-Hold Stocks to DISCOVERY_SEED_PAIRS"
-                  f"::Top-75 funds surged into unseeded Tech/TMT names: {tickers_csv}. Review pipeline/funds_config.py or open Methodology -> Discovery Seed Radar."
+                  f"::Top-100 funds surged into unseeded Tech/TMT names: {tickers_csv}. Review pipeline/funds_config.py or open Methodology -> Discovery Seed Radar."
               )
           if stale:
               stale_csv = ", ".join(s["ticker"] for s in stale)
@@ -85,7 +85,7 @@ jobs:
           if summary_path:
               lines = [
                   f"## Paper Trail 13F Pipeline Summary ({m.get('latestQuarterCovered', '')})",
-                  f"- **Qualified Funds:** {m['qualifiedFundsCount']} | **Filings:** {m['total13fFilingsProcessed']} | **EFTS Seed Pairs:** {wl.get('seedPairCount', 28)}",
+                  f"- **Qualified Funds:** {m['qualifiedFundsCount']} | **Filings:** {m['total13fFilingsProcessed']} | **EFTS Seed Pairs:** {wl.get('seedPairCount', 38)}",
               ]
               if cands:
                   lines.extend([
@@ -93,7 +93,7 @@ jobs:
                       f"### Discovery Seed Radar ({len(cands)} Unseeded Breakout Tech/TMT Stocks, {len(urgent)} Urgent)",
                       "Consider appending high-conviction disruptors below to `DISCOVERY_SEED_PAIRS` in `pipeline/funds_config.py`:",
                       "",
-                      "| Tier | Ticker | CUSIP | Holders (Top-75 / All) | QoQ New + Heavy Adds | TTM | Suggested Seed Pair |",
+                      "| Tier | Ticker | CUSIP | Holders (Top-100 / All) | QoQ New + Heavy Adds | TTM | Suggested Seed Pair |",
                       "|---|---|---|---|---|---|---|",
                   ])
                   for c in cands:

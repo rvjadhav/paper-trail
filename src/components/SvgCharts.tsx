@@ -19,8 +19,11 @@ export const MiniSparkline: FC<MiniSparklineProps> = ({
     return <span className="ret-muted mono">—</span>;
   }
 
-  // Show trailing ~1Y (approx 52 weekly samples) for crisp sparkline legibility
-  const slice = points.slice(-60);
+  // Show trailing ~1Y by date so weekly and compacted biweekly curves span an identical 1Y window
+  const lastDate = points[points.length - 1].date;
+  const oneYearCutoff = `${Number(lastDate.slice(0, 4)) - 1}${lastDate.slice(4)}`;
+  const trailingYear = points.filter((p) => p.date >= oneYearCutoff);
+  const slice = trailingYear.length >= 2 ? trailingYear : points.slice(-60);
   const vals = slice.map((p) => p.nav);
   const minV = Math.min(...vals);
   const maxV = Math.max(...vals);

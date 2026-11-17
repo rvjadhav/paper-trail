@@ -269,7 +269,7 @@ export interface FundUpdateEntry {
   styleTag: string;
   source: 'Curated Core' | 'EDGAR Discovered';
   inRankings: boolean;
-  isRankedTop75AnyWindow: boolean;
+  isRankedTop100AnyWindow: boolean;
   rankedWindows: ReturnWindow[];
 
   quarterLabel: string;

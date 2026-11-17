@@ -100,6 +100,13 @@
     "sector": "Industrials",
     "ticker": "AIR"
   },
+  "000371847": {
+    "industry": "Leisure",
+    "isTechTmt": false,
+    "name": "Games Workshop Group PLC",
+    "sector": "Consumer Cyclical",
+    "ticker": "GMWKF"
+  },
   "000375204": {
     "industry": "Electrical Equipment & Parts",
     "isTechTmt": false,
@@ -113,6 +120,13 @@
     "name": "Citigroup Global Markets Holdings Inc. Point to Point Buffer Note ABCAMXX",
     "sector": "Other",
     "ticker": "ABCAMXX"
+  },
+  "00039J103": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "AB Ultra Short Income ETF",
+    "sector": "Other",
+    "ticker": "YEAR"
   },
   "00039J202": {
     "industry": "",
@@ -177,6 +191,13 @@
     "sector": "Other",
     "ticker": "TAFM"
   },
+  "000454492": {
+    "industry": "Tobacco",
+    "isTechTmt": false,
+    "name": "Imperial Brands PLC",
+    "sector": "Consumer Defensive",
+    "ticker": "IMBBY"
+  },
   "000490656": {
     "displaySymbol": "KERRYG",
     "industry": "",
@@ -208,6 +229,13 @@
     "name": "Nutrien Ltd.",
     "sector": "Basic Materials",
     "ticker": "NTR"
+  },
+  "000677608": {
+    "industry": "Publishing",
+    "isTechTmt": false,
+    "name": "Pearson plc",
+    "sector": "Communication Services",
+    "ticker": "PSO"
   },
   "000755105": {
     "industry": "Aerospace & Defense",
@@ -367,6 +395,13 @@
     "sector": "Communication Services",
     "ticker": "NBIS"
   },
+  "000989529": {
+    "industry": "Drug Manufacturers\u2014General",
+    "isTechTmt": false,
+    "name": "AstraZeneca PLC",
+    "sector": "Healthcare",
+    "ticker": "AZN"
+  },
   "000BM93SF": {
     "industry": "Electronic Gaming & Multimedia",
     "isTechTmt": true,
@@ -477,6 +512,13 @@
     "name": "monday.com Ltd.",
     "sector": "Technology",
     "ticker": "MNDY"
+  },
+  "001221175": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Intesa Sanpaolo S.p.A.",
+    "sector": "Financial Services",
+    "ticker": "ISNPY"
   },
   "001228105": {
     "industry": "REIT\u2014Mortgage",
@@ -695,6 +737,27 @@
     "name": "ALPS Disruptive Technologies ETF",
     "sector": "Other",
     "ticker": "DTEC"
+  },
+  "00162Q510": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ALPS Active Equity Opportunity ETF",
+    "sector": "Other",
+    "ticker": "RFFC"
+  },
+  "00162Q528": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ALPS Dynamic US Dividend Advantage ETF",
+    "sector": "Other",
+    "ticker": "RFDA"
+  },
+  "00162Q536": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ALPS Dynamic Core Income ETF",
+    "sector": "Other",
+    "ticker": "RFCI"
   },
   "00162Q593": {
     "industry": "",
@@ -1105,6 +1168,13 @@
     "ticker": "CUSIP:00216W117",
     "unpriced": true
   },
+  "002171573": {
+    "industry": "Oil & Gas E&P",
+    "isTechTmt": false,
+    "name": "Canadian Natural Resources Limited",
+    "sector": "Energy",
+    "ticker": "CNQ"
+  },
   "00217D100": {
     "industry": "Communication Equipment",
     "isTechTmt": true,
@@ -1279,12 +1349,35 @@
     "sector": "Healthcare",
     "ticker": "AARD"
   },
+  "002945422": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "WEG S.A.",
+    "sector": "Industrials",
+    "ticker": "WEGZY"
+  },
   "003009107": {
     "industry": "Asset Management",
     "isTechTmt": false,
     "name": "Abrdn Asia-Pacific Income Fund Inc",
     "sector": "Financial Services",
     "ticker": "FAX"
+  },
+  "003009867": {
+    "industry": "Asset Management",
+    "isTechTmt": false,
+    "name": "Abrdn Asia-Pacific Income Fund Inc",
+    "sector": "Financial Services",
+    "ticker": "FAX"
+  },
+  "003013109": {
+    "displaySymbol": "ABERDE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Aberdeen Standard Global Infrastructure Income",
+    "sector": "Other",
+    "ticker": "CUSIP:003013109",
+    "unpriced": true
   },
   "00301W105": {
     "industry": "Asset Management",
@@ -1294,6 +1387,13 @@
     "ticker": "AEF"
   },
   "00302L108": {
+    "industry": "Asset Management",
+    "isTechTmt": false,
+    "name": "abrdn Global Premier Properties Fund",
+    "sector": "Financial Services",
+    "ticker": "AWP"
+  },
+  "00302L207": {
     "industry": "Asset Management",
     "isTechTmt": false,
     "name": "abrdn Global Premier Properties Fund",
@@ -1328,6 +1428,20 @@
     "sector": "Consumer Cyclical",
     "ticker": "AMZN"
   },
+  "003163836": {
+    "industry": "Specialty Business Services",
+    "isTechTmt": false,
+    "name": "Intertek Group plc",
+    "sector": "Industrials",
+    "ticker": "IKTSY"
+  },
+  "003208986": {
+    "industry": "Oil & Gas Equipment & Services",
+    "isTechTmt": false,
+    "name": "NextDecade Corporation",
+    "sector": "Energy",
+    "ticker": "NEXT"
+  },
   "003260106": {
     "industry": "",
     "isTechTmt": false,
@@ -1348,6 +1462,15 @@
     "name": "abrdn Bloomberg All Commodity Longer Dated Strategy K-1 Free ETF",
     "sector": "Other",
     "ticker": "BCD"
+  },
+  "003261609": {
+    "displaySymbol": "ABRDNE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ABRDN ETFS",
+    "sector": "Other",
+    "ticker": "CUSIP:003261609",
+    "unpriced": true
   },
   "003262102": {
     "industry": "",
@@ -1533,6 +1656,13 @@
     "name": "Acadia Realty Trust",
     "sector": "Real Estate",
     "ticker": "AKR"
+  },
+  "004247494": {
+    "industry": "Auto & Truck Dealerships",
+    "isTechTmt": false,
+    "name": "D'Ieteren Group SA",
+    "sector": "Consumer Cyclical",
+    "ticker": "SIEVF"
   },
   "004285102": {
     "displaySymbol": "ACAMAR",
@@ -1748,6 +1878,20 @@
     "sector": "Industrials",
     "ticker": "ACLLY"
   },
+  "004525189": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "W\u00e4rtsil\u00e4 Oyj Abp",
+    "sector": "Other",
+    "ticker": "WRT1VH-XC"
+  },
+  "004595739": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Genmab A/S",
+    "sector": "Healthcare",
+    "ticker": "GMAB"
+  },
   "00461E107": {
     "industry": "",
     "isTechTmt": false,
@@ -1795,6 +1939,20 @@
     "name": "AstraZeneca PLC",
     "sector": "Healthcare",
     "ticker": "AZN"
+  },
+  "004661607": {
+    "industry": "Utilities\u2014Renewable",
+    "isTechTmt": false,
+    "name": "VERBUND AG",
+    "sector": "Other",
+    "ticker": "VER-VI"
+  },
+  "004732495": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Telenor ASA",
+    "sector": "Communication Services",
+    "ticker": "TELNY"
   },
   "004816104": {
     "industry": "Household & Personal Products",
@@ -1888,6 +2046,13 @@
     "ticker": "CUSIP:005029202",
     "unpriced": true
   },
+  "005051605": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Hellenic Telecommunications Organization S.A.",
+    "sector": "Communication Services",
+    "ticker": "HLTOY"
+  },
   "00507V109": {
     "displaySymbol": "ACTIVI",
     "industry": "",
@@ -1962,6 +2127,13 @@
     "sector": "Healthcare",
     "ticker": "AFIB"
   },
+  "005208241": {
+    "industry": "Aerospace & Defense",
+    "isTechTmt": false,
+    "name": "Kongsberg Gruppen ASA",
+    "sector": "Industrials",
+    "ticker": "KBGGY"
+  },
   "005329107": {
     "industry": "Biotechnology",
     "isTechTmt": false,
@@ -2008,6 +2180,41 @@
     "sector": "Financial Services",
     "ticker": "PEO"
   },
+  "005633962": {
+    "industry": "Software\u2014Application",
+    "isTechTmt": true,
+    "name": "Nemetschek SE",
+    "sector": "Technology",
+    "ticker": "NEMTF"
+  },
+  "005671519": {
+    "industry": "Specialty Business Services",
+    "isTechTmt": false,
+    "name": "Wolters Kluwer N.V.",
+    "sector": "Industrials",
+    "ticker": "WTKWY"
+  },
+  "005687431": {
+    "industry": "Apparel Manufacturing",
+    "isTechTmt": false,
+    "name": "H & M Hennes & Mauritz AB (publ)",
+    "sector": "Consumer Cyclical",
+    "ticker": "HNNMY"
+  },
+  "005806225": {
+    "industry": "Grocery Stores",
+    "isTechTmt": false,
+    "name": "Colruyt Group N.V.",
+    "sector": "Consumer Defensive",
+    "ticker": "CUYTY"
+  },
+  "005842359": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Deutsche Telekom AG",
+    "sector": "Communication Services",
+    "ticker": "DTEGY"
+  },
   "005843329": {
     "displaySymbol": "SARTOR",
     "industry": "",
@@ -2017,12 +2224,114 @@
     "ticker": "CUSIP:005843329",
     "unpriced": true
   },
+  "005881857": {
+    "displaySymbol": "CTSEVE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CTS Eventim AG & Co. KGaA",
+    "sector": "Other",
+    "ticker": "CUSIP:005881857",
+    "unpriced": true
+  },
+  "005956078": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Koninklijke KPN N.V.",
+    "sector": "Communication Services",
+    "ticker": "KKPNY"
+  },
+  "006005214": {
+    "industry": "Communication Equipment",
+    "isTechTmt": false,
+    "name": "Accton Technology Corporation",
+    "sector": "Other",
+    "ticker": "2345-TW"
+  },
+  "006086253": {
+    "industry": "Other Industrial Metals & Mining",
+    "isTechTmt": false,
+    "name": "Fortescue Metals Group Ltd",
+    "sector": "Other",
+    "ticker": "FVJ-SG"
+  },
+  "006087289": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Telstra Group Limited",
+    "sector": "Communication Services",
+    "ticker": "TLGPY"
+  },
+  "006105578": {
+    "industry": "Pharmaceutical Retailers",
+    "isTechTmt": false,
+    "name": "Clicks Group Limited",
+    "sector": "Healthcare",
+    "ticker": "CLCGY"
+  },
+  "006125286": {
+    "industry": "Software\u2014Infrastructure",
+    "isTechTmt": true,
+    "name": "Trend Micro Incorporated",
+    "sector": "Technology",
+    "ticker": "TMICY"
+  },
+  "006144690": {
+    "industry": "Other Industrial Metals & Mining",
+    "isTechTmt": false,
+    "name": "BHP Group Limited",
+    "sector": "Basic Materials",
+    "ticker": "BHP"
+  },
+  "006180412": {
+    "industry": "Capital Markets",
+    "isTechTmt": false,
+    "name": "Computershare Limited",
+    "sector": "Financial Services",
+    "ticker": "CMSQY"
+  },
+  "006198578": {
+    "industry": "REIT\u2014Retail",
+    "isTechTmt": false,
+    "name": "Kite Realty Group Trust",
+    "sector": "Real Estate",
+    "ticker": "KRG"
+  },
   "006212104": {
     "industry": "Asset Management",
     "isTechTmt": false,
     "name": "Adams Diversified Equity Fund, Inc.",
     "sector": "Financial Services",
     "ticker": "ADX"
+  },
+  "006260734": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "Delta Electronics (Thailand) Public Company Limited",
+    "sector": "Industrials",
+    "ticker": "DLEGF"
+  },
+  "006303866": {
+    "industry": "Financial Data & Stock Exchanges",
+    "isTechTmt": false,
+    "name": "Singapore Exchange Limited",
+    "sector": "Financial Services",
+    "ticker": "SPXCY"
+  },
+  "006332439": {
+    "industry": "Apparel Retail",
+    "isTechTmt": false,
+    "name": "Fast Retailing Co., Ltd.",
+    "sector": "Consumer Cyclical",
+    "ticker": "FRCOY"
+  },
+  "006344456": {
+    "displaySymbol": "LGHOUS",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "LG HOUSEHOLD&HEALT",
+    "sector": "Other",
+    "ticker": "CUSIP:006344456",
+    "unpriced": true
   },
   "006351308": {
     "displaySymbol": "ADAMSR",
@@ -2039,6 +2348,29 @@
     "name": "Fanuc Corporation",
     "sector": "Industrials",
     "ticker": "FANUY"
+  },
+  "006372480": {
+    "industry": "Semiconductors",
+    "isTechTmt": true,
+    "name": "MediaTek Inc.",
+    "sector": "Other",
+    "ticker": "2454-TW"
+  },
+  "006390921": {
+    "industry": "Information Technology Services",
+    "isTechTmt": true,
+    "name": "Nomura Research Institute, Ltd.",
+    "sector": "Technology",
+    "ticker": "NRILY"
+  },
+  "006440859": {
+    "displaySymbol": "CAPITE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Capitec Bank Holdings Limited",
+    "sector": "Other",
+    "ticker": "CUSIP:006440859",
+    "unpriced": true
   },
   "006455819": {
     "industry": "Marine Shipping",
@@ -2105,6 +2437,13 @@
     "ticker": "CUSIP:006639550",
     "unpriced": true
   },
+  "006704986": {
+    "industry": "Grocery Stores",
+    "isTechTmt": false,
+    "name": "President Chain Store Corporation",
+    "sector": "Other",
+    "ticker": "2912-TW"
+  },
   "006739106": {
     "industry": "Medical Care Facilities",
     "isTechTmt": false,
@@ -2132,6 +2471,20 @@
     "name": "Abacus Global Management, Inc.",
     "sector": "Financial Services",
     "ticker": "ABX"
+  },
+  "006811734": {
+    "industry": "Airlines",
+    "isTechTmt": false,
+    "name": "Singapore Airlines Limited",
+    "sector": "Industrials",
+    "ticker": "SINGY"
+  },
+  "006821120": {
+    "industry": "Diagnostics & Research",
+    "isTechTmt": false,
+    "name": "Sonic Healthcare Limited",
+    "sector": "Healthcare",
+    "ticker": "SKHHY"
   },
   "00686R102": {
     "industry": "Biotechnology",
@@ -2164,6 +2517,13 @@
     "sector": "Other",
     "ticker": "CUSIP:00688A304",
     "unpriced": true
+  },
+  "006948836": {
+    "industry": "Home Improvement Retail",
+    "isTechTmt": false,
+    "name": "Wesfarmers Limited",
+    "sector": "Consumer Cyclical",
+    "ticker": "WFAFY"
   },
   "007002108": {
     "industry": "Biotechnology",
@@ -2212,6 +2572,50 @@
     "name": "Adlai Nortye Group Ltd.",
     "sector": "Healthcare",
     "ticker": "ANL"
+  },
+  "007103065": {
+    "industry": "Drug Manufacturers\u2014General",
+    "isTechTmt": false,
+    "name": "Novartis AG",
+    "sector": "Healthcare",
+    "ticker": "NVS"
+  },
+  "007107250": {
+    "industry": "Gambling",
+    "isTechTmt": false,
+    "name": "Greek Organisation of Football Prognostics SA",
+    "sector": "Other",
+    "ticker": "GF8A-SG"
+  },
+  "007108899": {
+    "industry": "Drug Manufacturers\u2014General",
+    "isTechTmt": false,
+    "name": "AbbVie Inc.",
+    "sector": "Healthcare",
+    "ticker": "ABBV"
+  },
+  "007108918": {
+    "industry": "Drug Manufacturers\u2014General",
+    "isTechTmt": false,
+    "name": "Roche Holding AG",
+    "sector": "Healthcare",
+    "ticker": "RHHBY"
+  },
+  "007110388": {
+    "displaySymbol": "ROCHEH",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Roche Holding Ltd Dividend Right Cert.",
+    "sector": "Other",
+    "ticker": "CUSIP:007110388",
+    "unpriced": true
+  },
+  "007147892": {
+    "industry": "Software\u2014Application",
+    "isTechTmt": true,
+    "name": "Temenos AG",
+    "sector": "Technology",
+    "ticker": "TMSNY"
   },
   "00724F101": {
     "industry": "Software\u2014Application",
@@ -2340,12 +2744,28 @@
     "sector": "Technology",
     "ticker": "ATEYY"
   },
+  "007635610": {
+    "industry": "Specialty Chemicals",
+    "isTechTmt": false,
+    "name": "EMS-CHEMIE HOLDING AG",
+    "sector": "Basic Materials",
+    "ticker": "EMSCY"
+  },
   "00764C109": {
     "industry": "Asset Management",
     "isTechTmt": false,
     "name": "Advent Convertible and Income Fund",
     "sector": "Financial Services",
     "ticker": "AVK"
+  },
+  "00764C117": {
+    "displaySymbol": "ADVENT",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ADVENT CONV & INCOME FD",
+    "sector": "Other",
+    "ticker": "CUSIP:00764C117",
+    "unpriced": true
   },
   "00766T100": {
     "industry": "Engineering & Construction",
@@ -2448,6 +2868,15 @@
     "name": "Arq, Inc.",
     "sector": "Industrials",
     "ticker": "ARQ"
+  },
+  "00770F104": {
+    "displaySymbol": "AEGION",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "AEGION CORP",
+    "sector": "Other",
+    "ticker": "CUSIP:00770F104",
+    "unpriced": true
   },
   "00770K202": {
     "industry": "Specialty Chemicals",
@@ -3308,6 +3737,13 @@
     "sector": "Other",
     "ticker": "APRW"
   },
+  "00888H448": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "AllianzIM U.S. Equity Buffer100 Protection ETF",
+    "sector": "Other",
+    "ticker": "AIOO"
+  },
   "00888H455": {
     "industry": "",
     "isTechTmt": false,
@@ -3357,12 +3793,26 @@
     "sector": "Other",
     "ticker": "SIXF"
   },
+  "00888H737": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "AllianzIM U.S. Equity Buffer20 Jun ETF",
+    "sector": "Other",
+    "ticker": "JUNW"
+  },
   "00888H745": {
     "industry": "",
     "isTechTmt": false,
     "name": "AllianzIM U.S. Equity Buffer10 Jun ETF",
     "sector": "Other",
     "ticker": "JUNT"
+  },
+  "00888H752": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "AllianzIM U.S. Equity Buffer20 May ETF",
+    "sector": "Other",
+    "ticker": "MAYW"
   },
   "00888H760": {
     "industry": "",
@@ -3539,6 +3989,13 @@
     "sector": "Basic Materials",
     "ticker": "AIQUY"
   },
+  "00912N403": {
+    "industry": "Aerospace & Defense",
+    "isTechTmt": false,
+    "name": "Air Industries Group",
+    "sector": "Industrials",
+    "ticker": "AIRI"
+  },
   "00912X302": {
     "industry": "REIT\u2014Specialty",
     "isTechTmt": false,
@@ -3646,6 +4103,13 @@
     "sector": "Other",
     "ticker": "CUSIP:00951K112",
     "unpriced": true
+  },
+  "009707100": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "AJINOMOTO INC -UNSPON ADR",
+    "sector": "Other",
+    "ticker": "AJINY"
   },
   "00971T101": {
     "industry": "Software\u2014Infrastructure",
@@ -3777,6 +4241,106 @@
     "ticker": "CUSIP:00974H104",
     "unpriced": true
   },
+  "00B02J639": {
+    "industry": "Insurance\u2014Property & Casualty",
+    "isTechTmt": false,
+    "name": "Admiral Group plc",
+    "sector": "Financial Services",
+    "ticker": "AMIGY"
+  },
+  "00B058TZ6": {
+    "industry": "Aerospace & Defense",
+    "isTechTmt": false,
+    "name": "Safran SA",
+    "sector": "Industrials",
+    "ticker": "SAFRY"
+  },
+  "00B0744B3": {
+    "industry": "Specialty Business Services",
+    "isTechTmt": false,
+    "name": "Bunzl plc",
+    "sector": "Industrials",
+    "ticker": "BZLFY"
+  },
+  "00B07DRZ5": {
+    "industry": "Drug Manufacturers\u2014General",
+    "isTechTmt": false,
+    "name": "Recordati Industria Chimica e Farmaceutica S.p.A.",
+    "sector": "Healthcare",
+    "ticker": "RCDTF"
+  },
+  "00B0R7JF1": {
+    "industry": "Drug Manufacturers\u2014Specialty & Generic",
+    "isTechTmt": false,
+    "name": "Ipsen S.A.",
+    "sector": "Healthcare",
+    "ticker": "IPSEY"
+  },
+  "00B0R80X9": {
+    "industry": "Specialty Retail",
+    "isTechTmt": false,
+    "name": "Avolta AG",
+    "sector": "Consumer Cyclical",
+    "ticker": "DUFRY"
+  },
+  "00B10RZP7": {
+    "industry": "Household & Personal Products",
+    "isTechTmt": false,
+    "name": "Unilever PLC",
+    "sector": "Consumer Defensive",
+    "ticker": "UL"
+  },
+  "00B119QG0": {
+    "industry": "Asset Management",
+    "isTechTmt": false,
+    "name": "Partners Group Holding AG",
+    "sector": "Financial Services",
+    "ticker": "PGPHF"
+  },
+  "00B11TCY0": {
+    "displaySymbol": "SCHIND",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Schindler Holding Ltd. Pref",
+    "sector": "Other",
+    "ticker": "CUSIP:00B11TCY0",
+    "unpriced": true
+  },
+  "00B14NJ71": {
+    "industry": "Medical Distribution",
+    "isTechTmt": false,
+    "name": "Amplify Video Game Leaders ETF",
+    "sector": "Other",
+    "ticker": "AMP-VI"
+  },
+  "00B15C4L6": {
+    "industry": "Software\u2014Application",
+    "isTechTmt": true,
+    "name": "Constellation Software Inc.",
+    "sector": "Technology",
+    "ticker": "CNSWF"
+  },
+  "00B18ZRK2": {
+    "industry": "Computer Hardware",
+    "isTechTmt": true,
+    "name": "Logitech International S.A.",
+    "sector": "Technology",
+    "ticker": "LOGI"
+  },
+  "00B19NLV4": {
+    "industry": "Consulting Services",
+    "isTechTmt": false,
+    "name": "Experian plc",
+    "sector": "Industrials",
+    "ticker": "EXPGY"
+  },
+  "00B1G4262": {
+    "industry": "Steel",
+    "isTechTmt": false,
+    "name": "Kumba Iron Ore Limited",
+    "sector": "Basic Materials",
+    "ticker": "KIROY"
+  },
   "00B1GVQH2": {
     "industry": "Advertising Agencies",
     "isTechTmt": false,
@@ -3791,6 +4355,43 @@
     "sector": "Basic Materials",
     "ticker": "SYIEY"
   },
+  "00B1VZ0M2": {
+    "displaySymbol": "HARGRE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Hargreaves Lansdown plc",
+    "sector": "Other",
+    "ticker": "CUSIP:00B1VZ0M2",
+    "unpriced": true
+  },
+  "00B1WGG93": {
+    "industry": "Building Products & Equipment",
+    "isTechTmt": false,
+    "name": "Geberit AG",
+    "sector": "Industrials",
+    "ticker": "GBERF"
+  },
+  "00B1YVKN8": {
+    "industry": "Leisure",
+    "isTechTmt": false,
+    "name": "ANTA Sports Products Limited",
+    "sector": "Consumer Cyclical",
+    "ticker": "ANPDY"
+  },
+  "00B28DTJ6": {
+    "industry": "Consulting Services",
+    "isTechTmt": false,
+    "name": "Bureau Veritas SA",
+    "sector": "Industrials",
+    "ticker": "BVVBY"
+  },
+  "00B2B0DG9": {
+    "industry": "Specialty Business Services",
+    "isTechTmt": false,
+    "name": "RELX PLC",
+    "sector": "Industrials",
+    "ticker": "RELX"
+  },
   "00B2QN3J6": {
     "displaySymbol": "SAFARI",
     "industry": "",
@@ -3800,12 +4401,26 @@
     "ticker": "CUSIP:00B2QN3J6",
     "unpriced": true
   },
+  "00B3NB1P2": {
+    "industry": "Oil & Gas Integrated",
+    "isTechTmt": false,
+    "name": "Suncor Energy Inc.",
+    "sector": "Energy",
+    "ticker": "SU"
+  },
   "00B3Z5T14": {
     "industry": "Scientific & Technical Instruments",
     "isTechTmt": true,
     "name": "Garmin Ltd.",
     "sector": "Technology",
     "ticker": "GRMN"
+  },
+  "00B44XTX8": {
+    "industry": "Luxury Goods",
+    "isTechTmt": false,
+    "name": "Pandora A/S",
+    "sector": "Consumer Cyclical",
+    "ticker": "PNDRY"
   },
   "00B4T3BW6": {
     "industry": "Other Industrial Metals & Mining",
@@ -3814,12 +4429,49 @@
     "sector": "Basic Materials",
     "ticker": "GLNCY"
   },
+  "00B4TP9G2": {
+    "industry": "Discount Stores",
+    "isTechTmt": false,
+    "name": "Dollarama Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "DLMAF"
+  },
+  "00B4XF9J1": {
+    "displaySymbol": "MEGENE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "MEG Energy Corp.",
+    "sector": "Other",
+    "ticker": "CUSIP:00B4XF9J1",
+    "unpriced": true
+  },
+  "00B57FG04": {
+    "industry": "Oil & Gas Integrated",
+    "isTechTmt": false,
+    "name": "Cenovus Energy Inc.",
+    "sector": "Energy",
+    "ticker": "CVE"
+  },
   "00B58JVZ5": {
     "industry": "Computer Hardware",
     "isTechTmt": true,
     "name": "Seagate Technology Holdings plc",
     "sector": "Technology",
     "ticker": "STX"
+  },
+  "00B63H849": {
+    "industry": "Aerospace & Defense",
+    "isTechTmt": false,
+    "name": "Rolls-Royce Holdings plc",
+    "sector": "Industrials",
+    "ticker": "RYCEY"
+  },
+  "00B8C3BL0": {
+    "industry": "Software\u2014Application",
+    "isTechTmt": true,
+    "name": "The Sage Group plc",
+    "sector": "Technology",
+    "ticker": "SGPYY"
   },
   "00B8KQN82": {
     "displaySymbol": "EATONC",
@@ -3830,12 +4482,98 @@
     "ticker": "CUSIP:00B8KQN82",
     "unpriced": true
   },
+  "00B8P4LP4": {
+    "industry": "Software\u2014Application",
+    "isTechTmt": true,
+    "name": "Xero Limited",
+    "sector": "Technology",
+    "ticker": "XROLF"
+  },
   "00B908F01": {
     "industry": "Semiconductor Equipment & Materials",
     "isTechTmt": true,
     "name": "ASML Holding N.V.",
     "sector": "Technology",
     "ticker": "ASML"
+  },
+  "00B96HCH8": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "Voltronic Power Technology Corp.",
+    "sector": "Other",
+    "ticker": "6409-TW"
+  },
+  "00B97C733": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Tele2 AB (publ)",
+    "sector": "Communication Services",
+    "ticker": "TLTZY"
+  },
+  "00BD2P9X9": {
+    "industry": "Auto Parts",
+    "isTechTmt": false,
+    "name": "Knorr-Bremse AG",
+    "sector": "Consumer Cyclical",
+    "ticker": "KNRRY"
+  },
+  "00BD4HFR9": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "HD Hyundai Electric Co., Ltd.",
+    "sector": "Other",
+    "ticker": "267260-KS"
+  },
+  "00BD5CNB3": {
+    "industry": "Agricultural Inputs",
+    "isTechTmt": false,
+    "name": "Qinghai Salt Lake Industry Co.,Ltd",
+    "sector": "Other",
+    "ticker": "000792-SZ"
+  },
+  "00BD5CND5": {
+    "industry": "Advertising Agencies",
+    "isTechTmt": false,
+    "name": "Focus Media Information Technology Co., Ltd.",
+    "sector": "Other",
+    "ticker": "002027-SZ"
+  },
+  "00BD5CNF7": {
+    "industry": "Packaged Foods",
+    "isTechTmt": false,
+    "name": "New Hope Liuhe Co.,Ltd.",
+    "sector": "Other",
+    "ticker": "000876-SZ"
+  },
+  "00BD5CP84": {
+    "industry": "Packaged Foods",
+    "isTechTmt": false,
+    "name": "Henan Shuanghui Investment & Development Co.,Ltd.",
+    "sector": "Other",
+    "ticker": "000895-SZ"
+  },
+  "00BD5CPN9": {
+    "industry": "Furnishings, Fixtures & Appliances",
+    "isTechTmt": false,
+    "name": "Gree Electric Appliances, Inc. of Zhuhai",
+    "sector": "Other",
+    "ticker": "000651-SZ"
+  },
+  "00BD5CPP1": {
+    "industry": "Furnishings, Fixtures & Appliances",
+    "isTechTmt": false,
+    "name": "Midea Group Co., Ltd.",
+    "sector": "Consumer Cyclical",
+    "ticker": "MGCLY"
+  },
+  "00BD6QWQ2": {
+    "displaySymbol": "HENANS",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Henan Shenhuo Coal Industary and Electricity Power Corporation Limited Class A",
+    "sector": "Other",
+    "ticker": "CUSIP:00BD6QWQ2",
+    "unpriced": true
   },
   "00BDCPN04": {
     "displaySymbol": "COCACO",
@@ -3860,6 +4598,20 @@
     "sector": "Financial Services",
     "ticker": "GRGCF"
   },
+  "00BG0SC10": {
+    "industry": "Gambling",
+    "isTechTmt": false,
+    "name": "FDJ United",
+    "sector": "Consumer Cyclical",
+    "ticker": "LFDJF"
+  },
+  "00BGJW376": {
+    "industry": "Internet Retail",
+    "isTechTmt": true,
+    "name": "Meituan",
+    "sector": "Consumer Cyclical",
+    "ticker": "MPNGY"
+  },
   "00BGKG6M3": {
     "industry": "Software\u2014Infrastructure",
     "isTechTmt": true,
@@ -3867,12 +4619,40 @@
     "sector": "Technology",
     "ticker": "STNE"
   },
+  "00BGLP232": {
+    "industry": "Apparel Manufacturing",
+    "isTechTmt": false,
+    "name": "Moncler SpA",
+    "sector": "Other",
+    "ticker": "MOV0-SG"
+  },
   "00BGYBHZ4": {
     "industry": "Other Industrial Metals & Mining",
     "isTechTmt": false,
     "name": "ioneer Ltd",
     "sector": "Basic Materials",
     "ticker": "IONR"
+  },
+  "00BHJYC05": {
+    "industry": "Lodging",
+    "isTechTmt": false,
+    "name": "InterContinental Hotels Group PLC",
+    "sector": "Consumer Cyclical",
+    "ticker": "IHG"
+  },
+  "00BJ2L575": {
+    "industry": "Information Technology Services",
+    "isTechTmt": true,
+    "name": "CGI Inc.",
+    "sector": "Technology",
+    "ticker": "GIB"
+  },
+  "00BJXSCH4": {
+    "industry": "Gambling",
+    "isTechTmt": false,
+    "name": "Evolution AB (publ)",
+    "sector": "Consumer Cyclical",
+    "ticker": "EVVTY"
   },
   "00BK9ZQ96": {
     "industry": "Building Products & Equipment",
@@ -3887,6 +4667,34 @@
     "name": "Seagate Technology Holdings plc",
     "sector": "Technology",
     "ticker": "STX"
+  },
+  "00BL9YR75": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Themes Generative Artificial Intelligence ETF",
+    "sector": "Other",
+    "ticker": "WISE"
+  },
+  "00BLC90T0": {
+    "industry": "Internet Content & Information",
+    "isTechTmt": true,
+    "name": "Kuaishou Technology",
+    "sector": "Communication Services",
+    "ticker": "KSHTY"
+  },
+  "00BLDBN52": {
+    "industry": "Credit Services",
+    "isTechTmt": false,
+    "name": "Atlanticus Holdings Corporation",
+    "sector": "Financial Services",
+    "ticker": "ATLC"
+  },
+  "00BLN8T44": {
+    "industry": "Industrial Distribution",
+    "isTechTmt": false,
+    "name": "Addtech AB (publ.)",
+    "sector": "Industrials",
+    "ticker": "ADDHY"
   },
   "00BLP1HW5": {
     "industry": "Insurance Brokers",
@@ -3909,6 +4717,64 @@
     "sector": "Other",
     "ticker": "ALHG-PA"
   },
+  "00BMBQHZ4": {
+    "industry": "Consulting Services",
+    "isTechTmt": false,
+    "name": "SGS SA",
+    "sector": "Industrials",
+    "ticker": "SGSOY"
+  },
+  "00BMT9L19": {
+    "industry": "Aerospace & Defense",
+    "isTechTmt": false,
+    "name": "Dassault Aviation soci\u00e9t\u00e9 anonyme",
+    "sector": "Industrials",
+    "ticker": "DUAVF"
+  },
+  "00BMTRW10": {
+    "industry": "Discount Stores",
+    "isTechTmt": false,
+    "name": "B&M European Value Retail plc",
+    "sector": "Consumer Defensive",
+    "ticker": "BMRRY"
+  },
+  "00BN4N9C0": {
+    "industry": "Integrated Freight & Logistics",
+    "isTechTmt": false,
+    "name": "InPost S.A.",
+    "sector": "Industrials",
+    "ticker": "INPOY"
+  },
+  "00BN6QSM0": {
+    "industry": "Insurance\u2014Diversified",
+    "isTechTmt": false,
+    "name": "OUTsurance Group Limited",
+    "sector": "Other",
+    "ticker": "OUT-JO"
+  },
+  "00BN7SWP6": {
+    "industry": "Drug Manufacturers\u2014General",
+    "isTechTmt": false,
+    "name": "GSK plc",
+    "sector": "Healthcare",
+    "ticker": "GSK"
+  },
+  "00BNGN9Z1": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "FinecoBank SpA",
+    "sector": "Other",
+    "ticker": "ZS3-SG"
+  },
+  "00BNHRG84": {
+    "displaySymbol": "FUCHSS",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "FUCHS SE Pref Registered Shs",
+    "sector": "Other",
+    "ticker": "CUSIP:00BNHRG84",
+    "unpriced": true
+  },
   "00BNZGVV1": {
     "industry": "Entertainment",
     "isTechTmt": false,
@@ -3916,12 +4782,105 @@
     "sector": "Communication Services",
     "ticker": "UMGNF"
   },
+  "00BP3R2V7": {
+    "industry": "Packaged Foods",
+    "isTechTmt": false,
+    "name": "Inner Mongolia Yili Industrial Group Co., Ltd.",
+    "sector": "Other",
+    "ticker": "600887-SS"
+  },
+  "00BP3R325": {
+    "industry": "Auto Manufacturers",
+    "isTechTmt": false,
+    "name": "Great Wall Motor Company Limited",
+    "sector": "Consumer Cyclical",
+    "ticker": "GWLLY"
+  },
+  "00BP3R444": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "NARI Technology Co., Ltd.",
+    "sector": "Other",
+    "ticker": "600406-SS"
+  },
+  "00BP3R4D3": {
+    "industry": "Aluminum",
+    "isTechTmt": false,
+    "name": "Aluminum Corporation of China Limited",
+    "sector": "Basic Materials",
+    "ticker": "ALMMF"
+  },
+  "00BP3R574": {
+    "industry": "Other Industrial Metals & Mining",
+    "isTechTmt": false,
+    "name": "CMOC Group Limited",
+    "sector": "Basic Materials",
+    "ticker": "CMCLF"
+  },
+  "00BP3RCZ1": {
+    "industry": "Beverages\u2014Brewers",
+    "isTechTmt": false,
+    "name": "Chongqing Brewery Co., Ltd.",
+    "sector": "Other",
+    "ticker": "600132-SS"
+  },
+  "00BP6KMJ1": {
+    "industry": "Drug Manufacturers\u2014General",
+    "isTechTmt": false,
+    "name": "Novo Nordisk A/S",
+    "sector": "Healthcare",
+    "ticker": "NVO"
+  },
+  "00BP9DL90": {
+    "industry": "Apparel Retail",
+    "isTechTmt": false,
+    "name": "Industria de Dise\u00f1o Textil, S.A.",
+    "sector": "Consumer Cyclical",
+    "ticker": "IDEXY"
+  },
+  "00BPBPJ01": {
+    "displaySymbol": "CIEGEN",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Cie Generale des Etablissements Michelin SA",
+    "sector": "Other",
+    "ticker": "CUSIP:00BPBPJ01",
+    "unpriced": true
+  },
+  "00BQRRZ00": {
+    "industry": "Staffing & Employment Services",
+    "isTechTmt": false,
+    "name": "JAC Recruitment Co., Ltd.",
+    "sector": "Other",
+    "ticker": "2124-T"
+  },
   "00BRS9F13": {
     "industry": "Entertainment",
     "isTechTmt": false,
     "name": "Canal+ SA",
     "sector": "Other",
     "ticker": "CNP-JO"
+  },
+  "00BRTNNQ5": {
+    "industry": "Insurance\u2014Specialty",
+    "isTechTmt": false,
+    "name": "Medibank Private Limited",
+    "sector": "Financial Services",
+    "ticker": "MDBKY"
+  },
+  "00BS7K5P8": {
+    "industry": "Thermal Coal",
+    "isTechTmt": false,
+    "name": "Shaanxi Coal Industry Company Limited",
+    "sector": "Other",
+    "ticker": "601225-SS"
+  },
+  "00BSDHYK1": {
+    "industry": "Airlines",
+    "isTechTmt": false,
+    "name": "Air Canada",
+    "sector": "Industrials",
+    "ticker": "ACDVF"
   },
   "00BT6MF41": {
     "displaySymbol": "HAVASN",
@@ -3931,6 +4890,13 @@
     "sector": "Other",
     "ticker": "CUSIP:00BT6MF41",
     "unpriced": true
+  },
+  "00BVYVFW2": {
+    "industry": "Internet Content & Information",
+    "isTechTmt": true,
+    "name": "Autotrader Group plc",
+    "sector": "Communication Services",
+    "ticker": "ATDRF"
   },
   "00BW5TBS0": {
     "industry": "Rental & Leasing Services",
@@ -3959,6 +4925,13 @@
     "name": "Johnson Controls International plc",
     "sector": "Industrials",
     "ticker": "JCI"
+  },
+  "00BZ01RF1": {
+    "industry": "Medical Devices",
+    "isTechTmt": false,
+    "name": "Demant A/S",
+    "sector": "Healthcare",
+    "ticker": "WILYY"
   },
   "00BZ12WP8": {
     "industry": "Specialty Chemicals",
@@ -4146,6 +5119,13 @@
     "name": "Alcoa Corporation",
     "sector": "Basic Materials",
     "ticker": "AA"
+  },
+  "013888795": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "BT Group plc",
+    "sector": "Communication Services",
+    "ticker": "BTGOF"
   },
   "01407X104": {
     "industry": "Insurance\u2014Property & Casualty",
@@ -4811,6 +5791,13 @@
     "sector": "Healthcare",
     "ticker": "ALNY"
   },
+  "02071M507": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Alpha Bank S.A.",
+    "sector": "Financial Services",
+    "ticker": "ALBKY"
+  },
   "02072L102": {
     "industry": "",
     "isTechTmt": false,
@@ -4940,6 +5927,13 @@
     "name": "Freedom 100 Emerging Markets ETF",
     "sector": "Other",
     "ticker": "FRDM"
+  },
+  "02072L615": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Strive 1000 Growth ETF",
+    "sector": "Other",
+    "ticker": "STXG"
   },
   "02072L631": {
     "industry": "",
@@ -5216,6 +6210,13 @@
     "ticker": "ATEC"
   },
   "02083E105": {
+    "industry": "Conglomerates",
+    "isTechTmt": false,
+    "name": "Alpine 4 Holdings, Inc.",
+    "sector": "Industrials",
+    "ticker": "ALPP"
+  },
+  "02083E204": {
     "industry": "Conglomerates",
     "isTechTmt": false,
     "name": "Alpine 4 Holdings, Inc.",
@@ -5713,6 +6714,13 @@
     "name": "Cybin D/B/A Helus Pharma",
     "sector": "Other",
     "ticker": "HELP-NE"
+  },
+  "02328W605": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Cytokinetics, Incorporated",
+    "sector": "Healthcare",
+    "ticker": "CYTK"
   },
   "02341Q205": {
     "industry": "Food Distribution",
@@ -8787,6 +9795,13 @@
     "sector": "Healthcare",
     "ticker": "ASND"
   },
+  "043635507": {
+    "industry": "Solar",
+    "isTechTmt": true,
+    "name": "Ascent Solar Technologies, Inc.",
+    "sector": "Technology",
+    "ticker": "ASTI"
+  },
   "043635804": {
     "industry": "Solar",
     "isTechTmt": true,
@@ -8886,6 +9901,13 @@
     "sector": "Other",
     "ticker": "ASHGY"
   },
+  "04521N101": {
+    "industry": "Footwear & Accessories",
+    "isTechTmt": false,
+    "name": "ASICS Corporation",
+    "sector": "Consumer Cyclical",
+    "ticker": "ASCCY"
+  },
   "04522R101": {
     "displaySymbol": "ASLANP",
     "industry": "",
@@ -8940,6 +9962,13 @@
     "name": "Aspira Women's Health Inc.",
     "sector": "Healthcare",
     "ticker": "AWHL"
+  },
+  "045387107": {
+    "industry": "Security & Protection Services",
+    "isTechTmt": false,
+    "name": "ASSA ABLOY AB (publ)",
+    "sector": "Industrials",
+    "ticker": "ASAZY"
   },
   "045396108": {
     "industry": "Biotechnology",
@@ -9497,6 +10526,13 @@
     "sector": "Industrials",
     "ticker": "ATLKY"
   },
+  "049255805": {
+    "industry": "Specialty Industrial Machinery",
+    "isTechTmt": false,
+    "name": "Atlas Copco AB (publ)",
+    "sector": "Industrials",
+    "ticker": "ATLCY"
+  },
   "049284102": {
     "industry": "Insurance\u2014Property & Casualty",
     "isTechTmt": false,
@@ -9851,6 +10887,20 @@
     "name": "AutoZone, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "AZO"
+  },
+  "05337L106": {
+    "industry": "Other Industrial Metals & Mining",
+    "isTechTmt": false,
+    "name": "Avalon Advanced Materials Inc.",
+    "sector": "Basic Materials",
+    "ticker": "AVLNF"
+  },
+  "05337L304": {
+    "industry": "Other Industrial Metals & Mining",
+    "isTechTmt": false,
+    "name": "Avalon Advanced Materials Inc.",
+    "sector": "Basic Materials",
+    "ticker": "AVLNF"
   },
   "05337M104": {
     "displaySymbol": "AVADEL",
@@ -11362,6 +12412,13 @@
     "sector": "Financial Services",
     "ticker": "CM"
   },
+  "064520109": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Princeton Bancorp, Inc.",
+    "sector": "Financial Services",
+    "ticker": "BPRN"
+  },
   "06529E105": {
     "industry": "Solar",
     "isTechTmt": true,
@@ -11650,6 +12707,15 @@
     "sector": "Other",
     "ticker": "VXX"
   },
+  "06748F357": {
+    "displaySymbol": "BARCLA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "BARCLAYS BANK PLC NT LKD 0.000",
+    "sector": "Other",
+    "ticker": "CUSIP:06748F357",
+    "unpriced": true
+  },
   "06748M196": {
     "industry": "",
     "isTechTmt": false,
@@ -11782,6 +12848,13 @@
     "name": "Baron Emerging Markets Select E",
     "sector": "Other",
     "ticker": "BCEM"
+  },
+  "068334101": {
+    "industry": "Residential Construction",
+    "isTechTmt": false,
+    "name": "Barratt Redrow plc",
+    "sector": "Consumer Cyclical",
+    "ticker": "BTDPY"
   },
   "068463108": {
     "industry": "Staffing & Employment Services",
@@ -12029,6 +13102,13 @@
     "name": "Neighborhood Intelligence, Inc.",
     "sector": "Other",
     "ticker": "BBBYW"
+  },
+  "07724U103": {
+    "industry": "Household & Personal Products",
+    "isTechTmt": false,
+    "name": "Beiersdorf Aktiengesellschaft",
+    "sector": "Consumer Defensive",
+    "ticker": "BDRFY"
   },
   "07725L102": {
     "industry": "Biotechnology",
@@ -12861,6 +13941,13 @@
     "sector": "Healthcare",
     "ticker": "BMRA"
   },
+  "09061Q307": {
+    "industry": "Pollution & Treatment Controls",
+    "isTechTmt": false,
+    "name": "Bion Environmental Technologies, Inc.",
+    "sector": "Industrials",
+    "ticker": "BNET"
+  },
   "09062W204": {
     "industry": "Medical Instruments & Supplies",
     "isTechTmt": false,
@@ -13190,6 +14277,15 @@
     "sector": "Consumer Defensive",
     "ticker": "BFCH"
   },
+  "09174P105": {
+    "displaySymbol": "BITCOI",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "BITCOIN DEPOT INC",
+    "sector": "Other",
+    "ticker": "CUSIP:09174P105",
+    "unpriced": true
+  },
   "09175A206": {
     "industry": "Capital Markets",
     "isTechTmt": false,
@@ -13205,6 +14301,13 @@
     "sector": "Other",
     "ticker": "CUSIP:09175A906",
     "unpriced": true
+  },
+  "09175C103": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Bitwise Crypto Industry Innovators ETF",
+    "sector": "Other",
+    "ticker": "BITQ"
   },
   "09175G104": {
     "industry": "Asset Management",
@@ -14144,6 +15247,13 @@
     "sector": "Other",
     "ticker": "IDEF"
   },
+  "09290C707": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Ishares Future Robotics And Related Technologies Active ETF",
+    "sector": "Other",
+    "ticker": "RBTX"
+  },
   "09290C756": {
     "industry": "",
     "isTechTmt": false,
@@ -14455,6 +15565,15 @@
     "name": "BlueLinx Holdings Inc.",
     "sector": "Industrials",
     "ticker": "BXC"
+  },
+  "09625U109": {
+    "displaySymbol": "BLUEKN",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "BLUEKNIGHT ENERGY PARTNERS L",
+    "sector": "Other",
+    "ticker": "CUSIP:09625U109",
+    "unpriced": true
   },
   "09627J102": {
     "displaySymbol": "BLUERO",
@@ -14834,6 +15953,13 @@
     "sector": "Industrials",
     "ticker": "BAH"
   },
+  "09950L104": {
+    "industry": "Specialty Retail",
+    "isTechTmt": false,
+    "name": "Boqii Holding Limited",
+    "sector": "Consumer Cyclical",
+    "ticker": "BQ"
+  },
   "09950L302": {
     "industry": "Specialty Retail",
     "isTechTmt": false,
@@ -15122,6 +16248,13 @@
     "name": "Brand Engagement Network, Inc.",
     "sector": "Technology",
     "ticker": "BNAIW"
+  },
+  "10501E201": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Brainstorm Cell Therapeutics Inc.",
+    "sector": "Healthcare",
+    "ticker": "BCLI"
   },
   "10501E300": {
     "industry": "Biotechnology",
@@ -16016,6 +17149,13 @@
     "name": "Bunzl plc",
     "sector": "Industrials",
     "ticker": "BZLFY"
+  },
+  "12082W204": {
+    "industry": "Luxury Goods",
+    "isTechTmt": false,
+    "name": "Burberry Group plc",
+    "sector": "Consumer Cyclical",
+    "ticker": "BURBY"
   },
   "12122L119": {
     "displaySymbol": "BURGER",
@@ -17466,6 +18606,15 @@
     "ticker": "CUSIP:13123X508",
     "unpriced": true
   },
+  "13124Q106": {
+    "displaySymbol": "CALLID",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CALLIDITAS THERAPEUTICS AB",
+    "sector": "Other",
+    "ticker": "CUSIP:13124Q106",
+    "unpriced": true
+  },
   "131428104": {
     "industry": "Specialty Chemicals",
     "isTechTmt": false,
@@ -17738,6 +18887,22 @@
     "name": "Canadian Solar Inc.",
     "sector": "Technology",
     "ticker": "CSIQ"
+  },
+  "136717832": {
+    "industry": "Utilities\u2014Diversified",
+    "isTechTmt": false,
+    "name": "Canadian Utilities Limited",
+    "sector": "Utilities",
+    "ticker": "CDUAF"
+  },
+  "13677F101": {
+    "displaySymbol": "CANADI",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CANADIAN WESTERN BK F",
+    "sector": "Other",
+    "ticker": "CUSIP:13677F101",
+    "unpriced": true
   },
   "137404109": {
     "industry": "Biotechnology",
@@ -18215,6 +19380,13 @@
     "ticker": "CUSIP:14064F209",
     "unpriced": true
   },
+  "14067D508": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Calamos S&P 500 Structured Alt Protection ETF - September",
+    "sector": "Other",
+    "ticker": "CPST"
+  },
   "14067D607": {
     "industry": "Specialty Industrial Machinery",
     "isTechTmt": false,
@@ -18540,6 +19712,13 @@
     "ticker": "CCL"
   },
   "14365C103": {
+    "industry": "Travel Services",
+    "isTechTmt": false,
+    "name": "Carnival Corporation Ltd.",
+    "sector": "Consumer Cyclical",
+    "ticker": "CCL"
+  },
+  "14365C903": {
     "industry": "Travel Services",
     "isTechTmt": false,
     "name": "Carnival Corporation Ltd.",
@@ -19027,6 +20206,15 @@
     "name": "Imunon, Inc.",
     "sector": "Healthcare",
     "ticker": "IMNN"
+  },
+  "15117P102": {
+    "displaySymbol": "CELLUL",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CELLULAR BIOMEDICINE GROUP I",
+    "sector": "Other",
+    "ticker": "CUSIP:15117P102",
+    "unpriced": true
   },
   "15117X105": {
     "industry": "Real Estate Services",
@@ -19643,6 +20831,15 @@
     "ticker": "CUSIP:159561117",
     "unpriced": true
   },
+  "15957P105": {
+    "displaySymbol": "CHARAH",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CHARAH SOLUTIONS INC",
+    "sector": "Other",
+    "ticker": "CUSIP:15957P105",
+    "unpriced": true
+  },
   "15957T115": {
     "displaySymbol": "CHARDA",
     "industry": "",
@@ -20119,6 +21316,15 @@
     "sector": "Consumer Defensive",
     "ticker": "CIADY"
   },
+  "16949A206": {
+    "displaySymbol": "CHINAJ",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CHINA JO-JO DRUGSTORES INC",
+    "sector": "Other",
+    "ticker": "CUSIP:16949A206",
+    "unpriced": true
+  },
   "16950T102": {
     "industry": "Banks\u2014Regional",
     "isTechTmt": false,
@@ -20132,6 +21338,13 @@
     "name": "51Talk Online Education Group",
     "sector": "Consumer Defensive",
     "ticker": "COE"
+  },
+  "16954W101": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "KraneShares MSCI Emerging Markets ex China Index ETF",
+    "sector": "Other",
+    "ticker": "KEMX"
   },
   "16955F107": {
     "displaySymbol": "CHINDA",
@@ -20392,6 +21605,15 @@
     "name": "Churchill Downs Incorporated",
     "sector": "Consumer Cyclical",
     "ticker": "CHDN"
+  },
+  "171604101": {
+    "displaySymbol": "CHUYSH",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CHUY'S HOLDINGS INC",
+    "sector": "Other",
+    "ticker": "CUSIP:171604101",
+    "unpriced": true
   },
   "17166A101": {
     "industry": "Biotechnology",
@@ -21718,6 +22940,13 @@
     "sector": "Other",
     "ticker": "CSNR"
   },
+  "19249U401": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Cohen & Steers Short Duration P",
+    "sector": "Other",
+    "ticker": "CSSD"
+  },
   "19249U609": {
     "industry": "",
     "isTechTmt": false,
@@ -22903,6 +24132,13 @@
     "sector": "Other",
     "ticker": "ONEH"
   },
+  "210322574": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "TrueShares S&P Autocallable Defensive Income ETF",
+    "sector": "Other",
+    "ticker": "PAYM"
+  },
   "210322590": {
     "industry": "",
     "isTechTmt": false,
@@ -23510,6 +24746,15 @@
     "ticker": "CUSIP:219350955",
     "unpriced": true
   },
+  "219387107": {
+    "displaySymbol": "CORNIN",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CORNING NAT GAS HLDG",
+    "sector": "Other",
+    "ticker": "CUSIP:219387107",
+    "unpriced": true
+  },
   "219798105": {
     "industry": "Medical Devices",
     "isTechTmt": false,
@@ -23544,6 +24789,13 @@
     "name": "Corsair Gaming, Inc.",
     "sector": "Technology",
     "ticker": "CRSR"
+  },
+  "22052L047": {
+    "industry": "Agricultural Inputs",
+    "isTechTmt": false,
+    "name": "Corteva, Inc.",
+    "sector": "Basic Materials",
+    "ticker": "CTVA"
   },
   "22052L104": {
     "industry": "Agricultural Inputs",
@@ -24079,6 +25331,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "CROX"
   },
+  "227047305": {
+    "industry": "Specialty Chemicals",
+    "isTechTmt": false,
+    "name": "Croda International Plc",
+    "sector": "Basic Materials",
+    "ticker": "COIHY"
+  },
   "22717L101": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
     "isTechTmt": false,
@@ -24200,6 +25459,13 @@
     "sector": "Other",
     "ticker": "CUSIP:22877P207",
     "unpriced": true
+  },
+  "228895108": {
+    "industry": "Medical Care Facilities",
+    "isTechTmt": false,
+    "name": "Cryo-Cell International, Inc.",
+    "sector": "Healthcare",
+    "ticker": "CCEL"
   },
   "228903100": {
     "industry": "Medical Devices",
@@ -25102,6 +26368,13 @@
     "sector": "Industrials",
     "ticker": "DXPE"
   },
+  "23341C103": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "DNB Bank ASA",
+    "sector": "Financial Services",
+    "ticker": "DNBBY"
+  },
   "23343Q100": {
     "displaySymbol": "DFPHEA",
     "industry": "",
@@ -25224,6 +26497,13 @@
     "sector": "Energy",
     "ticker": "DTM"
   },
+  "23346J103": {
+    "industry": "Specialty Chemicals",
+    "isTechTmt": false,
+    "name": "DSM-Firmenich AG",
+    "sector": "Basic Materials",
+    "ticker": "DSFIY"
+  },
   "23355L106": {
     "industry": "Information Technology Services",
     "isTechTmt": true,
@@ -25244,6 +26524,13 @@
     "name": "Daiichi Sankyo Company, Limited",
     "sector": "Healthcare",
     "ticker": "DSNKY"
+  },
+  "233825207": {
+    "industry": "Auto Manufacturers",
+    "isTechTmt": false,
+    "name": "Mercedes-Benz Group AG",
+    "sector": "Consumer Cyclical",
+    "ticker": "MBGYY"
   },
   "23384L101": {
     "industry": "Farm & Heavy Construction Machinery",
@@ -25780,6 +27067,15 @@
     "sector": "Financial Services",
     "ticker": "TACO"
   },
+  "245915103": {
+    "displaySymbol": "DELAWA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "DELAWARE INVTS DIVID & INCOM",
+    "sector": "Other",
+    "ticker": "CUSIP:245915103",
+    "unpriced": true
+  },
   "246060107": {
     "displaySymbol": "DELAWA",
     "industry": "",
@@ -25849,6 +27145,15 @@
     "sector": "Energy",
     "ticker": "DK"
   },
+  "246932522": {
+    "displaySymbol": "STRAUM",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "STRAUMANN HOLDING AG-REG",
+    "sector": "Other",
+    "ticker": "CUSIP:246932522",
+    "unpriced": true
+  },
   "24702R101": {
     "industry": "Computer Hardware",
     "isTechTmt": true,
@@ -25904,6 +27209,13 @@
     "name": "Delta Apparel, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "DLAPQ"
+  },
+  "247629306": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "Delta Electronics (Thailand) Public Company Limited",
+    "sector": "Industrials",
+    "ticker": "DLEGF"
   },
   "24790A101": {
     "displaySymbol": "DENBUR",
@@ -26202,6 +27514,15 @@
     "name": "DiaMedica Therapeutics Inc.",
     "sector": "Healthcare",
     "ticker": "DMAC"
+  },
+  "25264R207": {
+    "displaySymbol": "DIAMON",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "DIAMOND HILL INVESTMENT GRP",
+    "sector": "Other",
+    "ticker": "CUSIP:25264R207",
+    "unpriced": true
   },
   "25271C201": {
     "displaySymbol": "DIAMON",
@@ -26923,6 +28244,13 @@
     "name": "Disc Medicine, Inc.",
     "sector": "Healthcare",
     "ticker": "IRON"
+  },
+  "25460E125": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Direxion Daily Small Cap Bear 3X Shares",
+    "sector": "Other",
+    "ticker": "TZA"
   },
   "25460E190": {
     "industry": "",
@@ -28704,6 +30032,13 @@
     "sector": "Energy",
     "ticker": "EOG"
   },
+  "268780103": {
+    "industry": "Utilities\u2014Diversified",
+    "isTechTmt": false,
+    "name": "E.ON SE",
+    "sector": "Utilities",
+    "ticker": "EONGY"
+  },
   "26884L109": {
     "industry": "Oil & Gas E&P",
     "isTechTmt": false,
@@ -28976,6 +30311,13 @@
     "name": "Aptus Enhanced Yield ETF",
     "sector": "Other",
     "ticker": "JUCY"
+  },
+  "26922B667": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Distillate Small/Mid Cash Flow ETF",
+    "sector": "Other",
+    "ticker": "DSMC"
   },
   "26922B683": {
     "industry": "",
@@ -30108,6 +31450,15 @@
     "sector": "Other",
     "ticker": "ENRDW"
   },
+  "282579309": {
+    "displaySymbol": "EISAIC",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "EISAI CO LTD SPONSORED ADR",
+    "sector": "Other",
+    "ticker": "CUSIP:282579309",
+    "unpriced": true
+  },
   "28258A107": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
     "isTechTmt": false,
@@ -30384,6 +31735,13 @@
     "name": "Eloxx Pharmaceuticals, Inc.",
     "sector": "Healthcare",
     "ticker": "ELOX"
+  },
+  "290734102": {
+    "industry": "Gambling",
+    "isTechTmt": false,
+    "name": "Elys BMG Group, Inc.",
+    "sector": "Consumer Cyclical",
+    "ticker": "ELYS"
   },
   "29076N206": {
     "displaySymbol": "EMAGIN",
@@ -32111,6 +33469,15 @@
     "sector": "Energy",
     "ticker": "EPM"
   },
+  "30049G104": {
+    "displaySymbol": "EVOKEP",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "EVOKE PHARMA INC",
+    "sector": "Other",
+    "ticker": "CUSIP:30049G104",
+    "unpriced": true
+  },
   "30049G302": {
     "displaySymbol": "EVOKEP",
     "industry": "",
@@ -33241,6 +34608,13 @@
     "sector": "Industrials",
     "ticker": "FBYDW"
   },
+  "30711Y300": {
+    "industry": "Internet Content & Information",
+    "isTechTmt": true,
+    "name": "Fang Holdings Limited",
+    "sector": "Communication Services",
+    "ticker": "SFUNY"
+  },
   "30712A103": {
     "displaySymbol": "FANHUA",
     "industry": "",
@@ -33715,6 +35089,15 @@
     "sector": "Healthcare",
     "ticker": "FENC"
   },
+  "314645102": {
+    "displaySymbol": "FENTUR",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "FENTURA FINANCIAL INC",
+    "sector": "Other",
+    "ticker": "CUSIP:314645102",
+    "unpriced": true
+  },
   "31488V107": {
     "industry": "Industrial Distribution",
     "isTechTmt": false,
@@ -33735,6 +35118,15 @@
     "name": "Fermi Inc.",
     "sector": "Real Estate",
     "ticker": "FRMI"
+  },
+  "31502A303": {
+    "displaySymbol": "FERGUS",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "FERGUSON PLC SPONSRD ADR",
+    "sector": "Other",
+    "ticker": "CUSIP:31502A303",
+    "unpriced": true
   },
   "315405100": {
     "industry": "Engineering & Construction",
@@ -34148,6 +35540,13 @@
     "name": "Fidelity Enhanced Emerging Markets ETF",
     "sector": "Other",
     "ticker": "FEMR"
+  },
+  "31609R100": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Fidelity D & D Bancorp, Inc.",
+    "sector": "Financial Services",
+    "ticker": "FDBC"
   },
   "31613E103": {
     "industry": "",
@@ -35488,6 +36887,13 @@
     "sector": "Other",
     "ticker": "RBLD"
   },
+  "33736Q104": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "First Trust NASDAQ ABA Community Bank Index Fund",
+    "sector": "Other",
+    "ticker": "QABA"
+  },
   "33737A108": {
     "industry": "",
     "isTechTmt": false,
@@ -36055,6 +37461,13 @@
     "sector": "Other",
     "ticker": "AGQI"
   },
+  "33740F425": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "FT Vest U.S. Equity Enhance & Moderate Buffer ETF - July",
+    "sector": "Other",
+    "ticker": "XJUL"
+  },
   "33740F441": {
     "industry": "",
     "isTechTmt": false,
@@ -36364,6 +37777,13 @@
     "name": "FT Vest U.S. Equity Uncapped Ac",
     "sector": "Other",
     "ticker": "UXJA"
+  },
+  "33740U463": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "FT Vest U.S. Equity Quarterly M",
+    "sector": "Other",
+    "ticker": "SQMX"
   },
   "33740U505": {
     "industry": "",
@@ -36823,6 +38243,13 @@
     "ticker": "CUSIP:33836P105",
     "unpriced": true
   },
+  "338480106": {
+    "industry": "Asset Management",
+    "isTechTmt": false,
+    "name": "Flaherty & Crumrine Preferred Income Fund Inc.",
+    "sector": "Financial Services",
+    "ticker": "PFD"
+  },
   "33848E106": {
     "industry": "Asset Management",
     "isTechTmt": false,
@@ -36900,6 +38327,13 @@
     "name": "Flexible Solutions International, Inc.",
     "sector": "Basic Materials",
     "ticker": "FSI"
+  },
+  "33939J303": {
+    "industry": "Rental & Leasing Services",
+    "isTechTmt": false,
+    "name": "FlexShopper, Inc.",
+    "sector": "Industrials",
+    "ticker": "FPAYQ"
   },
   "33939L100": {
     "industry": "",
@@ -37213,6 +38647,13 @@
     "name": "Foghorn Therapeutics Inc.",
     "sector": "Healthcare",
     "ticker": "FHTX"
+  },
+  "34417J104": {
+    "industry": "Scientific & Technical Instruments",
+    "isTechTmt": true,
+    "name": "Focus Universal Inc.",
+    "sector": "Technology",
+    "ticker": "FCUV"
   },
   "34417L109": {
     "displaySymbol": "FOCUSI",
@@ -38697,6 +40138,13 @@
     "sector": "Other",
     "ticker": "POLIX"
   },
+  "360876809": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Fundx ETF",
+    "sector": "Other",
+    "ticker": "XCOR"
+  },
   "36087T353": {
     "industry": "",
     "isTechTmt": false,
@@ -38874,6 +40322,13 @@
     "sector": "Financial Services",
     "ticker": "FVCB"
   },
+  "361438104": {
+    "industry": "Asset Management",
+    "isTechTmt": false,
+    "name": "GAMCO Investors, Inc.",
+    "sector": "Financial Services",
+    "ticker": "GAMI"
+  },
   "361448103": {
     "industry": "Rental & Leasing Services",
     "isTechTmt": false,
@@ -38947,6 +40402,15 @@
     "name": "The GEO Group, Inc.",
     "sector": "Industrials",
     "ticker": "GEO"
+  },
+  "36162J906": {
+    "displaySymbol": "GEOGRO",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "GEO GROUP INC NEW",
+    "sector": "Other",
+    "ticker": "CUSIP:36162J906",
+    "unpriced": true
   },
   "36164V602": {
     "industry": "Telecom Services",
@@ -40298,6 +41762,13 @@
     "sector": "Healthcare",
     "ticker": "DNA"
   },
+  "37636P108": {
+    "industry": "Specialty Chemicals",
+    "isTechTmt": false,
+    "name": "Givaudan SA",
+    "sector": "Basic Materials",
+    "ticker": "GVDNY"
+  },
   "37637K108": {
     "industry": "Software\u2014Infrastructure",
     "isTechTmt": true,
@@ -40902,6 +42373,13 @@
     "name": "Global X Internet of Things ETF",
     "sector": "Other",
     "ticker": "SNSR"
+  },
+  "37954Y806": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Global X Alternative Income ETF",
+    "sector": "Other",
+    "ticker": "ALTY"
   },
   "37954Y814": {
     "industry": "",
@@ -42756,6 +44234,13 @@
     "ticker": "CUSIP:39678G103",
     "unpriced": true
   },
+  "396879108": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Greenwich LifeSciences, Inc.",
+    "sector": "Healthcare",
+    "ticker": "GLSI"
+  },
   "397624107": {
     "industry": "Packaging & Containers",
     "isTechTmt": false,
@@ -43071,6 +44556,13 @@
     "name": "Grupo Aeroportuario del Sureste, S. A. B. de C. V.",
     "sector": "Industrials",
     "ticker": "ASR"
+  },
+  "40052P107": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Grupo Financiero Banorte, S.A.B. de C.V.",
+    "sector": "Financial Services",
+    "ticker": "GBOOY"
   },
   "40053W101": {
     "industry": "Banks\u2014Regional",
@@ -43718,6 +45210,13 @@
     "ticker": "CUSIP:41043F208",
     "unpriced": true
   },
+  "41043M104": {
+    "industry": "Real Estate Services",
+    "isTechTmt": false,
+    "name": "Hang Lung Properties Limited",
+    "sector": "Real Estate",
+    "ticker": "HLPPY"
+  },
   "410495204": {
     "industry": "Banks\u2014Regional",
     "isTechTmt": false,
@@ -44272,6 +45771,15 @@
     "sector": "Real Estate",
     "ticker": "HR"
   },
+  "421962101": {
+    "displaySymbol": "HEARTL",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "HEARTLAND BANCCORP",
+    "sector": "Other",
+    "ticker": "CUSIP:421962101",
+    "unpriced": true
+  },
   "42207L106": {
     "displaySymbol": "HEADHU",
     "industry": "",
@@ -44660,6 +46168,13 @@
     "name": "Henderson Land Development Company Limited",
     "sector": "Real Estate",
     "ticker": "HLDCY"
+  },
+  "42550U109": {
+    "industry": "Household & Personal Products",
+    "isTechTmt": false,
+    "name": "Henkel AG & Co. KGaA",
+    "sector": "Consumer Defensive",
+    "ticker": "HENKY"
   },
   "425885100": {
     "industry": "Asset Management",
@@ -45229,6 +46744,13 @@
     "sector": "Financial Services",
     "ticker": "HIFS"
   },
+  "433535101": {
+    "industry": "Staffing & Employment Services",
+    "isTechTmt": false,
+    "name": "HireQuest, Inc.",
+    "sector": "Industrials",
+    "ticker": "HQI"
+  },
   "433537107": {
     "displaySymbol": "HIRERI",
     "industry": "",
@@ -45619,6 +47141,13 @@
     "sector": "Other",
     "ticker": "CUSIP:44047T109",
     "unpriced": true
+  },
+  "44052W104": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Bright Horizon Energy Corporation",
+    "sector": "Other",
+    "ticker": "HZN"
   },
   "44052WAA2": {
     "industry": "",
@@ -46354,6 +47883,13 @@
     "sector": "Other",
     "ticker": "CUSIP:449585108",
     "unpriced": true
+  },
+  "44969Q406": {
+    "industry": "Drug Manufacturers\u2014Specialty & Generic",
+    "isTechTmt": false,
+    "name": "IM Cannabis Corp.",
+    "sector": "Healthcare",
+    "ticker": "IMCC"
   },
   "44975P103": {
     "industry": "Biotechnology",
@@ -48240,6 +49776,13 @@
     "sector": "Other",
     "ticker": "KJUN"
   },
+  "45783Y319": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Innovator Premium Income 15 Buf",
+    "sector": "Other",
+    "ticker": "LAPR"
+  },
   "45783Y335": {
     "industry": "",
     "isTechTmt": false,
@@ -48521,6 +50064,20 @@
     "name": "Innovator Equity Autocallable I",
     "sector": "Other",
     "ticker": "ACEI"
+  },
+  "45784N643": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Innovator Equity Defined Protection ETF - 1 Yr June",
+    "sector": "Other",
+    "ticker": "ZJUN"
+  },
+  "45784N650": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Innovator Equity Defined Protec",
+    "sector": "Other",
+    "ticker": "ZMAY"
   },
   "45784N676": {
     "industry": "",
@@ -49391,6 +50948,13 @@
     "name": "Intuitive Surgical, Inc.",
     "sector": "Healthcare",
     "ticker": "ISRG"
+  },
+  "46121E205": {
+    "industry": "Software\u2014Infrastructure",
+    "isTechTmt": true,
+    "name": "Intrusion Inc.",
+    "sector": "Technology",
+    "ticker": "INTZ"
   },
   "46121H109": {
     "displaySymbol": "INTRIC",
@@ -50324,6 +51888,13 @@
     "sector": "Other",
     "ticker": "PGHY"
   },
+  "46138E693": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Invesco Fundamental Investment Grade Corporate Bond ETF",
+    "sector": "Other",
+    "ticker": "PFIG"
+  },
   "46138E719": {
     "industry": "",
     "isTechTmt": false,
@@ -51032,6 +52603,13 @@
     "name": "Astoria Real Asset ETF",
     "sector": "Other",
     "ticker": "PPI"
+  },
+  "46143U849": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "AXS Knowledge Leaders ETF",
+    "sector": "Other",
+    "ticker": "KNO"
   },
   "46144X107": {
     "industry": "",
@@ -53891,6 +55469,13 @@
     "sector": "Other",
     "ticker": "IBDU"
   },
+  "46436E254": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "iShares Environmental Infrastructure and Industrials ETF",
+    "sector": "Other",
+    "ticker": "EFRA"
+  },
   "46436E288": {
     "industry": "",
     "isTechTmt": false,
@@ -55502,6 +57087,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "JRSH"
   },
+  "476493101": {
+    "industry": "Food Distribution",
+    "isTechTmt": false,
+    "name": "Jer\u00f3nimo Martins, SGPS, S.A.",
+    "sector": "Consumer Defensive",
+    "ticker": "JRONY"
+  },
   "47668J102": {
     "industry": "Restaurants",
     "isTechTmt": false,
@@ -55758,6 +57350,13 @@
     "name": "Ziff Davis, Inc.",
     "sector": "Communication Services",
     "ticker": "ZD"
+  },
+  "48123V110": {
+    "industry": "Advertising Agencies",
+    "isTechTmt": false,
+    "name": "Ziff Davis Inc",
+    "sector": "Other",
+    "ticker": "JXC1-SG"
   },
   "48123VAE2": {
     "industry": "Advertising Agencies",
@@ -57201,6 +58800,13 @@
     "name": "Komatsu Ltd.",
     "sector": "Industrials",
     "ticker": "KMTUY"
+  },
+  "500467501": {
+    "industry": "Grocery Stores",
+    "isTechTmt": false,
+    "name": "Koninklijke Ahold Delhaize N.V.",
+    "sector": "Consumer Defensive",
+    "ticker": "ADRNY"
   },
   "500472303": {
     "industry": "Medical Devices",
@@ -58754,6 +60360,13 @@
     "name": "LegalZoom.com, Inc.",
     "sector": "Industrials",
     "ticker": "LZ"
+  },
+  "524682200": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ClearBridge Large Cap Growth Select ETF",
+    "sector": "Other",
+    "ticker": "LRGE"
   },
   "52468E105": {
     "industry": "",
@@ -60701,6 +62314,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "LOVE"
   },
+  "548016914": {
+    "industry": "Insurance\u2014Diversified",
+    "isTechTmt": false,
+    "name": "Tryg A/S",
+    "sector": "Financial Services",
+    "ticker": "TGVSF"
+  },
   "548661107": {
     "industry": "Home Improvement Retail",
     "isTechTmt": false,
@@ -61069,6 +62689,15 @@
     "name": "Lyft, Inc.",
     "sector": "Technology",
     "ticker": "LYFT"
+  },
+  "55099Q116": {
+    "displaySymbol": "ALTAIR",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Altair Global Credit",
+    "sector": "Other",
+    "ticker": "CUSIP:55099Q116",
+    "unpriced": true
   },
   "551073307": {
     "industry": "Other Industrial Metals & Mining",
@@ -61672,6 +63301,20 @@
     "sector": "Other",
     "ticker": "CUSIP:554489104",
     "unpriced": true
+  },
+  "555927508": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Nomura Focused Emerging Markets Equity ETF",
+    "sector": "Other",
+    "ticker": "EMEQ"
+  },
+  "55607P204": {
+    "industry": "Capital Markets",
+    "isTechTmt": false,
+    "name": "Macquarie Group Limited",
+    "sector": "Financial Services",
+    "ticker": "MQBKY"
   },
   "55607W100": {
     "displaySymbol": "MACQUA",
@@ -62842,6 +64485,15 @@
     "sector": "Technology",
     "ticker": "MXL"
   },
+  "57776X109": {
+    "displaySymbol": "MAXSOU",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "MAX SOUND CORP.",
+    "sector": "Other",
+    "ticker": "CUSIP:57776X109",
+    "unpriced": true
+  },
   "57777K106": {
     "industry": "Medical Devices",
     "isTechTmt": false,
@@ -63443,6 +65095,13 @@
     "sector": "Other",
     "ticker": "CUSIP:59045L205",
     "unpriced": true
+  },
+  "590479135": {
+    "industry": "Airlines",
+    "isTechTmt": false,
+    "name": "Republic Airways Holdings Inc",
+    "sector": "Other",
+    "ticker": "M2A0-SG"
   },
   "590479408": {
     "industry": "Airlines",
@@ -64686,6 +66345,15 @@
     "sector": "Consumer Defensive",
     "ticker": "MDLZ"
   },
+  "60921V101": {
+    "displaySymbol": "MONDIP",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "MONDI PLC ADR",
+    "sector": "Other",
+    "ticker": "CUSIP:60921V101",
+    "unpriced": true
+  },
   "60934N625": {
     "industry": "",
     "isTechTmt": false,
@@ -65123,6 +66791,13 @@
     "name": "Eaton Vance Ultra-Short Income ETF",
     "sector": "Other",
     "ticker": "EVSB"
+  },
+  "61774R767": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Eaton Vance Mortgage Opportunities ETF",
+    "sector": "Other",
+    "ticker": "EVMO"
   },
   "61774R817": {
     "industry": "",
@@ -65721,6 +67396,15 @@
     "name": "Norwegian Cruise Line Holdings Ltd.",
     "sector": "Consumer Cyclical",
     "ticker": "NCLH"
+  },
+  "628877201": {
+    "displaySymbol": "NCSMUL",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "NCS MULTISTAGE HLDGS INC",
+    "sector": "Other",
+    "ticker": "CUSIP:628877201",
+    "unpriced": true
   },
   "628988107": {
     "industry": "Education & Training Services",
@@ -67989,6 +69673,13 @@
     "ticker": "CUSIP:65506L105",
     "unpriced": true
   },
+  "655186500": {
+    "industry": "Packaged Foods",
+    "isTechTmt": false,
+    "name": "Nocera, Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "NCRA"
+  },
   "65528N204": {
     "displaySymbol": "NOGINI",
     "industry": "",
@@ -68245,6 +69936,13 @@
     "name": "NORTHERN STOCK INDEX FUND",
     "sector": "Other",
     "ticker": "NOSIX"
+  },
+  "665162848": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "NORTHERN US GOVT MMKT",
+    "sector": "Other",
+    "ticker": "NOGXX"
   },
   "66516T104": {
     "displaySymbol": "NORTHE",
@@ -69813,6 +71511,13 @@
     "sector": "Other",
     "ticker": "NUSC"
   },
+  "67092P706": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Nuveen Short-Term REIT ETF",
+    "sector": "Other",
+    "ticker": "NURE"
+  },
   "67092P797": {
     "industry": "",
     "isTechTmt": false,
@@ -69958,6 +71663,13 @@
     "ticker": "CUSIP:67107W100",
     "unpriced": true
   },
+  "67109R109": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "OP Bancorp",
+    "sector": "Financial Services",
+    "ticker": "OPBK"
+  },
   "67110P407": {
     "industry": "",
     "isTechTmt": false,
@@ -70043,6 +71755,15 @@
     "name": "OAKTREE STRATEGIC INCOME COR",
     "sector": "Other",
     "ticker": "CUSIP:67402D104",
+    "unpriced": true
+  },
+  "67420T206": {
+    "displaySymbol": "OASISM",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "OASIS MIDSTREAM PARTNERS LP",
+    "sector": "Other",
+    "ticker": "CUSIP:67420T206",
     "unpriced": true
   },
   "674215207": {
@@ -71136,6 +72857,15 @@
     "sector": "Communication Services",
     "ticker": "OPRA"
   },
+  "683750103": {
+    "displaySymbol": "OPIANT",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "OPIANT PHARMACEUTICALS INC",
+    "sector": "Other",
+    "ticker": "CUSIP:683750103",
+    "unpriced": true
+  },
   "68375N103": {
     "industry": "Diagnostics & Research",
     "isTechTmt": false,
@@ -71393,12 +73123,28 @@
     "sector": "Healthcare",
     "ticker": "OGI"
   },
+  "68621D107": {
+    "displaySymbol": "ORGANI",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ORGANICELL REGENERATIVE MEDICI",
+    "sector": "Other",
+    "ticker": "CUSIP:68621D107",
+    "unpriced": true
+  },
   "68621F102": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
     "isTechTmt": false,
     "name": "Organogenesis Holdings Inc.",
     "sector": "Healthcare",
     "ticker": "ORGO"
+  },
+  "68621T102": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Origin Bancorp, Inc.",
+    "sector": "Financial Services",
+    "ticker": "OBK"
   },
   "68622D106": {
     "displaySymbol": "ORIGIN",
@@ -71814,6 +73560,13 @@
     "name": "Outset Medical, Inc.",
     "sector": "Healthcare",
     "ticker": "OM"
+  },
+  "690333109": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Oversea-Chinese Banking Corporation Limited",
+    "sector": "Financial Services",
+    "ticker": "OVCHY"
   },
   "69036R863": {
     "displaySymbol": "OVERSE",
@@ -73432,6 +75185,15 @@
     "ticker": "CUSIP:70211M109",
     "unpriced": true
   },
+  "70213Q108": {
+    "displaySymbol": "PARTNE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "PARTNERS BANCORP",
+    "sector": "Other",
+    "ticker": "CUSIP:70213Q108",
+    "unpriced": true
+  },
   "702141102": {
     "displaySymbol": "PARTSI",
     "industry": "",
@@ -74719,6 +76481,13 @@
     "sector": "Other",
     "ticker": "MINO"
   },
+  "72201R643": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "PIMCO Enhanced Short Maturity Active ESG and Bond Exchange-Traded Fund",
+    "sector": "Other",
+    "ticker": "EMNT"
+  },
   "72201R718": {
     "industry": "",
     "isTechTmt": false,
@@ -75434,6 +77203,13 @@
     "sector": "Financial Services",
     "ticker": "PONOU"
   },
+  "73245B107": {
+    "industry": "Consulting Services",
+    "isTechTmt": false,
+    "name": "SBC Medical Group Holdings Incorporated",
+    "sector": "Industrials",
+    "ticker": "SBC"
+  },
   "73278L105": {
     "industry": "Industrial Distribution",
     "isTechTmt": false,
@@ -76053,6 +77829,20 @@
     "name": "Principal Financial Group, Inc.",
     "sector": "Financial Services",
     "ticker": "PFG"
+  },
+  "74254T443": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "PRINCIPAL MIDCAP FUND-A",
+    "sector": "Other",
+    "ticker": "PEMGX"
+  },
+  "74254U721": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "PRINCIPAL MIDCAP FUND-C",
+    "sector": "Other",
+    "ticker": "PMBCX"
   },
   "74255X104": {
     "industry": "Asset Management",
@@ -76681,6 +78471,13 @@
     "name": "ProShares UltraPro Short QQQ",
     "sector": "Other",
     "ticker": "SQQQ"
+  },
+  "74347G887": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ProShares UltraPro Short 20+ Year Treasury",
+    "sector": "Other",
+    "ticker": "TTT"
   },
   "74347G900": {
     "industry": "",
@@ -77720,6 +79517,13 @@
     "sector": "Technology",
     "ticker": "P"
   },
+  "74624M902": {
+    "industry": "Computer Hardware",
+    "isTechTmt": true,
+    "name": "Everpure, Inc.",
+    "sector": "Technology",
+    "ticker": "P"
+  },
   "74624M952": {
     "industry": "Computer Hardware",
     "isTechTmt": true,
@@ -77972,6 +79776,15 @@
     "name": "Quaker Chemical Corporation",
     "sector": "Basic Materials",
     "ticker": "KWR"
+  },
+  "74731Q103": {
+    "displaySymbol": "PZENAI",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "PZENA INVESTMENT MANAGM-CL A",
+    "sector": "Other",
+    "ticker": "CUSIP:74731Q103",
+    "unpriced": true
   },
   "747324101": {
     "industry": "Biotechnology",
@@ -79058,6 +80871,13 @@
     "ticker": "CUSIP:75525N107",
     "unpriced": true
   },
+  "75526L613": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "M.D. Sass Concentrated Value ET",
+    "sector": "Other",
+    "ticker": "SASS"
+  },
   "75526L845": {
     "industry": "",
     "isTechTmt": false,
@@ -79285,6 +81105,13 @@
     "name": "Red Cat Holdings, Inc.",
     "sector": "Industrials",
     "ticker": "RCAT"
+  },
+  "756568101": {
+    "industry": "Utilities\u2014Regulated Electric",
+    "isTechTmt": false,
+    "name": "Redeia Corporaci\u00f3n, S.A.",
+    "sector": "Utilities",
+    "ticker": "RDEIY"
   },
   "75686R202": {
     "industry": "Banks\u2014Regional",
@@ -79948,6 +81775,15 @@
     "ticker": "CUSIP:761330109",
     "unpriced": true
   },
+  "76133Q102": {
+    "displaySymbol": "RETAIL",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "RETAIL VALUE INC",
+    "sector": "Other",
+    "ticker": "CUSIP:76133Q102",
+    "unpriced": true
+  },
   "76134G103": {
     "displaySymbol": "REUNIO",
     "industry": "",
@@ -80126,6 +81962,13 @@
     "sector": "Basic Materials",
     "ticker": "REX"
   },
+  "761681105": {
+    "industry": "Electronics & Computer Distribution",
+    "isTechTmt": true,
+    "name": "Rexel S.A.",
+    "sector": "Technology",
+    "ticker": "RXEEY"
+  },
   "76169B102": {
     "industry": "Specialty Industrial Machinery",
     "isTechTmt": false,
@@ -80160,6 +82003,13 @@
     "name": "Rezolute, Inc.",
     "sector": "Healthcare",
     "ticker": "RZLT"
+  },
+  "762093102": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Rhinebeck Bancorp, Inc.",
+    "sector": "Financial Services",
+    "ticker": "RBKB"
   },
   "762093201": {
     "industry": "Banks\u2014Regional",
@@ -81272,6 +83122,15 @@
     "sector": "Other",
     "ticker": "RCL-MX"
   },
+  "780249108": {
+    "displaySymbol": "ROYALD",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ROYAL DSM N V SPON ADR",
+    "sector": "Other",
+    "ticker": "CUSIP:780249108",
+    "unpriced": true
+  },
   "780259107": {
     "industry": "",
     "isTechTmt": false,
@@ -82383,6 +84242,13 @@
     "sector": "Technology",
     "ticker": "SSNC"
   },
+  "78467K107": {
+    "industry": "Utilities\u2014Diversified",
+    "isTechTmt": false,
+    "name": "SSE plc",
+    "sector": "Utilities",
+    "ticker": "SSEZY"
+  },
   "78467V103": {
     "industry": "",
     "isTechTmt": false,
@@ -82558,6 +84424,13 @@
     "sector": "Other",
     "ticker": "HAIL"
   },
+  "78468R705": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "State Street SPDR S&P 1500 Momentum Tilt ETF",
+    "sector": "Other",
+    "ticker": "MMTM"
+  },
   "78468R721": {
     "industry": "",
     "isTechTmt": false,
@@ -82578,6 +84451,13 @@
     "name": "State Street SPDR MSCI USA Gender Diversity ETF",
     "sector": "Other",
     "ticker": "SHE"
+  },
+  "78468R754": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "State Street SPDR Russell 1000 Low Volatility Focus ETF",
+    "sector": "Other",
+    "ticker": "ONEV"
   },
   "78468R770": {
     "industry": "",
@@ -83018,6 +84898,13 @@
     "sector": "Other",
     "ticker": "CUSIP:78661R205",
     "unpriced": true
+  },
+  "78663S201": {
+    "industry": "Software\u2014Application",
+    "isTechTmt": true,
+    "name": "The Sage Group plc",
+    "sector": "Technology",
+    "ticker": "SGPYY"
   },
   "78667J108": {
     "displaySymbol": "SAGETH",
@@ -84431,6 +86318,13 @@
     "sector": "Healthcare",
     "ticker": "SPTX"
   },
+  "812224202": {
+    "industry": "Other Industrial Metals & Mining",
+    "isTechTmt": false,
+    "name": "Searchlight Minerals Corp.",
+    "sector": "Basic Materials",
+    "ticker": "SRCH"
+  },
   "812227106": {
     "displaySymbol": "SEAPOR",
     "industry": "",
@@ -85640,6 +87534,13 @@
     "sector": "Basic Materials",
     "ticker": "SHECY"
   },
+  "82455C101": {
+    "industry": "Leisure",
+    "isTechTmt": false,
+    "name": "Shimano Inc.",
+    "sector": "Consumer Cyclical",
+    "ticker": "SMNNY"
+  },
   "82455M109": {
     "industry": "Engineering & Construction",
     "isTechTmt": false,
@@ -85653,6 +87554,13 @@
     "name": "Shinhan Financial Group Co., Ltd.",
     "sector": "Financial Services",
     "ticker": "SHG"
+  },
+  "824841407": {
+    "industry": "Household & Personal Products",
+    "isTechTmt": false,
+    "name": "Shiseido Company, Limited",
+    "sector": "Consumer Defensive",
+    "ticker": "SSDOY"
   },
   "824889109": {
     "industry": "Apparel Retail",
@@ -85994,6 +87902,13 @@
     "sector": "Basic Materials",
     "ticker": "SXYAY"
   },
+  "82674U205": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Sigyn Therapeutics, Inc.",
+    "sector": "Healthcare",
+    "ticker": "SIGY"
+  },
   "82686Q101": {
     "industry": "Biotechnology",
     "isTechTmt": false,
@@ -86316,6 +88231,13 @@
     "sector": "Other",
     "ticker": "XV"
   },
+  "82889N368": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Simplify Currency Strategy ETF",
+    "sector": "Other",
+    "ticker": "FOXY"
+  },
   "82889N384": {
     "industry": "",
     "isTechTmt": false,
@@ -86479,6 +88401,13 @@
     "sector": "Communication Services",
     "ticker": "SBGI"
   },
+  "82929R304": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Singapore Telecommunications Limited",
+    "sector": "Communication Services",
+    "ticker": "SGAPY"
+  },
   "82933R100": {
     "displaySymbol": "SINGUL",
     "industry": "",
@@ -86487,6 +88416,13 @@
     "sector": "Other",
     "ticker": "CUSIP:82933R100",
     "unpriced": true
+  },
+  "82935V208": {
+    "industry": "Integrated Freight & Logistics",
+    "isTechTmt": false,
+    "name": "Singularity Future Technology Ltd.",
+    "sector": "Industrials",
+    "ticker": "SGLY"
   },
   "829392604": {
     "industry": "Medical Devices",
@@ -86749,6 +88685,13 @@
     "sector": "Financial Services",
     "ticker": "SZZLU"
   },
+  "830561205": {
+    "industry": "Engineering & Construction",
+    "isTechTmt": false,
+    "name": "Skanska AB (publ)",
+    "sector": "Industrials",
+    "ticker": "SKBSY"
+  },
   "830566105": {
     "displaySymbol": "SKECHE",
     "industry": "",
@@ -86773,6 +88716,13 @@
     "sector": "Other",
     "ticker": "CUSIP:83056P806",
     "unpriced": true
+  },
+  "83066P119": {
+    "industry": "Education & Training Services",
+    "isTechTmt": false,
+    "name": "Skillsoft Corp.",
+    "sector": "Consumer Defensive",
+    "ticker": "SKIL"
   },
   "83066P200": {
     "industry": "Education & Training Services",
@@ -87626,6 +89576,13 @@
     "name": "Sonic Foundry, Inc.",
     "sector": "Technology",
     "ticker": "SOFO"
+  },
+  "83546A203": {
+    "industry": "Diagnostics & Research",
+    "isTechTmt": false,
+    "name": "Sonic Healthcare Limited",
+    "sector": "Healthcare",
+    "ticker": "SKHHY"
   },
   "835483108": {
     "industry": "Scientific & Technical Instruments",
@@ -88708,6 +90665,13 @@
     "sector": "Other",
     "ticker": "URNM"
   },
+  "85208P402": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Sprott Critical Materials ETF",
+    "sector": "Other",
+    "ticker": "SETM"
+  },
   "85208P501": {
     "industry": "",
     "isTechTmt": false,
@@ -88955,6 +90919,13 @@
     "sector": "Other",
     "ticker": "CUSIP:85303B100",
     "unpriced": true
+  },
+  "853254100": {
+    "industry": "Banks\u2014Diversified",
+    "isTechTmt": false,
+    "name": "Standard Chartered PLC",
+    "sector": "Financial Services",
+    "ticker": "SCBFY"
   },
   "853606101": {
     "industry": "Other Industrial Metals & Mining",
@@ -89266,6 +91237,15 @@
     "sector": "Basic Materials",
     "ticker": "STLD"
   },
+  "85814R107": {
+    "displaySymbol": "STEELP",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "STEEL PARTNERS HOLDINGS LP",
+    "sector": "Other",
+    "ticker": "CUSIP:85814R107",
+    "unpriced": true
+  },
   "858155203": {
     "displaySymbol": "STEELC",
     "industry": "",
@@ -89358,6 +91338,13 @@
     "ticker": "CUSIP:85917A100",
     "unpriced": true
   },
+  "85917K470": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Sterling Capital National Munic",
+    "sector": "Other",
+    "ticker": "SCNM"
+  },
   "85917T109": {
     "displaySymbol": "STERLI",
     "industry": "",
@@ -89375,6 +91362,13 @@
     "sector": "Other",
     "ticker": "CUSIP:85917W102",
     "unpriced": true
+  },
+  "85918D566": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Sterling Capital Enhanced Core Bond ETF",
+    "sector": "Other",
+    "ticker": "SCEC"
   },
   "859241101": {
     "industry": "Engineering & Construction",
@@ -90448,6 +92442,13 @@
     "sector": "Financial Services",
     "ticker": "SSREY"
   },
+  "871013108": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Swisscom AG",
+    "sector": "Communication Services",
+    "ticker": "SCMWY"
+  },
   "87105L104": {
     "industry": "Electrical Equipment & Parts",
     "isTechTmt": false,
@@ -90712,6 +92713,13 @@
     "name": "SYSTEM1 INC-CW",
     "sector": "Other",
     "ticker": "SSTPW"
+  },
+  "872120100": {
+    "industry": "Insurance\u2014Life",
+    "isTechTmt": false,
+    "name": "T&D Holdings, Inc.",
+    "sector": "Financial Services",
+    "ticker": "TDHOY"
   },
   "872280102": {
     "industry": "Asset Management",
@@ -91549,6 +93557,13 @@
     "sector": "Other",
     "ticker": "CUSIP:87724P106",
     "unpriced": true
+  },
+  "877409102": {
+    "industry": "Residential Construction",
+    "isTechTmt": false,
+    "name": "Taylor Wimpey plc",
+    "sector": "Consumer Cyclical",
+    "ticker": "TWODY"
   },
   "877619106": {
     "industry": "Biotechnology",
@@ -94055,6 +96070,15 @@
     "ticker": "CUSIP:89236TGJ8",
     "unpriced": true
   },
+  "89237H209": {
+    "displaySymbol": "TRACON",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "TRACON PHARMACEUTICALS INC",
+    "sector": "Other",
+    "ticker": "CUSIP:89237H209",
+    "unpriced": true
+  },
   "892672106": {
     "industry": "Capital Markets",
     "isTechTmt": false,
@@ -95288,6 +97312,13 @@
     "name": "GMO U.S. Quality ETF",
     "sector": "Other",
     "ticker": "QLTY"
+  },
+  "90139K308": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "GMO International Quality ETF",
+    "sector": "Other",
+    "ticker": "QLTI"
   },
   "901476101": {
     "industry": "Specialty Industrial Machinery",
@@ -97178,6 +99209,13 @@
     "sector": "Other",
     "ticker": "VSA-SG"
   },
+  "919134304": {
+    "industry": "Auto Parts",
+    "isTechTmt": false,
+    "name": "Valeo SE",
+    "sector": "Consumer Cyclical",
+    "ticker": "VLEEY"
+  },
   "91913Y100": {
     "industry": "Oil & Gas Refining & Marketing",
     "isTechTmt": false,
@@ -97721,6 +99759,13 @@
     "sector": "Other",
     "ticker": "VTIAX"
   },
+  "921910501": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "VANGUARD INTL GROWTH-ADM",
+    "sector": "Other",
+    "ticker": "VWILX"
+  },
   "921910600": {
     "industry": "",
     "isTechTmt": false,
@@ -98014,6 +100059,13 @@
     "name": "Vanguard Short-Term Inflation-Protected Securities Index Fund ETF Shares",
     "sector": "Other",
     "ticker": "VTIP"
+  },
+  "922020847": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "VANGUARD CORE BOND-INV",
+    "sector": "Other",
+    "ticker": "VCORX"
   },
   "922021605": {
     "industry": "",
@@ -99199,6 +101251,24 @@
     "name": "Vertiv Holdings Co",
     "sector": "Industrials",
     "ticker": "VRT"
+  },
+  "92537N116": {
+    "displaySymbol": "VERTIV",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "VERTIV HOLDINGS CO",
+    "sector": "Other",
+    "ticker": "CUSIP:92537N116",
+    "unpriced": true
+  },
+  "92537N207": {
+    "displaySymbol": "VERTIV",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "VERTIV HOLDINGS CO",
+    "sector": "Other",
+    "ticker": "CUSIP:92537N207",
+    "unpriced": true
   },
   "92538J106": {
     "industry": "Software\u2014Application",
@@ -100494,6 +102564,20 @@
     "sector": "Other",
     "ticker": "JOUL"
   },
+  "928854108": {
+    "industry": "Farm & Heavy Construction Machinery",
+    "isTechTmt": false,
+    "name": "AB Volvo (publ)",
+    "sector": "Industrials",
+    "ticker": "VLVLY"
+  },
+  "928856301": {
+    "industry": "Farm & Heavy Construction Machinery",
+    "isTechTmt": false,
+    "name": "AB Volvo (publ)",
+    "sector": "Industrials",
+    "ticker": "VOLVF"
+  },
   "92886T201": {
     "industry": "Oil & Gas Midstream",
     "isTechTmt": false,
@@ -100737,6 +102821,13 @@
     "name": "Voyager Digital Ltd.",
     "sector": "Technology",
     "ticker": "VYGVQ"
+  },
+  "92919Y102": {
+    "industry": "Health Information Services",
+    "isTechTmt": false,
+    "name": "VSee Health, Inc.",
+    "sector": "Healthcare",
+    "ticker": "VSEE"
   },
   "92921W300": {
     "industry": "Consumer Electronics",
@@ -101398,6 +103489,15 @@
     "name": "Weibo Corporation",
     "sector": "Communication Services",
     "ticker": "WB"
+  },
+  "948597109": {
+    "displaySymbol": "WEICHA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "WEICHAI PWR CO LTD-H ADR",
+    "sector": "Other",
+    "ticker": "CUSIP:948597109",
+    "unpriced": true
   },
   "948741103": {
     "displaySymbol": "WEINGA",
@@ -103680,6 +105780,13 @@
     "sector": "Technology",
     "ticker": "YALA"
   },
+  "984627109": {
+    "industry": "Leisure",
+    "isTechTmt": false,
+    "name": "Yamaha Corporation",
+    "sector": "Consumer Cyclical",
+    "ticker": "YAMCY"
+  },
   "98462F903": {
     "industry": "",
     "isTechTmt": false,
@@ -104226,6 +106333,13 @@
     "ticker": "CUSIP:98978L204",
     "unpriced": true
   },
+  "98978N200": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "ZIVO Bioscience, Inc.",
+    "sector": "Healthcare",
+    "ticker": "ZIVO"
+  },
   "98978V103": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
     "isTechTmt": false,
@@ -104657,6 +106771,15 @@
     "sector": "Basic Materials",
     "ticker": "TTAM"
   },
+  "B95505184": {
+    "displaySymbol": "UMICOR",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "UMICORE GROUP SHS F",
+    "sector": "Other",
+    "ticker": "CUSIP:B95505184",
+    "unpriced": true
+  },
   "BJ5954919": {
     "industry": "Telecom Services",
     "isTechTmt": false,
@@ -104845,12 +106968,28 @@
     "sector": "Communication Services",
     "ticker": "DTEGY"
   },
+  "D2852S109": {
+    "displaySymbol": "GERRES",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "GERRESHEIMER AG SHS",
+    "sector": "Other",
+    "ticker": "CUSIP:D2852S109",
+    "unpriced": true
+  },
   "D2R90Y117": {
     "industry": "Specialty Chemicals",
     "isTechTmt": false,
     "name": "Evonik Industries AG",
     "sector": "Other",
     "ticker": "EVK-DE"
+  },
+  "D3015J135": {
+    "industry": "Insurance\u2014Reinsurance",
+    "isTechTmt": false,
+    "name": "Hannover R\u00fcck SE",
+    "sector": "Other",
+    "ticker": "HNR1-DE"
   },
   "D32051126": {
     "displaySymbol": "HENKEL",
@@ -104867,6 +107006,13 @@
     "name": "Henkel AG & Co. KGaA",
     "sector": "Other",
     "ticker": "HEN3-DE"
+  },
+  "D35415104": {
+    "industry": "Semiconductors",
+    "isTechTmt": true,
+    "name": "Infineon Technologies AG",
+    "sector": "Technology",
+    "ticker": "IFNNY"
   },
   "D3R2MA100": {
     "displaySymbol": "HELLOF",
@@ -104964,6 +107110,13 @@
     "sector": "Technology",
     "ticker": "AIXXF"
   },
+  "E04648114": {
+    "industry": "Information Technology Services",
+    "isTechTmt": true,
+    "name": "Amadeus IT Group, S.A.",
+    "sector": "Technology",
+    "ticker": "AMADY"
+  },
   "E23135106": {
     "industry": "Internet Retail",
     "isTechTmt": true,
@@ -104995,6 +107148,13 @@
     "sector": "Other",
     "ticker": "CUSIP:E52619108",
     "unpriced": true
+  },
+  "E6282J125": {
+    "industry": "Apparel Retail",
+    "isTechTmt": false,
+    "name": "Industria de Dise\u00f1o Textil, S.A.",
+    "sector": "Other",
+    "ticker": "ZARA-NE"
   },
   "EP0589507": {
     "industry": "Auto Parts",
@@ -105175,6 +107335,20 @@
     "sector": "Utilities",
     "ticker": "EGIEY"
   },
+  "F7782J366": {
+    "industry": "Electronics & Computer Distribution",
+    "isTechTmt": true,
+    "name": "Rexel S.A.",
+    "sector": "Technology",
+    "ticker": "RXEEY"
+  },
+  "F8005V210": {
+    "industry": "Medical Instruments & Supplies",
+    "isTechTmt": false,
+    "name": "Sartorius Stedim Biotech S.A.",
+    "sector": "Healthcare",
+    "ticker": "SRTOY"
+  },
   "F86921107": {
     "industry": "Specialty Industrial Machinery",
     "isTechTmt": false,
@@ -105205,6 +107379,22 @@
     "ticker": "CUSIP:F9396N106",
     "unpriced": true
   },
+  "F96221340": {
+    "industry": "Auto Parts",
+    "isTechTmt": false,
+    "name": "Valeo SE",
+    "sector": "Consumer Cyclical",
+    "ticker": "VLEEY"
+  },
+  "F9686M107": {
+    "displaySymbol": "VEOLIA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "VEOLIA ENVIRONNEMENT F",
+    "sector": "Other",
+    "ticker": "CUSIP:F9686M107",
+    "unpriced": true
+  },
   "F97982106": {
     "displaySymbol": "VIVEND",
     "industry": "",
@@ -105213,6 +107403,22 @@
     "sector": "Other",
     "ticker": "CUSIP:F97982106",
     "unpriced": true
+  },
+  "F9867T103": {
+    "displaySymbol": "WORLDL",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "WORLDLINE SA F",
+    "sector": "Other",
+    "ticker": "CUSIP:F9867T103",
+    "unpriced": true
+  },
+  "FABH4DMW7": {
+    "industry": "Semiconductors",
+    "isTechTmt": true,
+    "name": "Silergy Corp.",
+    "sector": "Other",
+    "ticker": "6415-TW"
   },
   "FDIC33309": {
     "displaySymbol": "FDICBA",
@@ -105648,6 +107854,13 @@
     "name": "Aeries Technology, Inc",
     "sector": "Industrials",
     "ticker": "AERTW"
+  },
+  "G01408106": {
+    "industry": "Specialty Industrial Machinery",
+    "isTechTmt": false,
+    "name": "Airtac International Group",
+    "sector": "Other",
+    "ticker": "1590-TW"
   },
   "G01558108": {
     "displaySymbol": "ALDELF",
@@ -106242,6 +108455,13 @@
     "ticker": "CUSIP:G04119122",
     "unpriced": true
   },
+  "G0411D107": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Apollomics, Inc.",
+    "sector": "Healthcare",
+    "ticker": "APLM"
+  },
   "G0411R106": {
     "displaySymbol": "APOLLO",
     "industry": "",
@@ -106671,6 +108891,13 @@
     "name": "Asia Pacific Wire & Cable Corporation Limited",
     "sector": "Industrials",
     "ticker": "APWC"
+  },
+  "G0535Q133": {
+    "industry": "Semiconductor Equipment & Materials",
+    "isTechTmt": true,
+    "name": "ASMPT Limited",
+    "sector": "Technology",
+    "ticker": "ASMVY"
   },
   "G05384501": {
     "industry": "Insurance\u2014Property & Casualty",
@@ -107184,6 +109411,13 @@
     "name": "Barclays PLC",
     "sector": "Financial Services",
     "ticker": "BCS"
+  },
+  "G08288105": {
+    "industry": "Residential Construction",
+    "isTechTmt": false,
+    "name": "Barratt Developments PLC",
+    "sector": "Other",
+    "ticker": "3BA-SG"
   },
   "G0888J108": {
     "displaySymbol": "BATTER",
@@ -108259,6 +110493,15 @@
     "ticker": "CUSIP:G1643W129",
     "unpriced": true
   },
+  "G16612106": {
+    "displaySymbol": "BTGROU",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "BT GROUP PLC F",
+    "sector": "Other",
+    "ticker": "CUSIP:G16612106",
+    "unpriced": true
+  },
   "G1686P106": {
     "displaySymbol": "BULLHO",
     "industry": "",
@@ -108299,6 +110542,13 @@
     "sector": "Other",
     "ticker": "CUSIP:G16962204",
     "unpriced": true
+  },
+  "G1700D105": {
+    "industry": "Luxury Goods",
+    "isTechTmt": false,
+    "name": "Burberry Group plc",
+    "sector": "Consumer Cyclical",
+    "ticker": "BURBY"
   },
   "G1702T116": {
     "displaySymbol": "BURGUN",
@@ -109136,6 +111386,22 @@
     "sector": "Consumer Cyclical",
     "ticker": "CYD"
   },
+  "G2110A111": {
+    "industry": "Information Technology Services",
+    "isTechTmt": true,
+    "name": "Chinasoft International Limited",
+    "sector": "Other",
+    "ticker": "0354-HK"
+  },
+  "G2124G104": {
+    "displaySymbol": "CHINAJ",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CHINA JO-JO DRUGSTORES INC",
+    "sector": "Other",
+    "ticker": "CUSIP:G2124G104",
+    "unpriced": true
+  },
   "G2124G112": {
     "displaySymbol": "CHINAJ",
     "industry": "",
@@ -109718,6 +111984,15 @@
     "name": "Consolidated Water Co. Ltd.",
     "sector": "Utilities",
     "ticker": "CWCO"
+  },
+  "G23969101": {
+    "displaySymbol": "CONVAT",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CONVATEC GROUP PLC SHS",
+    "sector": "Other",
+    "ticker": "CUSIP:G23969101",
+    "unpriced": true
   },
   "G2415A113": {
     "industry": "Utilities\u2014Regulated Water",
@@ -110361,6 +112636,15 @@
     "sector": "Technology",
     "ticker": "FAASF"
   },
+  "G2769C145": {
+    "displaySymbol": "DECHRA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "DECHRA PHARMACEUTICALS PLC SHS",
+    "sector": "Other",
+    "ticker": "CUSIP:G2769C145",
+    "unpriced": true
+  },
   "G276AC119": {
     "industry": "Packaged Foods",
     "isTechTmt": false,
@@ -110428,6 +112712,13 @@
     "name": "Disciplined Growth Acquisition Corporation",
     "sector": "Financial Services",
     "ticker": "DGAC"
+  },
+  "G2788T103": {
+    "industry": "Leisure",
+    "isTechTmt": false,
+    "name": "Dogness (International) Corporation",
+    "sector": "Consumer Cyclical",
+    "ticker": "DOGZ"
   },
   "G27907107": {
     "industry": "Farm Products",
@@ -110510,6 +112801,15 @@
     "name": "Drugs Made In America Acquisition Corp.",
     "sector": "Other",
     "ticker": "DMAAR"
+  },
+  "G2848Q123": {
+    "displaySymbol": "DSSMIT",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "DS SMITH PLC SHS F",
+    "sector": "Other",
+    "ticker": "CUSIP:G2848Q123",
+    "unpriced": true
   },
   "G2851K104": {
     "industry": "Shell Companies",
@@ -112991,6 +115291,13 @@
     "sector": "Financial Services",
     "ticker": "GLRE"
   },
+  "G4095T107": {
+    "industry": "Auto Parts",
+    "isTechTmt": false,
+    "name": "Greenland Technologies Holding Corporation",
+    "sector": "Consumer Cyclical",
+    "ticker": "GTEC"
+  },
   "G41089106": {
     "displaySymbol": "AGRICO",
     "industry": "",
@@ -113198,6 +115505,13 @@
     "sector": "Basic Materials",
     "ticker": "JHX"
   },
+  "G4253H119": {
+    "industry": "Building Materials",
+    "isTechTmt": false,
+    "name": "James Hardie Industries plc",
+    "sector": "Basic Materials",
+    "ticker": "JHX"
+  },
   "G42706104": {
     "industry": "Insurance\u2014Reinsurance",
     "isTechTmt": false,
@@ -113368,6 +115682,13 @@
     "name": "Helen of Troy Limited",
     "sector": "Consumer Defensive",
     "ticker": "HELE"
+  },
+  "G4402L151": {
+    "industry": "Household & Personal Products",
+    "isTechTmt": false,
+    "name": "Hengan International Group Company Limited",
+    "sector": "Other",
+    "ticker": "1044-HK"
   },
   "G44055104": {
     "industry": "Shell Companies",
@@ -116003,6 +118324,13 @@
     "sector": "Communication Services",
     "ticker": "LBTYA"
   },
+  "G54812105": {
+    "industry": "Asset Management",
+    "isTechTmt": false,
+    "name": "Symphony International Holdings Limited",
+    "sector": "Financial Services",
+    "ticker": "SYNNF"
+  },
   "G5490M100": {
     "industry": "Shell Companies",
     "isTechTmt": false,
@@ -116159,6 +118487,15 @@
     "ticker": "CUSIP:G5510R105",
     "unpriced": true
   },
+  "G5533W248": {
+    "displaySymbol": "LLOYDS",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "LLOYDS BANKING GP",
+    "sector": "Other",
+    "ticker": "CUSIP:G5533W248",
+    "unpriced": true
+  },
   "G5568L109": {
     "industry": "Other Industrial Metals & Mining",
     "isTechTmt": false,
@@ -116191,6 +118528,15 @@
     "ticker": "CUSIP:G5596W127",
     "unpriced": true
   },
+  "G5635P109": {
+    "displaySymbol": "LONGFO",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "LONGFOR GROUP HLDGS LTD SHS",
+    "sector": "Other",
+    "ticker": "CUSIP:G5635P109",
+    "unpriced": true
+  },
   "G56372132": {
     "displaySymbol": "LONGEV",
     "industry": "",
@@ -116199,6 +118545,13 @@
     "sector": "Other",
     "ticker": "CUSIP:G56372132",
     "unpriced": true
+  },
+  "G5689U103": {
+    "industry": "Financial Data & Stock Exchanges",
+    "isTechTmt": false,
+    "name": "London Stock Exchange Group plc",
+    "sector": "Financial Services",
+    "ticker": "LSEGY"
   },
   "G5698W116": {
     "industry": "Specialty Industrial Machinery",
@@ -116939,6 +119292,15 @@
     "sector": "Communication Services",
     "ticker": "LBTYK"
   },
+  "G6145U109": {
+    "displaySymbol": "MINTHG",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "MINTH GROUP LTD SHS",
+    "sector": "Other",
+    "ticker": "CUSIP:G6145U109",
+    "unpriced": true
+  },
   "G6180J100": {
     "industry": "Shell Companies",
     "isTechTmt": false,
@@ -117014,6 +119376,20 @@
     "sector": "Other",
     "ticker": "CUSIP:G6256B106",
     "unpriced": true
+  },
+  "G6258S107": {
+    "industry": "Paper & Paper Products",
+    "isTechTmt": false,
+    "name": "Mondi plc",
+    "sector": "Basic Materials",
+    "ticker": "MONDY"
+  },
+  "G6258S115": {
+    "industry": "Paper & Paper Products",
+    "isTechTmt": false,
+    "name": "Mondi plc",
+    "sector": "Basic Materials",
+    "ticker": "MONDY"
   },
   "G6293A103": {
     "displaySymbol": "MOTIVE",
@@ -120736,6 +123112,13 @@
     "sector": "Basic Materials",
     "ticker": "SIND"
   },
+  "G8190F102": {
+    "industry": "Semiconductors",
+    "isTechTmt": true,
+    "name": "Silergy Corp.",
+    "sector": "Other",
+    "ticker": "6415-TW"
+  },
   "G8192H106": {
     "industry": "Insurance\u2014Reinsurance",
     "isTechTmt": false,
@@ -121307,6 +123690,15 @@
     "name": "SOARING EAGLE ACQUISITION CO",
     "sector": "Other",
     "ticker": "CUSIP:G8354H126",
+    "unpriced": true
+  },
+  "G83561129": {
+    "displaySymbol": "SPIRAX",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "SPIRAX SARCO ENGINEERING PLC F",
+    "sector": "Other",
+    "ticker": "CUSIP:G83561129",
     "unpriced": true
   },
   "G8372A103": {
@@ -123348,6 +125740,13 @@
     "ticker": "CUSIP:G9440B115",
     "unpriced": true
   },
+  "G9440D103": {
+    "industry": "",
+    "isTechTmt": false,
+    "name": "Vitruvia Medical AG",
+    "sector": "Other",
+    "ticker": "991-MU"
+  },
   "G9441E100": {
     "displaySymbol": "VPCIMP",
     "industry": "",
@@ -124116,6 +126515,15 @@
     "ticker": "CUSIP:G98239909",
     "unpriced": true
   },
+  "G9829N102": {
+    "displaySymbol": "XINYIS",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "XINYI SOLAR HOLDINGS LTD F",
+    "sector": "Other",
+    "ticker": "CUSIP:G9829N102",
+    "unpriced": true
+  },
   "G982AW100": {
     "industry": "Auto Manufacturers",
     "isTechTmt": false,
@@ -124446,6 +126854,13 @@
     "sector": "Healthcare",
     "ticker": "ALC"
   },
+  "H0245V108": {
+    "industry": "Specialty Chemicals",
+    "isTechTmt": false,
+    "name": "DSM-Firmenich AG",
+    "sector": "Basic Materials",
+    "ticker": "DSMFF"
+  },
   "H11356104": {
     "industry": "Farm Products",
     "isTechTmt": false,
@@ -124480,6 +126895,13 @@
     "name": "dormakaba Holding AG",
     "sector": "Industrials",
     "ticker": "DRMKY"
+  },
+  "H25662182": {
+    "industry": "Luxury Goods",
+    "isTechTmt": false,
+    "name": "Compagnie Financi\u00e8re Richemont SA",
+    "sector": "Consumer Cyclical",
+    "ticker": "CFRUY"
   },
   "H2906T109": {
     "industry": "Scientific & Technical Instruments",
@@ -124606,6 +127028,13 @@
     "sector": "Healthcare",
     "ticker": "RHHBY"
   },
+  "H8024W106": {
+    "industry": "Medical Devices",
+    "isTechTmt": false,
+    "name": "Sonova Holding AG",
+    "sector": "Healthcare",
+    "ticker": "SONVY"
+  },
   "H8088L103": {
     "industry": "Software\u2014Application",
     "isTechTmt": true,
@@ -124633,6 +127062,13 @@
     "name": "Straumann Holding AG",
     "sector": "Other",
     "ticker": "STMN-SW"
+  },
+  "H8398N104": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Swisscom AG",
+    "sector": "Communication Services",
+    "ticker": "SCMWY"
   },
   "H8431B109": {
     "displaySymbol": "SWISSR",
@@ -124726,12 +127162,35 @@
     "sector": "Technology",
     "ticker": "FROG"
   },
+  "J00210914": {
+    "industry": "Semiconductor Equipment & Materials",
+    "isTechTmt": true,
+    "name": "Advantest Corporation",
+    "sector": "Technology",
+    "ticker": "ATEYY"
+  },
+  "J00882126": {
+    "industry": "Packaged Foods",
+    "isTechTmt": false,
+    "name": "Ajinomoto Co., Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "AJNMY"
+  },
   "J0433G101": {
     "industry": "Software\u2014Application",
     "isTechTmt": true,
     "name": "BASE,Inc.",
     "sector": "Other",
     "ticker": "4477-T"
+  },
+  "J10038115": {
+    "displaySymbol": "DAIKIN",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "DAIKIN INDUSTRIES LTD SHS F",
+    "sector": "Other",
+    "ticker": "CUSIP:J10038115",
+    "unpriced": true
   },
   "J12852117": {
     "displaySymbol": "EISAIC",
@@ -124772,6 +127231,13 @@
     "sector": "Other",
     "ticker": "RIET"
   },
+  "J32233108": {
+    "industry": "Railroads",
+    "isTechTmt": false,
+    "name": "Keisei Electric Railway Co., Ltd.",
+    "sector": "Industrials",
+    "ticker": "KELRF"
+  },
   "J32491102": {
     "industry": "Scientific & Technical Instruments",
     "isTechTmt": true,
@@ -124795,6 +127261,22 @@
     "ticker": "CUSIP:J36662138",
     "unpriced": true
   },
+  "J37221116": {
+    "displaySymbol": "KURITA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "KURITA WATER INDUSTRIES LTD F",
+    "sector": "Other",
+    "ticker": "CUSIP:J37221116",
+    "unpriced": true
+  },
+  "J38296117": {
+    "industry": "Drug Manufacturers\u2014Specialty & Generic",
+    "isTechTmt": false,
+    "name": "Kyowa Kirin Co Ltd",
+    "sector": "Other",
+    "ticker": "KY4-SG"
+  },
   "J3921Q102": {
     "industry": "Conglomerates",
     "isTechTmt": false,
@@ -124802,12 +127284,30 @@
     "sector": "Industrials",
     "ticker": "LGPS"
   },
+  "J43873116": {
+    "displaySymbol": "MITSUB",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "MITSUBISHI ELEC CP",
+    "sector": "Other",
+    "ticker": "CUSIP:J43873116",
+    "unpriced": true
+  },
   "J44497105": {
     "industry": "Banks\u2014Diversified",
     "isTechTmt": false,
     "name": "Mitsubishi UFJ Financial Group, Inc.",
     "sector": "Financial Services",
     "ticker": "MUFG"
+  },
+  "J46840104": {
+    "displaySymbol": "MURATA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "MURATA MFG CO",
+    "sector": "Other",
+    "ticker": "CUSIP:J46840104",
+    "unpriced": true
   },
   "J4914X104": {
     "displaySymbol": "NEXONC",
@@ -124855,6 +127355,36 @@
     "sector": "Other",
     "ticker": "8473-T"
   },
+  "J72262108": {
+    "displaySymbol": "SHIMAN",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "SHIMANO INC ORD F",
+    "sector": "Other",
+    "ticker": "CUSIP:J72262108",
+    "unpriced": true
+  },
+  "J74358144": {
+    "industry": "Household & Personal Products",
+    "isTechTmt": false,
+    "name": "Shiseido Company, Limited",
+    "sector": "Consumer Defensive",
+    "ticker": "SSDOY"
+  },
+  "J76379106": {
+    "industry": "Consumer Electronics",
+    "isTechTmt": true,
+    "name": "Sony Group Corporation",
+    "sector": "Technology",
+    "ticker": "SONY"
+  },
+  "J7639Z106": {
+    "industry": "Insurance\u2014Life",
+    "isTechTmt": false,
+    "name": "Sony Financial Group Inc.",
+    "sector": "Financial Services",
+    "ticker": "SFGYY"
+  },
   "J7676H100": {
     "displaySymbol": "SUBARU",
     "industry": "",
@@ -124864,12 +127394,53 @@
     "ticker": "CUSIP:J7676H100",
     "unpriced": true
   },
+  "J78089109": {
+    "displaySymbol": "SUNDRU",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "SUNDRUG CO LTD F",
+    "sector": "Other",
+    "ticker": "CUSIP:J78089109",
+    "unpriced": true
+  },
+  "J82141136": {
+    "displaySymbol": "TDKCOR",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "TDK CORP SHS F",
+    "sector": "Other",
+    "ticker": "CUSIP:J82141136",
+    "unpriced": true
+  },
+  "J83173104": {
+    "industry": "Medical Devices",
+    "isTechTmt": false,
+    "name": "Terumo Corporation",
+    "sector": "Healthcare",
+    "ticker": "TRUMY"
+  },
+  "J86796109": {
+    "displaySymbol": "TDHLDG",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "T&D HLDGS INC SHS",
+    "sector": "Other",
+    "ticker": "CUSIP:J86796109",
+    "unpriced": true
+  },
   "J89494116": {
     "industry": "Textile Manufacturing",
     "isTechTmt": false,
     "name": "Toray Industries, Inc.",
     "sector": "Other",
     "ticker": "3402-T"
+  },
+  "J95732103": {
+    "industry": "Auto Manufacturers",
+    "isTechTmt": false,
+    "name": "Yamaha Motor Co., Ltd.",
+    "sector": "Consumer Cyclical",
+    "ticker": "YAMHF"
   },
   "J9894K105": {
     "industry": "Internet Retail",
@@ -124943,6 +127514,13 @@
     "name": "\u00d8rsted A/S",
     "sector": "Utilities",
     "ticker": "DNNGY"
+  },
+  "K9640A110": {
+    "industry": "Insurance\u2014Diversified",
+    "isTechTmt": false,
+    "name": "Tryg A/S",
+    "sector": "Financial Services",
+    "ticker": "TGVSF"
   },
   "K9773J128": {
     "industry": "Specialty Industrial Machinery",
@@ -125058,6 +127636,13 @@
     "sector": "Other",
     "ticker": "CUSIP:L0423Q116",
     "unpriced": true
+  },
+  "L0427L204": {
+    "industry": "Specialty Business Services",
+    "isTechTmt": false,
+    "name": "Atento S.A.",
+    "sector": "Industrials",
+    "ticker": "ATTOF"
   },
   "L18268109": {
     "industry": "Gambling",
@@ -125526,6 +128111,13 @@
     "sector": "Technology",
     "ticker": "ELTK"
   },
+  "M4025S107": {
+    "industry": "Real Estate\u2014Development",
+    "isTechTmt": false,
+    "name": "Emaar Properties PJSC",
+    "sector": "Other",
+    "ticker": "EMAAR-AE"
+  },
   "M4026X105": {
     "industry": "Information Technology Services",
     "isTechTmt": true,
@@ -125596,6 +128188,15 @@
     "name": "GALMED PHARMACEUTICALS LTD",
     "sector": "Other",
     "ticker": "CUSIP:M47238106",
+    "unpriced": true
+  },
+  "M47238122": {
+    "displaySymbol": "GALMED",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "GALMED PHARMACEUTICALS LTD",
+    "sector": "Other",
+    "ticker": "CUSIP:M47238122",
     "unpriced": true
   },
   "M47364100": {
@@ -126682,6 +129283,13 @@
     "sector": "Healthcare",
     "ticker": "IFRX"
   },
+  "N4578E595": {
+    "industry": "Banks\u2014Diversified",
+    "isTechTmt": false,
+    "name": "ING Groep N.V.",
+    "sector": "Financial Services",
+    "ticker": "ING"
+  },
   "N4732M103": {
     "industry": "Packaged Foods",
     "isTechTmt": false,
@@ -127030,12 +129638,28 @@
     "sector": "Financial Services",
     "ticker": "BLX"
   },
+  "P2R268136": {
+    "displaySymbol": "SABESP",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "SABESP CIA SANEAME",
+    "sector": "Other",
+    "ticker": "CUSIP:P2R268136",
+    "unpriced": true
+  },
   "P31076105": {
     "industry": "Airlines",
     "isTechTmt": false,
     "name": "Copa Holdings, S.A.",
     "sector": "Industrials",
     "ticker": "CPA"
+  },
+  "P3762G109": {
+    "industry": "Utilities\u2014Renewable",
+    "isTechTmt": false,
+    "name": "Enel Chile S.A.",
+    "sector": "Utilities",
+    "ticker": "ENIC"
   },
   "P4182H115": {
     "industry": "Beverages\u2014Brewers",
@@ -127044,6 +129668,24 @@
     "sector": "Consumer Defensive",
     "ticker": "FMXUF"
   },
+  "P4559M101": {
+    "displaySymbol": "PROLOG",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "PROLOGIS PROPERTY MEXICO SA",
+    "sector": "Other",
+    "ticker": "CUSIP:P4559M101",
+    "unpriced": true
+  },
+  "P4949B104": {
+    "displaySymbol": "GRUPOB",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "GRUPO BIMBO SAB-SERIES A",
+    "sector": "Other",
+    "ticker": "CUSIP:P4949B104",
+    "unpriced": true
+  },
   "P5626F128": {
     "industry": "Banks\u2014Regional",
     "isTechTmt": false,
@@ -127051,12 +129693,72 @@
     "sector": "Financial Services",
     "ticker": "IFS"
   },
+  "P5R526106": {
+    "industry": "Insurance\u2014Life",
+    "isTechTmt": false,
+    "name": "Hapvida Participa\u00e7\u00f5es e Investimentos S.A.",
+    "sector": "Other",
+    "ticker": "HAPV3-BA"
+  },
+  "P60694117": {
+    "displaySymbol": "KIMBER",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "KIMBERLY-CLARK MXC",
+    "sector": "Other",
+    "ticker": "CUSIP:P60694117",
+    "unpriced": true
+  },
+  "P6330Z111": {
+    "industry": "Rental & Leasing Services",
+    "isTechTmt": false,
+    "name": "Localiza Rent a Car S.A.",
+    "sector": "Industrials",
+    "ticker": "LZRFY"
+  },
+  "P6332C102": {
+    "industry": "Department Stores",
+    "isTechTmt": false,
+    "name": "Lojas Renner S.A.",
+    "sector": "Other",
+    "ticker": "LREN3-SA"
+  },
   "P73684113": {
     "industry": "Leisure",
     "isTechTmt": false,
     "name": "OneSpaWorld Holdings Limited",
     "sector": "Consumer Cyclical",
     "ticker": "OSW"
+  },
+  "P7942C102": {
+    "industry": "Pharmaceutical Retailers",
+    "isTechTmt": false,
+    "name": "Raia Drogasil S.A.",
+    "sector": "Healthcare",
+    "ticker": "RADLY"
+  },
+  "P8T81L100": {
+    "industry": "Grocery Stores",
+    "isTechTmt": false,
+    "name": "Sendas Distribuidora S.A.",
+    "sector": "Consumer Defensive",
+    "ticker": "ASAIY"
+  },
+  "P98180188": {
+    "displaySymbol": "WALMAR",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "WALMART DE MEXICO V ORD SHS",
+    "sector": "Other",
+    "ticker": "CUSIP:P98180188",
+    "unpriced": true
+  },
+  "P9832B129": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "WEG S.A.",
+    "sector": "Industrials",
+    "ticker": "WEGZY"
   },
   "PER421432": {
     "displaySymbol": "CSUSPE",
@@ -127091,6 +129793,13 @@
     "sector": "Other",
     "ticker": "CUSIP:Q2159P101",
     "unpriced": true
+  },
+  "Q3018U109": {
+    "industry": "Building Products & Equipment",
+    "isTechTmt": false,
+    "name": "Carlisle Companies Incorporated",
+    "sector": "Industrials",
+    "ticker": "CSL"
   },
   "Q3254M100": {
     "industry": "Specialty Chemicals",
@@ -127152,6 +129861,15 @@
     "ticker": "CUSIP:Q5683J210",
     "unpriced": true
   },
+  "Q57085286": {
+    "displaySymbol": "MACQUA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "MACQUARIE GP LTD",
+    "sector": "Other",
+    "ticker": "CUSIP:Q57085286",
+    "unpriced": true
+  },
   "Q5997E121": {
     "displaySymbol": "MERIDI",
     "industry": "",
@@ -127161,12 +129879,28 @@
     "ticker": "CUSIP:Q5997E121",
     "unpriced": true
   },
+  "Q62377108": {
+    "displaySymbol": "MIRVAC",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "MIRVAC GROUP STAPLED SEC",
+    "sector": "Other",
+    "ticker": "CUSIP:Q62377108",
+    "unpriced": true
+  },
   "Q6297L120": {
     "industry": "Aerospace & Defense",
     "isTechTmt": false,
     "name": "Mobilicom Limited",
     "sector": "Industrials",
     "ticker": "MOB"
+  },
+  "Q6519V120": {
+    "industry": "Auto Manufacturers",
+    "isTechTmt": false,
+    "name": "Cenntro Inc.",
+    "sector": "Consumer Cyclical",
+    "ticker": "CENN"
   },
   "Q6751H102": {
     "displaySymbol": "NGXLIM",
@@ -127176,6 +129910,13 @@
     "sector": "Other",
     "ticker": "CUSIP:Q6751H102",
     "unpriced": true
+  },
+  "Q8563C107": {
+    "industry": "Diagnostics & Research",
+    "isTechTmt": false,
+    "name": "Sonic Healthcare Limited",
+    "sector": "Healthcare",
+    "ticker": "SKHHY"
   },
   "Q86015106": {
     "displaySymbol": "SOVERE",
@@ -127239,6 +129980,22 @@
     "sector": "Energy",
     "ticker": "WDS"
   },
+  "R1R15X100": {
+    "displaySymbol": "DNBNOR",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "DNB NORBANK ASA SHS",
+    "sector": "Other",
+    "ticker": "CUSIP:R1R15X100",
+    "unpriced": true
+  },
+  "R1R79W105": {
+    "industry": "Specialty Chemicals",
+    "isTechTmt": false,
+    "name": "Borregaard ASA",
+    "sector": "Basic Materials",
+    "ticker": "BRGAY"
+  },
   "R21882106": {
     "displaySymbol": "TELENO",
     "industry": "",
@@ -127264,6 +130021,13 @@
     "ticker": "CUSIP:R33736100",
     "unpriced": true
   },
+  "R91733155": {
+    "industry": "Waste Management",
+    "isTechTmt": false,
+    "name": "Tomra Systems ASA",
+    "sector": "Industrials",
+    "ticker": "TMRAY"
+  },
   "S09895293": {
     "industry": "Drug Manufacturers\u2014General",
     "isTechTmt": false,
@@ -127271,12 +130035,28 @@
     "sector": "Healthcare",
     "ticker": "AZN"
   },
+  "S17249111": {
+    "industry": "Pharmaceutical Retailers",
+    "isTechTmt": false,
+    "name": "Clicks Group Limited",
+    "sector": "Healthcare",
+    "ticker": "CLCGY"
+  },
   "S2192Y109": {
     "industry": "Insurance\u2014Life",
     "isTechTmt": false,
     "name": "Discovery Limited",
     "sector": "Other",
     "ticker": "DSY-JO"
+  },
+  "S3373C239": {
+    "displaySymbol": "GROWTH",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "GROWTHPOINT PROPS",
+    "sector": "Other",
+    "ticker": "CUSIP:S3373C239",
+    "unpriced": true
   },
   "S5202Z131": {
     "industry": "Banks\u2014Diversified",
@@ -127291,6 +130071,31 @@
     "name": "Mr Price Group Limited",
     "sector": "Consumer Cyclical",
     "ticker": "MRPLY"
+  },
+  "S53435103": {
+    "displaySymbol": "NASPER",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "NASPERS LIMITED ORD F",
+    "sector": "Other",
+    "ticker": "CUSIP:S53435103",
+    "unpriced": true
+  },
+  "S53435111": {
+    "industry": "Internet Retail",
+    "isTechTmt": true,
+    "name": "Naspers Limited",
+    "sector": "Consumer Cyclical",
+    "ticker": "NPSNY"
+  },
+  "S53435129": {
+    "displaySymbol": "NASPER",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "NASPERS LTD ORD SHS CL N",
+    "sector": "Other",
+    "ticker": "CUSIP:S53435129",
+    "unpriced": true
   },
   "SB01ZKD65": {
     "displaySymbol": "CRHPUB",
@@ -127415,6 +130220,13 @@
     "sector": "Other",
     "ticker": "ISPM-XC"
   },
+  "T5R91T105": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "Industrie De Nora S.p.A.",
+    "sector": "Other",
+    "ticker": "DNR-MI"
+  },
   "T7630L105": {
     "industry": "Electrical Equipment & Parts",
     "isTechTmt": false,
@@ -127468,6 +130280,13 @@
     "sector": "Other",
     "ticker": "RCL-MX"
   },
+  "W0817X204": {
+    "industry": "Security & Protection Services",
+    "isTechTmt": false,
+    "name": "ASSA ABLOY AB (publ)",
+    "sector": "Industrials",
+    "ticker": "ASAZY"
+  },
   "W1R91S102": {
     "displaySymbol": "BAMBUS",
     "industry": "",
@@ -127477,12 +130296,39 @@
     "ticker": "CUSIP:W1R91S102",
     "unpriced": true
   },
+  "W1R924195": {
+    "displaySymbol": "ATLASC",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ATLAS COPCO AB SHS B F",
+    "sector": "Other",
+    "ticker": "CUSIP:W1R924195",
+    "unpriced": true
+  },
+  "W1R924229": {
+    "displaySymbol": "ATLASC",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ATLAS COPCO AB SHS B F",
+    "sector": "Other",
+    "ticker": "CUSIP:W1R924229",
+    "unpriced": true
+  },
   "W2R45B104": {
     "industry": "Medical Devices",
     "isTechTmt": false,
     "name": "BICO Group AB (publ)",
     "sector": "Other",
     "ticker": "BICO-ST"
+  },
+  "W3R06F100": {
+    "displaySymbol": "ESSITY",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ESSITY AKTIEBOLAG-B F",
+    "sector": "Other",
+    "ticker": "CUSIP:W3R06F100",
+    "unpriced": true
   },
   "W3R27C102": {
     "industry": "Asset Management",
@@ -127535,6 +130381,15 @@
     "sector": "Other",
     "ticker": "ALLEI-ST"
   },
+  "W83567110": {
+    "displaySymbol": "SKANSK",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "SKANSKA AB ORDF",
+    "sector": "Other",
+    "ticker": "CUSIP:W83567110",
+    "unpriced": true
+  },
   "W8T80J504": {
     "displaySymbol": "SECTRA",
     "industry": "",
@@ -127543,6 +130398,29 @@
     "sector": "Other",
     "ticker": "CUSIP:W8T80J504",
     "unpriced": true
+  },
+  "X0084L106": {
+    "displaySymbol": "ALPHAS",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ALPHA SVCS & HLDGS",
+    "sector": "Other",
+    "ticker": "CUSIP:X0084L106",
+    "unpriced": true
+  },
+  "X0085P163": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Alpha Bank S.A.",
+    "sector": "Financial Services",
+    "ticker": "ALBKY"
+  },
+  "X188AF102": {
+    "industry": "Grocery Stores",
+    "isTechTmt": false,
+    "name": "Dino Polska S.A.",
+    "sector": "Consumer Defensive",
+    "ticker": "DNOPY"
   },
   "X3R81D102": {
     "industry": "Farm Products",
@@ -127558,6 +130436,13 @@
     "sector": "Consumer Defensive",
     "ticker": "AFRIW"
   },
+  "X40338109": {
+    "industry": "Food Distribution",
+    "isTechTmt": false,
+    "name": "Jer\u00f3nimo Martins, SGPS, S.A.",
+    "sector": "Consumer Defensive",
+    "ticker": "JRONY"
+  },
   "X4170A107": {
     "displaySymbol": "KAMBIG",
     "industry": "",
@@ -127567,12 +130452,83 @@
     "ticker": "CUSIP:X4170A107",
     "unpriced": true
   },
+  "X60746181": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "OTP Bank Nyrt.",
+    "sector": "Financial Services",
+    "ticker": "OTPBF"
+  },
   "X67925119": {
     "industry": "Utilities\u2014Diversified",
     "isTechTmt": false,
     "name": "EDP, S.A.",
     "sector": "Utilities",
     "ticker": "EDPFY"
+  },
+  "X6919X108": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Powszechna Kasa Oszczednosci Bank Polski Sp\u00f3lka Akcyjna",
+    "sector": "Financial Services",
+    "ticker": "PSZKY"
+  },
+  "X75653109": {
+    "displaySymbol": "SAMPOI",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "SAMPO INSURANCE COMPANY LTD F",
+    "sector": "Other",
+    "ticker": "CUSIP:X75653109",
+    "unpriced": true
+  },
+  "X9USDAIMP": {
+    "displaySymbol": "INVESC",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "INVESCO GOVT AGENCY PRIV 1903",
+    "sector": "Other",
+    "ticker": "CUSIP:X9USDAIMP",
+    "unpriced": true
+  },
+  "X9USDBLYT": {
+    "displaySymbol": "BLACKR",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "BLACKROCK TREASURY TRUST INSTL 62",
+    "sector": "Other",
+    "ticker": "CUSIP:X9USDBLYT",
+    "unpriced": true
+  },
+  "X9USDISLQ": {
+    "displaySymbol": "INVESC",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "INVESCO GOVT AGENCY INSTL 1901",
+    "sector": "Other",
+    "ticker": "CUSIP:X9USDISLQ",
+    "unpriced": true
+  },
+  "Y0002S109": {
+    "industry": "Communication Equipment",
+    "isTechTmt": false,
+    "name": "Accton Technology Corporation",
+    "sector": "Other",
+    "ticker": "2345-TW"
+  },
+  "Y0014U183": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Advanced Info Service Public Company Limited",
+    "sector": "Communication Services",
+    "ticker": "AVIFY"
+  },
+  "Y001DM108": {
+    "industry": "Semiconductor Equipment & Materials",
+    "isTechTmt": true,
+    "name": "Advanced Micro-Fabrication Equipment Inc. China",
+    "sector": "Other",
+    "ticker": "688012-SS"
   },
   "Y002A1105": {
     "industry": "Insurance\u2014Life",
@@ -127596,6 +130552,43 @@
     "sector": "Other",
     "ticker": "CUSIP:Y0436Q109",
     "unpriced": true
+  },
+  "Y0487S137": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Axis Bank Limited",
+    "sector": "Other",
+    "ticker": "AXISBANK-NS"
+  },
+  "Y0697U112": {
+    "displaySymbol": "BANKRA",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "BANK RAKYAT INDONESIA SHS F",
+    "sector": "Other",
+    "ticker": "CUSIP:Y0697U112",
+    "unpriced": true
+  },
+  "Y07775102": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "BDO Unibank, Inc.",
+    "sector": "Financial Services",
+    "ticker": "BDOUY"
+  },
+  "Y0885K108": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Bharti Airtel Limited",
+    "sector": "Other",
+    "ticker": "BHARTIARTL-NS"
+  },
+  "Y0905C102": {
+    "industry": "Biotechnology",
+    "isTechTmt": false,
+    "name": "Biocon Limited",
+    "sector": "Other",
+    "ticker": "BIOCON-NS"
   },
   "Y09827109": {
     "industry": "Semiconductors",
@@ -127645,12 +130638,42 @@
     "sector": "Industrials",
     "ticker": "CTRM"
   },
+  "Y14896115": {
+    "displaySymbol": "CHINAM",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "CHINA MERCHANTS BANK-H",
+    "sector": "Other",
+    "ticker": "CUSIP:Y14896115",
+    "unpriced": true
+  },
+  "Y1507S107": {
+    "industry": "Drug Manufacturers\u2014Specialty & Generic",
+    "isTechTmt": false,
+    "name": "China Traditional Chinese Medicine Holdings Co. Limited",
+    "sector": "Healthcare",
+    "ticker": "CHIZF"
+  },
+  "Y1633P142": {
+    "industry": "Drug Manufacturers\u2014Specialty & Generic",
+    "isTechTmt": false,
+    "name": "Cipla Limited",
+    "sector": "Other",
+    "ticker": "CIPLA-NS"
+  },
   "Y1771G102": {
     "industry": "Marine Shipping",
     "isTechTmt": false,
     "name": "Costamare Inc.",
     "sector": "Industrials",
     "ticker": "CMRE"
+  },
+  "Y1786S109": {
+    "industry": "Furnishings, Fixtures & Appliances",
+    "isTechTmt": false,
+    "name": "COWAY Co., Ltd.",
+    "sector": "Other",
+    "ticker": "021240-KS"
   },
   "Y18284201": {
     "industry": "Marine Shipping",
@@ -127659,6 +130682,13 @@
     "sector": "Industrials",
     "ticker": "CISS"
   },
+  "Y1855D140": {
+    "industry": "Household & Personal Products",
+    "isTechTmt": false,
+    "name": "Dabur India Limited",
+    "sector": "Other",
+    "ticker": "DABUR-NS"
+  },
   "Y1968P121": {
     "industry": "Marine Shipping",
     "isTechTmt": false,
@@ -127666,12 +130696,26 @@
     "sector": "Industrials",
     "ticker": "DAC"
   },
+  "Y1R48E105": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "Contemporary Amperex Technology Co., Limited",
+    "sector": "Industrials",
+    "ticker": "CYATY"
+  },
   "Y2001C101": {
     "industry": "Marine Shipping",
     "isTechTmt": false,
     "name": "Costamare Bulkers Holdings Limited",
     "sector": "Industrials",
     "ticker": "CMDB"
+  },
+  "Y20263102": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "Delta Electronics (Thailand) Public Company Limited",
+    "sector": "Industrials",
+    "ticker": "DLEGF"
   },
   "Y2065G121": {
     "industry": "Oil & Gas Midstream",
@@ -127731,6 +130775,15 @@
     "sector": "Other",
     "ticker": "EGLE"
   },
+  "Y2292T102": {
+    "displaySymbol": "ENERGY",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "ENERGY DEVP CORP",
+    "sector": "Other",
+    "ticker": "CUSIP:Y2292T102",
+    "unpriced": true
+  },
   "Y2294C107": {
     "displaySymbol": "ENETII",
     "industry": "",
@@ -127774,6 +130827,13 @@
     "name": "GasLog Partners LP",
     "sector": "Energy",
     "ticker": "GLOP-PC"
+  },
+  "Y2708Z106": {
+    "industry": "Leisure",
+    "isTechTmt": false,
+    "name": "Giant Manufacturing Co., Ltd.",
+    "sector": "Other",
+    "ticker": "9921-TW"
   },
   "Y27183600": {
     "industry": "Marine Shipping",
@@ -127828,6 +130888,13 @@
     "sector": "Consumer Defensive",
     "ticker": "GNS"
   },
+  "Y30166105": {
+    "industry": "Real Estate Services",
+    "isTechTmt": false,
+    "name": "Hang Lung Properties Limited",
+    "sector": "Real Estate",
+    "ticker": "HLPPY"
+  },
   "Y3130D101": {
     "industry": "Marine Shipping",
     "isTechTmt": false,
@@ -127862,6 +130929,20 @@
     "ticker": "CUSIP:Y36861105",
     "unpriced": true
   },
+  "Y374AH103": {
+    "industry": "Medical Care Facilities",
+    "isTechTmt": false,
+    "name": "IHH Healthcare Berhad",
+    "sector": "Healthcare",
+    "ticker": "IHHHF"
+  },
+  "Y38472109": {
+    "industry": "Auto Manufacturers",
+    "isTechTmt": false,
+    "name": "Hyundai Motor Company",
+    "sector": "Other",
+    "ticker": "005380-KS"
+  },
   "Y3894J104": {
     "industry": "Oil & Gas Midstream",
     "isTechTmt": false,
@@ -127875,6 +130956,13 @@
     "name": "Imperial Petroleum Inc.",
     "sector": "Energy",
     "ticker": "IMPP"
+  },
+  "Y3R1DD103": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "HD Hyundai Electric Co., Ltd.",
+    "sector": "Other",
+    "ticker": "267260-KS"
   },
   "Y4000A102": {
     "industry": "Software\u2014Infrastructure",
@@ -127897,6 +130985,20 @@
     "sector": "Energy",
     "ticker": "INSW"
   },
+  "Y4591R118": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Kasikornbank Public Co Ltd",
+    "sector": "Other",
+    "ticker": "TFBF-MU"
+  },
+  "Y4591R126": {
+    "industry": "Banks\u2014Regional",
+    "isTechTmt": false,
+    "name": "Kasikornbank Public Co Ltd",
+    "sector": "Other",
+    "ticker": "TFBF-MU"
+  },
   "Y4600W108": {
     "industry": "Software\u2014Application",
     "isTechTmt": true,
@@ -127918,6 +131020,29 @@
     "sector": "Energy",
     "ticker": "KNOP"
   },
+  "Y5257Y107": {
+    "industry": "Computer Hardware",
+    "isTechTmt": true,
+    "name": "Lenovo Group Limited",
+    "sector": "Technology",
+    "ticker": "LNVGY"
+  },
+  "Y52758102": {
+    "displaySymbol": "LGCHEM",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "LG CHEMICAL",
+    "sector": "Other",
+    "ticker": "CUSIP:Y52758102",
+    "unpriced": true
+  },
+  "Y5275R100": {
+    "industry": "Household & Personal Products",
+    "isTechTmt": false,
+    "name": "LG H&H Co., Ltd.",
+    "sector": "Other",
+    "ticker": "051900-KS"
+  },
   "Y58473102": {
     "industry": "Solar",
     "isTechTmt": true,
@@ -127931,6 +131056,13 @@
     "name": "Maxeon Solar Technologies, Ltd.",
     "sector": "Technology",
     "ticker": "MAXNQ"
+  },
+  "Y5S5CG102": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "LG Energy Solution, Ltd.",
+    "sector": "Other",
+    "ticker": "373220-KS"
   },
   "Y62132108": {
     "industry": "Oil & Gas Midstream",
@@ -127969,6 +131101,15 @@
     "sector": "Industrials",
     "ticker": "ECO"
   },
+  "Y64248209": {
+    "displaySymbol": "OVERSE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "OVERSEA-CHINESE BK",
+    "sector": "Other",
+    "ticker": "CUSIP:Y64248209",
+    "unpriced": true
+  },
   "Y6430L103": {
     "industry": "Asset Management",
     "isTechTmt": false,
@@ -127996,6 +131137,41 @@
     "name": "Ping An Insurance (Group) Company of China, Ltd.",
     "sector": "Financial Services",
     "ticker": "PNGAY"
+  },
+  "Y6S40V103": {
+    "industry": "Furnishings, Fixtures & Appliances",
+    "isTechTmt": false,
+    "name": "Midea Group Co., Ltd.",
+    "sector": "Consumer Cyclical",
+    "ticker": "MGCLY"
+  },
+  "Y7082R109": {
+    "industry": "Credit Services",
+    "isTechTmt": false,
+    "name": "Power Finance Corporation Limited",
+    "sector": "Other",
+    "ticker": "PFC-NS"
+  },
+  "Y71287208": {
+    "industry": "Drug Manufacturers\u2014General",
+    "isTechTmt": false,
+    "name": "PT Kalbe Farma Tbk.",
+    "sector": "Healthcare",
+    "ticker": "PTKFY"
+  },
+  "Y71372109": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "PT Tower Bersama Infrastructure Tbk",
+    "sector": "Communication Services",
+    "ticker": "PTFRF"
+  },
+  "Y71474145": {
+    "industry": "Telecom Services",
+    "isTechTmt": false,
+    "name": "Perusahaan Perseroan (Persero) PT Telekomunikasi Indonesia Tbk",
+    "sector": "Other",
+    "ticker": "TLKM-JK"
   },
   "Y71726114": {
     "industry": "Oil & Gas Midstream",
@@ -128085,12 +131261,35 @@
     "sector": "Financial Services",
     "ticker": "SYBJF"
   },
+  "Y7744Z101": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "Shenzhen Inovance Technology Co.,Ltd",
+    "sector": "Other",
+    "ticker": "300124-SZ"
+  },
+  "Y774E3101": {
+    "displaySymbol": "SHENZE",
+    "industry": "",
+    "isTechTmt": false,
+    "name": "SHENZEN MINDRAY BIO-MEDIC",
+    "sector": "Other",
+    "ticker": "CUSIP:Y774E3101",
+    "unpriced": true
+  },
   "Y79985209": {
     "industry": "Telecom Services",
     "isTechTmt": false,
     "name": "Singapore Telecommunications Limited",
     "sector": "Communication Services",
     "ticker": "SGAPY"
+  },
+  "Y8085F100": {
+    "industry": "Semiconductors",
+    "isTechTmt": true,
+    "name": "SK hynix Inc.",
+    "sector": "Technology",
+    "ticker": "SKHY"
   },
   "Y8162K204": {
     "industry": "Marine Shipping",
@@ -128105,6 +131304,20 @@
     "name": "StealthGas Inc.",
     "sector": "Industrials",
     "ticker": "GASS"
+  },
+  "Y8211M102": {
+    "industry": "Electrical Equipment & Parts",
+    "isTechTmt": false,
+    "name": "Sungrow Power Supply Co., Ltd.",
+    "sector": "Other",
+    "ticker": "300274-SZ"
+  },
+  "Y8563B159": {
+    "industry": "Tools & Accessories",
+    "isTechTmt": false,
+    "name": "Techtronic Industries Company Limited",
+    "sector": "Industrials",
+    "ticker": "TTNDY"
   },
   "Y8564M105": {
     "displaySymbol": "TEEKAY",
@@ -128143,12 +131356,26 @@
     "sector": "Energy",
     "ticker": "TORO"
   },
+  "Y90668107": {
+    "industry": "Electronic Components",
+    "isTechTmt": true,
+    "name": "Unimicron Technology Corp.",
+    "sector": "Other",
+    "ticker": "3037-TW"
+  },
   "Y92335101": {
     "industry": "Marine Shipping",
     "isTechTmt": false,
     "name": "United Maritime Corporation",
     "sector": "Industrials",
     "ticker": "USEA"
+  },
+  "Y93817149": {
+    "industry": "Furnishings, Fixtures & Appliances",
+    "isTechTmt": false,
+    "name": "Voltas Limited",
+    "sector": "Other",
+    "ticker": "VOLTAS-NS"
   },
   "Y9390M103": {
     "industry": "Auto Manufacturers",
@@ -128170,6 +131397,20 @@
     "name": "Wave Life Sciences, Inc.",
     "sector": "Healthcare",
     "ticker": "WVE"
+  },
+  "Y9531A109": {
+    "industry": "Auto Manufacturers",
+    "isTechTmt": false,
+    "name": "Weichai Power Co., Ltd.",
+    "sector": "Consumer Cyclical",
+    "ticker": "WEICF"
+  },
+  "Y9588T126": {
+    "industry": "Semiconductors",
+    "isTechTmt": true,
+    "name": "WIN Semiconductors Corp.",
+    "sector": "Other",
+    "ticker": "3105-TWO"
   },
   "Y989DF109": {
     "industry": "Insurance\u2014Property & Casualty",

@@ -272,7 +272,7 @@ export function App() {
             >
               <Trophy size={16} />
               <span>Ranking</span>
-              <span className="nav-count">Top 75</span>
+              <span className="nav-count">Top 100</span>
             </button>
 
             <button
@@ -405,7 +405,7 @@ export function App() {
             <div className="drawer-body" style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
               <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>1. Tech-Focused Concentrated Screening</h3>
               <p>
-                Every quarter, our pipeline combines 100 curated AI/TMT &amp; crossover funds with an automated SEC EDGAR full-text scan across {watchlist?.seedPairCount ?? 28} configured sub-sector CUSIP seed pairs (up to 1,000 candidates with $200M+ reported value across up to 10 EFTS pages &amp; ≤650 filing entries). Qualified funds maintain ≥20% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥35% or ≤100 equity positions).
+                Every quarter, our pipeline combines 100 curated AI/TMT &amp; crossover funds with an automated SEC EDGAR full-text scan across {watchlist?.seedPairCount ?? 38} configured sub-sector CUSIP seed pairs (up to 1,000 candidates with $200M+ reported value across up to 10 EFTS pages &amp; ≤650 filing entries). Qualified funds maintain ≥20% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥35% or ≤100 equity positions).
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>2. Performance Reconstruction (Quarter-End vs. 45-Day Lag)</h3>
@@ -419,7 +419,7 @@ export function App() {
 
               <h3 style={{ color: 'var(--text-primary)' }}>3. Ideal Portfolio &amp; Quarterly Updates</h3>
               <p>
-                The Ideal Portfolio selects up to 50 names (default 40) from the union of Top-75 ranked funds across all six windows, scoring each stock by manager rank × √(portfolio weight) × consensus multiplier, water-filled under an 8% position cap. The Updates tab diffs consecutive Form 13F-HR quarters across common shares, calls, and puts to highlight initiations, heavy adds, exits, put-hedge shifts, common-to-call rotations, and valuation markdowns on flat share counts.
+                The Ideal Portfolio selects up to 50 names (default 40) from the union of Top-100 ranked funds across all six windows, scoring each stock by manager rank × √(portfolio weight) × consensus multiplier, water-filled under an 8% position cap. The Updates tab diffs consecutive Form 13F-HR quarters across common shares, calls, and puts to highlight initiations, heavy adds, exits, put-hedge shifts, common-to-call rotations, and valuation markdowns on flat share counts.
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>4. Automated Quarterly Updates</h3>
@@ -429,7 +429,7 @@ export function App() {
 
               <h3 style={{ color: 'var(--text-primary)' }}>5. Discovery Seed Radar (Hardcoded Seed Drift Monitor)</h3>
               <p style={{ marginBottom: '0.45rem' }}>
-                SEC EDGAR EFTS queries depend on seeded CUSIP pairs in <code>DISCOVERY_SEED_PAIRS</code> (<code>pipeline/funds_config.py</code>). Every pipeline run audits all unseeded public Tech/TMT stocks held across Top-75 funds and automatically raises an alert here and in GitHub Actions logs when newly emerging &ldquo;must-hold&rdquo; stocks show surging institutional adoption.
+                SEC EDGAR EFTS queries depend on seeded CUSIP pairs in <code>DISCOVERY_SEED_PAIRS</code> (<code>pipeline/funds_config.py</code>). Every pipeline run audits all unseeded public Tech/TMT stocks held across Top-100 funds and automatically raises an alert here and in GitHub Actions logs when newly emerging &ldquo;must-hold&rdquo; stocks show surging institutional adoption.
               </p>
 
               {watchlist && (
@@ -473,7 +473,7 @@ export function App() {
                           <tr>
                             <th>Stock</th>
                             <th>CUSIP</th>
-                            <th className="num">Top-75 / All</th>
+                            <th className="num">Top-100 / All</th>
                             <th className="num">New + Surge</th>
                             <th className="num">TTM</th>
                             <th>Suggested Pair</th>

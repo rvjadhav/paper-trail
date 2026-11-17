@@ -1019,7 +1019,7 @@ def build_fund_update_entry(
         "styleTag": cand["styleTag"],
         "source": cand.get("source", "Curated Core"),
         "inRankings": in_rankings,
-        "isRankedTop75AnyWindow": bool(ranked_windows),
+        "isRankedTop100AnyWindow": bool(ranked_windows),
         "rankedWindows": ranked_windows,
         "quarterLabel": q_label,
         "periodEnd": curr_fl["reportDate"],
@@ -1192,7 +1192,7 @@ def build_discovery_watchlist(
 ) -> dict[str, Any]:
     """
     Audit current 13F holdings against DISCOVERY_SEED_PAIRS to flag emerging
-    disruptive Tech/TMT "must-hold" stocks surging across Top-75 funds that are not yet
+    disruptive Tech/TMT "must-hold" stocks surging across Top-100 funds that are not yet
     seeded in SEC EDGAR EFTS discovery queries (plus any stale/acquired seed tickers).
     """
     seeded_tickers: set[str] = set()
@@ -1265,7 +1265,7 @@ def build_discovery_watchlist(
                 "ticker": t,
                 "rankedHolders": rnk_h,
                 "allQualifiedHolders": all_h,
-                "note": f"Only {rnk_h} Top-75 / {all_h} qualified holders — verify ticker or M&A status",
+                "note": f"Only {rnk_h} Top-100 / {all_h} qualified holders — verify ticker or M&A status",
             })
 
     # Score unseeded Tech/TMT breakout stocks
@@ -1374,7 +1374,7 @@ def build_discovery_watchlist(
         "seedPairCount": len(DISCOVERY_SEED_PAIRS),
         "activeSeedTickers": sorted(seeded_tickers - {"GOOG"}),
         "watchlistRuleSummary": (
-            "Flags public Tech/TMT equities absent from DISCOVERY_SEED_PAIRS with >=8 Top-75 holders, "
+            "Flags public Tech/TMT equities absent from DISCOVERY_SEED_PAIRS with >=8 Top-100 holders, "
             ">=3 positions sized >=2%, and either >=5 new initiations (>=42% book surge) or Top-25 Ideal/Consensus standing."
         ),
         "urgentCount": urgent_cnt,
@@ -1970,10 +1970,10 @@ def main() -> None:
             "edgarUrl": f"https://www.sec.gov/edgar/browse/?CIK={int(cik):010d}",
         })
 
-    # Step 7: Build Top 75 Rankings per mode & window
+    # Step 7: Build Top 100 Rankings per mode & window
     rankings: dict[str, dict[str, list[dict[str, Any]]]] = {"quarter_end": {}, "filing_lag": {}}
     ranked_union_ciks: dict[str, list[str]] = {"quarter_end": [], "filing_lag": []}
-    fund_top75_windows: dict[str, dict[str, list[str]]] = {"quarter_end": {}, "filing_lag": {}}
+    fund_top100_windows: dict[str, dict[str, list[str]]] = {"quarter_end": {}, "filing_lag": {}}
 
     for mode in MODES:
         union_set: list[str] = []
@@ -1984,15 +1984,15 @@ def main() -> None:
                 if f["returns"][mode][w] is not None
             ]
             eligible.sort(key=lambda x: x[1], reverse=True)
-            top75 = eligible[:75]
+            top100 = eligible[:100]
             rankings[mode][w] = [
                 {"rank": idx + 1, "cik": cik, "returnPct": round(ret, 2)}
-                for idx, (cik, ret) in enumerate(top75)
+                for idx, (cik, ret) in enumerate(top100)
             ]
-            for cik, _ in top75:
+            for cik, _ in top100:
                 if cik not in union_set:
                     union_set.append(cik)
-                fund_top75_windows[mode].setdefault(cik, []).append(w)
+                fund_top100_windows[mode].setdefault(cik, []).append(w)
         ranked_union_ciks[mode] = union_set
 
     fund_by_cik = {f["cik"]: f for f in funds_out}
@@ -2043,7 +2043,7 @@ def main() -> None:
                     "valueUsd": h["valueUsd"],
                     "status": h["status"],
                     "qoqSharesChangePct": h["qoqSharesChangePct"],
-                    "rankedWindows": fund_top75_windows[mode].get(cik, []),
+                    "rankedWindows": fund_top100_windows[mode].get(cik, []),
                 })
 
         entries: list[dict[str, Any]] = []
@@ -2267,7 +2267,7 @@ def main() -> None:
         "effectivePositions": round(ideal_eff_n, 1),
         "top10WeightPct": round(sum(p["idealWeightPct"] for p in ideal_positions[:10]), 2),
         "methodologySummary": (
-            f"Constructed from all holdings of the {len(ideal_pool_funds)} funds ranked Top 75 across at least one window "
+            f"Constructed from all holdings of the {len(ideal_pool_funds)} funds ranked Top 100 across at least one window "
             f"(TTM/3Y/2Y/18M/YTD/5Y). Each position is scored by manager multi-window percentile rank × √(portfolio weight) "
             f"× multi-fund consensus multiplier × QoQ accumulation factor, then water-filled with an 8.0% single-stock cap."
         ),
@@ -2305,13 +2305,13 @@ def main() -> None:
         seen_update_ciks.add(cik)
         filings = raw_fund_filings[cik]
         in_rankings = cik in fund_by_cik
-        top75_w = fund_top75_windows["quarter_end"].get(cik, [])
+        top100_w = fund_top100_windows["quarter_end"].get(cik, [])
         upd = build_fund_update_entry(
             cand=cand,
             filings=filings,
             cusip_meta=cusip_meta,
             in_rankings=in_rankings,
-            ranked_windows=top75_w,
+            ranked_windows=top100_w,
         )
         if upd:
             fund_updates_out.append(upd)
@@ -2333,34 +2333,59 @@ def main() -> None:
     # Sort funds by TTM performance by default
     funds_out.sort(key=lambda f: f["returns"]["quarter_end"]["TTM"] or -999.0, reverse=True)
 
-    # Compact tail rows on unranked EDGAR-discovered funds (Curated Core + all Top-75 Ranked funds retain full depth)
+    # Compact tail rows (Curated Core + all Top-100 Ranked funds retain >=5bps positions; unranked trim tail & curve stride)
     ranked_union_all_modes = set(ranked_union_ciks["quarter_end"]) | set(ranked_union_ciks["filing_lag"])
     for f in funds_out:
         is_vip = f["source"] == "Curated Core" or f["cik"] in ranked_union_all_modes
-        if not is_vip and len(f["holdings"]) > 45:
-            opts = [h for h in f["holdings"] if h["securityType"] != "EQUITY"][:20]
-            eqs = [h for h in f["holdings"] if h["securityType"] == "EQUITY"][:45]
-            seen_k = {(h["cusip"], h["securityType"]) for h in eqs}
-            f["holdings"] = sorted(
-                eqs + [h for h in opts if (h["cusip"], h["securityType"]) not in seen_k],
-                key=lambda x: x["valueUsd"],
-                reverse=True,
-            )
+        if is_vip:
+            if len(f["holdings"]) > 150:
+                opts = [h for h in f["holdings"] if h["securityType"] != "EQUITY"][:30]
+                eq_all = [h for h in f["holdings"] if h["securityType"] == "EQUITY"]
+                eqs = [h for i, h in enumerate(eq_all) if i < 120 or h["weightPct"] >= 0.05]
+                seen_k = {(h["cusip"], h["securityType"]) for h in eqs}
+                f["holdings"] = sorted(
+                    eqs + [h for h in opts if (h["cusip"], h["securityType"]) not in seen_k],
+                    key=lambda x: x["valueUsd"],
+                    reverse=True,
+                )
+        else:
+            if len(f["holdings"]) > 35:
+                opts = [h for h in f["holdings"] if h["securityType"] != "EQUITY"][:12]
+                eqs = [h for h in f["holdings"] if h["securityType"] == "EQUITY"][:30]
+                seen_k = {(h["cusip"], h["securityType"]) for h in eqs}
+                f["holdings"] = sorted(
+                    eqs + [h for h in opts if (h["cusip"], h["securityType"]) not in seen_k],
+                    key=lambda x: x["valueUsd"],
+                    reverse=True,
+                )
+            for m_key in ("quarter_end", "filing_lag"):
+                pts = f["equityCurve"][m_key]
+                if len(pts) > 40:
+                    thinned = [pts[i] for i in range(0, len(pts), 2)]
+                    if thinned[-1] is not pts[-1]:
+                        thinned.append(pts[-1])
+                    f["equityCurve"][m_key] = thinned
 
     for u in fund_updates_out:
         is_vip = u["source"] == "Curated Core" or u["cik"] in ranked_union_all_modes
         if is_vip:
-            if len(u["allMoves"]) > 150:
+            if len(u["allMoves"]) > 120:
+                bucket_keys: set[tuple[str, str]] = set()
+                for bucket in (u["topNew"], u["topAdded"], u["topTrimmed"], u["topExited"], u["valuationShifts"]):
+                    for m in bucket:
+                        bucket_keys.add((m["cusip"], m["securityType"]))
                 u["allMoves"] = [
                     m for m in u["allMoves"]
-                    if not (
-                        m["action"] == "UNCHANGED"
-                        and m["securityType"] == "EQUITY"
-                        and m["valuationShiftType"] is None
-                        and max(m["currBookPct"], m["prevBookPct"]) < 0.2
+                    if (m["cusip"], m["securityType"]) in bucket_keys
+                    or m["action"] in ("NEW", "EXITED")
+                    or m["valuationShiftType"] is not None
+                    or (m["securityType"] in ("CALL", "PUT") and max(m["currBookPct"], m["prevBookPct"]) >= 0.1)
+                    or (
+                        m["securityType"] == "EQUITY"
+                        and max(m["currBookPct"], m["prevBookPct"]) >= (0.25 if m["action"] == "UNCHANGED" else 0.12)
                     )
                 ]
-        elif len(u["allMoves"]) > 40:
+        elif len(u["allMoves"]) > 32:
             keep_keys: set[tuple[str, str]] = set()
             kept: list[dict[str, Any]] = []
             for bucket in (u["topNew"], u["topAdded"], u["topTrimmed"], u["topExited"], u["valuationShifts"]):
@@ -2378,16 +2403,16 @@ def main() -> None:
                     if k not in keep_keys:
                         keep_keys.add(k)
                         kept.append(m)
-                    if len(kept) >= 48:
+                    if len(kept) >= 34:
                         break
             for m in u["allMoves"]:
-                if len(kept) >= 45 or (len(kept) >= 32 and (m["action"] == "UNCHANGED" or max(m["currBookPct"], m["prevBookPct"]) < 0.35)):
+                if len(kept) >= 32 or (len(kept) >= 26 and (m["action"] == "UNCHANGED" or max(m["currBookPct"], m["prevBookPct"]) < 0.40)):
                     continue
                 k = (m["cusip"], m["securityType"])
                 if k not in keep_keys:
                     keep_keys.add(k)
                     kept.append(m)
-                if len(kept) >= 45:
+                if len(kept) >= 32:
                     break
             u["allMoves"] = sorted(kept, key=lambda x: max(x["currValueUsd"], x["prevValueUsd"]), reverse=True)
 

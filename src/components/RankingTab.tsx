@@ -39,14 +39,14 @@ export const RankingTab: FC<RankingTabProps> = ({
 
   const rankedRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const top75Map = new Map(rankings[mode][windowSize].map((r) => [r.cik, r.rank]));
+    const top100Map = new Map(rankings[mode][windowSize].map((r) => [r.cik, r.rank]));
 
     const eligible = funds
       .filter((f) => f.returns[mode][windowSize] !== null)
       .sort((a, b) => (b.returns[mode][windowSize] ?? -9999) - (a.returns[mode][windowSize] ?? -9999));
 
     const noWindowFunds = funds.filter((f) => f.returns[mode][windowSize] === null);
-    const ordered = showAll ? [...eligible, ...noWindowFunds] : eligible.slice(0, 75);
+    const ordered = showAll ? [...eligible, ...noWindowFunds] : eligible.slice(0, 100);
 
     return ordered
       .filter((f) => {
@@ -60,20 +60,20 @@ export const RankingTab: FC<RankingTabProps> = ({
       })
       .map((f, idx) => ({
         fund: f,
-        displayRank: top75Map.get(f.cik) ?? (f.returns[mode][windowSize] !== null ? idx + 1 : null),
-        isTop75: top75Map.has(f.cik),
+        displayRank: top100Map.get(f.cik) ?? (f.returns[mode][windowSize] !== null ? idx + 1 : null),
+        isTop100: top100Map.has(f.cik),
       }));
   }, [funds, rankings, mode, windowSize, showAll, search]);
 
-  const top75Ids = rankings[mode][windowSize];
-  const leaderFund = top75Ids[0] ? fundByCik.get(top75Ids[0].cik) : undefined;
-  const top75AvgReturn = useMemo(() => {
-    if (!top75Ids.length) return null;
-    return top75Ids.reduce((s, x) => s + x.returnPct, 0) / top75Ids.length;
-  }, [top75Ids]);
-  const top75CombinedAum = useMemo(() => {
-    return top75Ids.reduce((s, x) => s + (fundByCik.get(x.cik)?.equityAumUsd ?? 0), 0);
-  }, [top75Ids, fundByCik]);
+  const top100Ids = rankings[mode][windowSize];
+  const leaderFund = top100Ids[0] ? fundByCik.get(top100Ids[0].cik) : undefined;
+  const top100AvgReturn = useMemo(() => {
+    if (!top100Ids.length) return null;
+    return top100Ids.reduce((s, x) => s + x.returnPct, 0) / top100Ids.length;
+  }, [top100Ids]);
+  const top100CombinedAum = useMemo(() => {
+    return top100Ids.reduce((s, x) => s + (fundByCik.get(x.cik)?.equityAumUsd ?? 0), 0);
+  }, [top100Ids, fundByCik]);
 
   const qqqRet = benchmarks.QQQ.returns[windowSize];
   const spyRet = benchmarks.SPY.returns[windowSize];
@@ -106,7 +106,7 @@ export const RankingTab: FC<RankingTabProps> = ({
     <section aria-label="Fund Rankings">
       <div className="section-toolbar">
         <div className="section-title-group">
-          <h2>Top {showAll ? funds.length : Math.min(75, Math.max(top75Ids.length, 1))} Concentrated Tech Funds — {windowSize} Performance</h2>
+          <h2>Top {showAll ? funds.length : Math.min(100, Math.max(top100Ids.length, 1))} Concentrated Tech Funds — {windowSize} Performance</h2>
           <p>
             Click any fund name to inspect complete 13F holdings, strategy overview, and multi-year return curves.
           </p>
@@ -151,13 +151,13 @@ export const RankingTab: FC<RankingTabProps> = ({
         </div>
       </div>
 
-      {/* Benchmark & Top 75 KPI Strip */}
+      {/* Benchmark & Top 100 KPI Strip */}
       <div className="metrics-strip">
         <div className="metric-card">
           <div className="metric-label">#1 Ranked ({windowSize})</div>
           <div className="metric-value">
-            <span className={returnClass(top75Ids[0]?.returnPct)}>
-              {formatSignedPct(top75Ids[0]?.returnPct)}
+            <span className={returnClass(top100Ids[0]?.returnPct)}>
+              {formatSignedPct(top100Ids[0]?.returnPct)}
             </span>
           </div>
           <div className="metric-sub">
@@ -175,21 +175,21 @@ export const RankingTab: FC<RankingTabProps> = ({
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Top {top75Ids.length || 75} Mean ({windowSize})</div>
+          <div className="metric-label">Top {top100Ids.length || 100} Mean ({windowSize})</div>
           <div className="metric-value">
-            <span className={returnClass(top75AvgReturn)}>{formatSignedPct(top75AvgReturn)}</span>
+            <span className={returnClass(top100AvgReturn)}>{formatSignedPct(top100AvgReturn)}</span>
           </div>
           <div className="metric-sub">
             vs. QQQ ({formatSignedPct(qqqRet)}) · Alpha{' '}
-            <span className={`mono ${returnClass(top75AvgReturn !== null && qqqRet !== null ? top75AvgReturn - qqqRet : null)}`}>
-              {top75AvgReturn !== null && qqqRet !== null ? formatSignedPct(top75AvgReturn - qqqRet) : '—'}
+            <span className={`mono ${returnClass(top100AvgReturn !== null && qqqRet !== null ? top100AvgReturn - qqqRet : null)}`}>
+              {top100AvgReturn !== null && qqqRet !== null ? formatSignedPct(top100AvgReturn - qqqRet) : '—'}
             </span>
           </div>
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Top {top75Ids.length || 75} Combined 13F AUM</div>
-          <div className="metric-value">{formatUsdCompact(top75CombinedAum)}</div>
+          <div className="metric-label">Top {top100Ids.length || 100} Combined 13F AUM</div>
+          <div className="metric-value">{formatUsdCompact(top100CombinedAum)}</div>
           <div className="metric-sub">Disclosed U.S. long equity value</div>
         </div>
 
@@ -209,7 +209,7 @@ export const RankingTab: FC<RankingTabProps> = ({
         <div className="panel-header">
           <div>
             <h3 className="panel-title">
-              {showAll ? `All Qualified Tech-Focused Funds (${rankedRows.length})` : `Top ${top75Ids.length || 75} Ranked Funds (${windowSize})`}
+              {showAll ? `All Qualified Tech-Focused Funds (${rankedRows.length})` : `Top ${top100Ids.length || 100} Ranked Funds (${windowSize})`}
             </h3>
             <p className="panel-subtitle">
               Filtered for ≥20% Tech/TMT allocation and portfolio concentration (Top 10 ≥35% or ≤100 positions) · Ranked by {windowSize} ({mode === 'quarter_end' ? 'Quarter-End Attribution' : '45-Day Lag Actionable'})
@@ -232,7 +232,7 @@ export const RankingTab: FC<RankingTabProps> = ({
               className={`action-btn ${showAll ? 'primary' : ''}`}
               onClick={() => setShowAll(!showAll)}
             >
-              {showAll ? 'Show Top 75 Only' : `View All ${funds.length} Funds`}
+              {showAll ? 'Show Top 100 Only' : `View All ${funds.length} Funds`}
             </button>
             <button type="button" className="action-btn" onClick={handleExport}>
               <Download size={14} /> Export CSV
@@ -263,7 +263,7 @@ export const RankingTab: FC<RankingTabProps> = ({
               </tr>
             </thead>
             <tbody>
-              {rankedRows.map(({ fund, displayRank, isTop75 }) => {
+              {rankedRows.map(({ fund, displayRank, isTop100 }) => {
                 const rets = fund.returns[mode];
                 const curvePts = fund.equityCurve[mode];
                 const ttmPos = (rets.TTM ?? rets.YTD ?? 0) >= 0;
@@ -295,8 +295,8 @@ export const RankingTab: FC<RankingTabProps> = ({
                         {fund.source === 'EDGAR Discovered' && (
                           <span className="chip discovered">Discovered</span>
                         )}
-                        {!isTop75 && showAll && displayRank !== null && (
-                          <span className="chip">Outside Top 75</span>
+                        {!isTop100 && showAll && displayRank !== null && (
+                          <span className="chip">Outside Top 100</span>
                         )}
                       </div>
                     </td>

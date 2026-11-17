@@ -28,7 +28,7 @@ interface UpdatesTabProps {
   onSelectFund: (cik: string) => void;
 }
 
-type UpdateFilter = 'ALL' | 'HEDGED' | 'OPTIONS_SHIFTS' | 'TOP75';
+type UpdateFilter = 'ALL' | 'HEDGED' | 'OPTIONS_SHIFTS' | 'TOP100';
 type UpdateSort = 'latest' | 'activity' | 'hedge' | 'aum';
 
 function compactShares(sh: number): string {
@@ -82,7 +82,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
       shifts: updates.filter(
         (u) => u.instrumentShifts.length > 0 || u.callLegs.length > 0 || u.putLegs.length > 0
       ).length,
-      top75: updates.filter((u) => u.isRankedTop75AnyWindow).length,
+      top100: updates.filter((u) => u.isRankedTop100AnyWindow).length,
     }),
     [updates]
   );
@@ -101,7 +101,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
         ) {
           return false;
         }
-        if (filter === 'TOP75' && !u.isRankedTop75AnyWindow) return false;
+        if (filter === 'TOP100' && !u.isRankedTop100AnyWindow) return false;
         if (selUpper && !u.allMoves.some((m) => m.ticker.toUpperCase() === selUpper)) {
           return false;
         }
@@ -367,7 +367,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
                 { id: 'ALL', label: `All (${counts.all})` },
                 { id: 'HEDGED', label: `Put Hedges (${counts.hedged})` },
                 { id: 'OPTIONS_SHIFTS', label: `Options / Shifts (${counts.shifts})` },
-                { id: 'TOP75', label: `Top 75 Ranked (${counts.top75})` },
+                { id: 'TOP100', label: `Top 100 Ranked (${counts.top100})` },
               ] as const
             ).map((opt) => (
               <button
@@ -471,13 +471,13 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
                     >
                       {u.deadlineBadge}
                     </span>
-                    {u.isRankedTop75AnyWindow && (
-                      <span className="chip">Top 75 ({u.rankedWindows.slice(0, 2).join('/')})</span>
+                    {u.isRankedTop100AnyWindow && (
+                      <span className="chip">Top 100 ({u.rankedWindows.slice(0, 2).join('/')})</span>
                     )}
                     {!u.inRankings && (
                       <span
                         className="chip"
-                        title="Tracked in Quarterly Updates watchlist (excluded from long-equity Top 75 Ranking screen due to option weighting or Tech/TMT & concentration thresholds)"
+                        title="Tracked in Quarterly Updates watchlist (excluded from long-equity Top 100 Ranking screen due to option weighting or Tech/TMT & concentration thresholds)"
                       >
                         Curated Watchlist
                       </span>

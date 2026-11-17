@@ -809,7 +809,7 @@ CURATED_FUNDS = [
 
 # SEC EDGAR EFTS full-text discovery seed pairs: (tickerA, cusipA, tickerB, cusipB, theme).
 # Audited automatically each quarter by build_data.py -> metadata.discoveryWatchlist ("Discovery Seed Radar").
-# When emerging disruptive "must-hold" stocks surge across Top-75 funds without being listed here,
+# When emerging disruptive "must-hold" stocks surge across Top-100 funds without being listed here,
 # CI warnings, build logs, and the UI Methodology Radar flag their ticker + CUSIP so you can append them.
 DISCOVERY_SEED_PAIRS: list[tuple[str, str, str, str, str]] = [
     # --- Core AI Silicon, Cloud, Foundry, Cyber, Power & Growth Platforms (16) ---
@@ -842,6 +842,17 @@ DISCOVERY_SEED_PAIRS: list[tuple[str, str, str, str, str]] = [
     ("IREN",  "Q4982L109", "AMD",  "007903107", "IREN AI Cloud & Power + AMD"),
     ("GLXY",  "36317J209", "AMD",  "007903107", "Galaxy HPC/AI Campus & AMD"),
     ("CIFR",  "17253J106", "AMD",  "007903107", "Cipher HPC Compute & AMD"),
+    # --- Emerging Memory, Optical, Connectivity, Power & Identity Breakouts (10) ---
+    ("INTC",  "458140100", "NVDA", "67066G104", "Emerging Semiconductors & NVDA"),
+    ("LITE",  "55024U109", "NVDA", "67066G104", "Emerging Communication Equipment & NVDA"),
+    ("STX",   "G7997R103", "NVDA", "67066G104", "Emerging Computer Hardware & NVDA"),
+    ("MRVL",  "573874104", "NVDA", "67066G104", "Emerging Semiconductors & NVDA"),
+    ("APH",   "032095101", "NVDA", "67066G104", "Emerging Electronic Components & NVDA"),
+    ("SNDK",  "80004C200", "NVDA", "67066G104", "Emerging Computer Hardware & NVDA"),
+    ("BE",    "093712107", "NVDA", "67066G104", "Emerging Electrical Equipment & Parts & NVDA"),
+    ("SKHY",  "78392B206", "NVDA", "67066G104", "Emerging Semiconductors & NVDA"),
+    ("OKTA",  "679295105", "NVDA", "67066G104", "Emerging Software—Infrastructure & NVDA"),
+    ("ADI",   "032654105", "NVDA", "67066G104", "Emerging Semiconductors & NVDA"),
 ]
 
 # Tech-enabled digital/AI tickers in non-Technology GICS sectors

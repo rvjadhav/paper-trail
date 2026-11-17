@@ -193,7 +193,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
               {!update.inRankings && (
                 <span
                   className="chip"
-                  title="Tracked in Quarterly Updates watchlist (excluded from long-equity Top 75 Ranking screen due to option weighting or Tech/TMT & concentration thresholds)"
+                  title="Tracked in Quarterly Updates watchlist (excluded from long-equity Top 100 Ranking screen due to option weighting or Tech/TMT & concentration thresholds)"
                 >
                   Curated Watchlist
                 </span>
