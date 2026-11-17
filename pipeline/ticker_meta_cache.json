@@ -34,6 +34,13 @@
     "sector": "Other",
     "ticker": "0A3-SG"
   },
+  "0HO8-L": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "0HO8-L"
+  },
   "0IK-DU": {
     "industry": "",
     "metaChecked": true,
@@ -195,6 +202,13 @@
     "sector": "Other",
     "ticker": "3A9-SG"
   },
+  "3EV-MU": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "3EV-MU"
+  },
   "3SRD-L": {
     "industry": "",
     "metaChecked": true,
@@ -215,6 +229,13 @@
     "name": "",
     "sector": "Other",
     "ticker": "42W-SI"
+  },
+  "4396-T": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "4396-T"
   },
   "4477-T": {
     "industry": "",
@@ -607,6 +628,13 @@
     "sector": "Other",
     "ticker": "AAPD"
   },
+  "AAPG": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Ascentage Pharma Group Internat",
+    "sector": "Healthcare",
+    "ticker": "AAPG"
+  },
   "AAPL": {
     "industry": "Consumer Electronics",
     "name": "Apple Inc.",
@@ -652,6 +680,13 @@
     "name": "Alpha Architect US Equity 3 ETF",
     "sector": "Other",
     "ticker": "AAUA"
+  },
+  "AAUAF": {
+    "industry": "Gold",
+    "metaChecked": true,
+    "name": "Almaden Minerals Ltd.",
+    "sector": "Basic Materials",
+    "ticker": "AAUAF"
   },
   "AAUB": {
     "industry": "",
@@ -1633,6 +1668,13 @@
     "sector": "Basic Materials",
     "ticker": "AEM"
   },
+  "AEMD": {
+    "industry": "Medical Devices",
+    "metaChecked": true,
+    "name": "Aethlon Medical, Inc.",
+    "sector": "Healthcare",
+    "ticker": "AEMD"
+  },
   "AENTW": {
     "industry": "Entertainment",
     "metaChecked": true,
@@ -1658,6 +1700,13 @@
     "name": "American Electric Power Company, Inc.",
     "sector": "Utilities",
     "ticker": "AEP"
+  },
+  "AEPGX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "AEPGX"
   },
   "AER": {
     "industry": "Rental & Leasing Services",
@@ -1889,6 +1938,13 @@
     "name": "iShares 1-10 Year U.S. Aggregat",
     "sector": "Other",
     "ticker": "AGGM"
+  },
+  "AGGS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Harbor Disciplined Bond ETF",
+    "sector": "Other",
+    "ticker": "AGGS"
   },
   "AGGY": {
     "industry": "",
@@ -2144,6 +2200,13 @@
     "name": "AI Financial Corporation",
     "sector": "Technology",
     "ticker": "AIFC"
+  },
+  "AIFF": {
+    "industry": "Software\u2014Application",
+    "metaChecked": true,
+    "name": "Firefly Neuroscience, Inc.",
+    "sector": "Technology",
+    "ticker": "AIFF"
   },
   "AIG": {
     "industry": "Insurance\u2014Diversified",
@@ -2744,6 +2807,13 @@
     "sector": "Basic Materials",
     "ticker": "ALOY"
   },
+  "ALP": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Alpha Compute Corp",
+    "sector": "Financial Services",
+    "ticker": "ALP"
+  },
   "ALPMY": {
     "industry": "Drug Manufacturers\u2014General",
     "metaChecked": true,
@@ -2826,6 +2896,13 @@
     "name": "Alussa Energy Acquisition Corp. II",
     "sector": "Financial Services",
     "ticker": "ALUB"
+  },
+  "ALUR": {
+    "industry": "Medical Devices",
+    "metaChecked": true,
+    "name": "Allurion Technologies Inc.",
+    "sector": "Healthcare",
+    "ticker": "ALUR"
   },
   "ALURW": {
     "industry": "",
@@ -3627,6 +3704,13 @@
     "sector": "Technology",
     "ticker": "API"
   },
+  "APIE": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ActivePassive International Equity ETF",
+    "sector": "Other",
+    "ticker": "APIE"
+  },
   "APLD": {
     "industry": "Information Technology Services",
     "name": "Applied Digital Corporation",
@@ -3663,6 +3747,13 @@
     "name": "Corgi AMAT 2x Daily ETF",
     "sector": "Other",
     "ticker": "APMI"
+  },
+  "APMU": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ActivePassive Intermediate Municipal Bond ETF",
+    "sector": "Other",
+    "ticker": "APMU"
   },
   "APO": {
     "industry": "Asset Management",
@@ -3956,6 +4047,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "AREB"
   },
+  "AREBW": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "AREBW"
+  },
   "AREC": {
     "industry": "Waste Management",
     "name": "American Resources Corporation",
@@ -4184,6 +4282,13 @@
     "name": "Art Technology Acquisition Corp.",
     "sector": "Other",
     "ticker": "ARTCW"
+  },
+  "ARTL": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Artelo Biosciences, Inc.",
+    "sector": "Healthcare",
+    "ticker": "ARTL"
   },
   "ARTNA": {
     "industry": "Utilities\u2014Regulated Water",
@@ -4449,6 +4554,13 @@
     "name": "Altisource Portfolio Solutions S.A.",
     "sector": "Real Estate",
     "ticker": "ASPSZ"
+  },
+  "ASPU": {
+    "industry": "Education & Training Services",
+    "metaChecked": true,
+    "name": "Aspen Group, Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "ASPU"
   },
   "ASR": {
     "industry": "Airports & Air Services",
@@ -4837,6 +4949,13 @@
     "sector": "Other",
     "ticker": "AUGZ"
   },
+  "AUID": {
+    "industry": "Software\u2014Infrastructure",
+    "metaChecked": true,
+    "name": "authID Inc.",
+    "sector": "Technology",
+    "ticker": "AUID"
+  },
   "AUMN": {
     "industry": "Other Precious Metals & Mining",
     "metaChecked": true,
@@ -4956,6 +5075,13 @@
     "sector": "",
     "ticker": "AVDE"
   },
+  "AVDS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Avantis International Small Cap",
+    "sector": "Other",
+    "ticker": "AVDS"
+  },
   "AVDV": {
     "industry": "",
     "name": "Avantis International Small Cap Value ETF",
@@ -5001,6 +5127,13 @@
     "sector": "Other",
     "ticker": "AVGX"
   },
+  "AVIG": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Avantis Core Fixed Income ETF",
+    "sector": "Other",
+    "ticker": "AVIG"
+  },
   "AVIR": {
     "industry": "Biotechnology",
     "name": "Atea Pharmaceuticals, Inc.",
@@ -5039,6 +5172,13 @@
     "name": "Avantis US Large Cap Value ETF",
     "sector": "",
     "ticker": "AVLV"
+  },
+  "AVMU": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Avantis Core Municipal Fixed Income ETF",
+    "sector": "Other",
+    "ticker": "AVMU"
   },
   "AVNM": {
     "industry": "",
@@ -5436,6 +5576,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "BABA"
   },
+  "BABX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "GraniteShares 2x Long BABA Daily ETF",
+    "sector": "Other",
+    "ticker": "BABX"
+  },
   "BAC": {
     "industry": "Banks\u2014Diversified",
     "name": "Bank of America Corporation",
@@ -5460,6 +5607,13 @@
     "name": "Blue Acquisition Corp.",
     "sector": "Financial Services",
     "ticker": "BACCU"
+  },
+  "BACQ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Inflection Point Acquisition Co",
+    "sector": "Other",
+    "ticker": "BACQ"
   },
   "BAER": {
     "industry": "Security & Protection Services",
@@ -6088,6 +6242,13 @@
     "sector": "",
     "ticker": "BCI"
   },
+  "BCIC": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "BCP Investment Corp.",
+    "sector": "Financial Services",
+    "ticker": "BCIC"
+  },
   "BCLI": {
     "industry": "Biotechnology",
     "metaChecked": true,
@@ -6380,6 +6541,13 @@
     "sector": "Technology",
     "ticker": "BEEM"
   },
+  "BEEP": {
+    "industry": "Infrastructure Operations",
+    "metaChecked": true,
+    "name": "Mobile Infrastructure Corporation",
+    "sector": "Industrials",
+    "ticker": "BEEP"
+  },
   "BEEX": {
     "industry": "",
     "metaChecked": true,
@@ -6449,6 +6617,13 @@
     "name": "Beta Technologies, Inc.",
     "sector": "Industrials",
     "ticker": "BETA"
+  },
+  "BETH": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ProShares Bitcoin & Ether Market Cap Weight ETF",
+    "sector": "Other",
+    "ticker": "BETH"
   },
   "BETR": {
     "industry": "Mortgage Finance",
@@ -6619,6 +6794,13 @@
     "name": "Barings Global Short Duration High Yield Fund",
     "sector": "Financial Services",
     "ticker": "BGH"
+  },
+  "BGL": {
+    "industry": "Gold",
+    "metaChecked": true,
+    "name": "Blue Gold Limited",
+    "sector": "Basic Materials",
+    "ticker": "BGL"
   },
   "BGLD": {
     "industry": "",
@@ -6836,6 +7018,13 @@
     "sector": "Financial Services",
     "ticker": "BID"
   },
+  "BIDD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares International Dividend Active ETF",
+    "sector": "Other",
+    "ticker": "BIDD"
+  },
   "BIDU": {
     "industry": "Internet Content & Information",
     "name": "Baidu, Inc.",
@@ -6933,6 +7122,13 @@
     "sector": "Other",
     "ticker": "BINC"
   },
+  "BINI": {
+    "industry": "Auto Manufacturers",
+    "metaChecked": true,
+    "name": "Bollinger Innovations, Inc.",
+    "sector": "Consumer Cyclical",
+    "ticker": "BINI"
+  },
   "BIO": {
     "industry": "Medical Devices",
     "name": "Bio-Rad Laboratories, Inc.",
@@ -7017,6 +7213,13 @@
     "name": "Birkenstock Holding plc",
     "sector": "Consumer Cyclical",
     "ticker": "BIRK"
+  },
+  "BIT": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "BlackRock Multi-Sector Income Trust",
+    "sector": "Financial Services",
+    "ticker": "BIT"
   },
   "BITB": {
     "industry": "",
@@ -7173,6 +7376,13 @@
     "sector": "Other",
     "ticker": "BKAG"
   },
+  "BKCG": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "BNY Mellon ETF Trust II: BNY Mellon Concentrated Growth ETF",
+    "sector": "Other",
+    "ticker": "BKCG"
+  },
   "BKD": {
     "industry": "Medical Care Facilities",
     "name": "Brookdale Senior Living Inc.",
@@ -7197,6 +7407,13 @@
     "name": "Black Hills Corporation",
     "sector": "Utilities",
     "ticker": "BKH"
+  },
+  "BKHAR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Black Hawk Acquisition Corporation",
+    "sector": "Other",
+    "ticker": "BKHAR"
   },
   "BKKT": {
     "industry": "Software\u2014Infrastructure",
@@ -7408,6 +7625,13 @@
     "name": "Amplify Blockchain Technology ETF",
     "sector": "Other",
     "ticker": "BLOK"
+  },
+  "BLOX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Nicholas Crypto Income ETF",
+    "sector": "Other",
+    "ticker": "BLOX"
   },
   "BLPRCRI": {
     "industry": "",
@@ -7669,6 +7893,13 @@
     "sector": "Consumer Defensive",
     "ticker": "BMRRY"
   },
+  "BMVP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Invesco Bloomberg MVP Multi-fac",
+    "sector": "Other",
+    "ticker": "BMVP"
+  },
   "BMY": {
     "industry": "Drug Manufacturers\u2014General",
     "name": "Bristol-Myers Squibb Company",
@@ -7702,6 +7933,13 @@
     "sector": "Industrials",
     "ticker": "BNC"
   },
+  "BNCWW": {
+    "industry": "Farm & Heavy Construction Machinery",
+    "metaChecked": true,
+    "name": "BNB Standard Corporation",
+    "sector": "Industrials",
+    "ticker": "BNCWW"
+  },
   "BND": {
     "industry": "",
     "name": "Vanguard Total Bond Market Index Fund ETF Shares",
@@ -7714,6 +7952,13 @@
     "name": "Northern Trust Core Bond ETF",
     "sector": "Other",
     "ticker": "BNDC"
+  },
+  "BNDD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Quadratic Deflation ETF",
+    "sector": "Other",
+    "ticker": "BNDD"
   },
   "BNDS": {
     "industry": "",
@@ -8070,6 +8315,13 @@
     "sector": "Other",
     "ticker": "BPRO"
   },
+  "BPYPP": {
+    "industry": "Real Estate Services",
+    "metaChecked": true,
+    "name": "Brookfield Property Partners L.P.",
+    "sector": "Real Estate",
+    "ticker": "BPYPP"
+  },
   "BQ": {
     "industry": "Specialty Retail",
     "metaChecked": true,
@@ -8139,6 +8391,13 @@
     "name": "VanEck Brazil Small-Cap ETF",
     "sector": "",
     "ticker": "BRF"
+  },
+  "BRFH": {
+    "industry": "Beverages\u2014Non-Alcoholic",
+    "metaChecked": true,
+    "name": "Barfresh Food Group, Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "BRFH"
   },
   "BRFI-L": {
     "industry": "",
@@ -8218,6 +8477,13 @@
     "sector": "Energy",
     "ticker": "BRN"
   },
+  "BRNX": {
+    "industry": "Utilities\u2014Renewable",
+    "metaChecked": true,
+    "name": "Brenmiller Energy Ltd",
+    "sector": "Utilities",
+    "ticker": "BRNX"
+  },
   "BRNY": {
     "industry": "",
     "metaChecked": true,
@@ -8268,6 +8534,13 @@
     "name": "BrightSpire Capital, Inc.",
     "sector": "Real Estate",
     "ticker": "BRSP"
+  },
+  "BRSV": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "EA Bridgeway Select Small-Cap V",
+    "sector": "Other",
+    "ticker": "BRSV"
   },
   "BRT": {
     "industry": "REIT\u2014Residential",
@@ -8352,6 +8625,13 @@
     "name": "Direxion Daily MSCI Brazil Bull 2X Shares",
     "sector": "Other",
     "ticker": "BRZU"
+  },
+  "BSAA": {
+    "industry": "Shell Companies",
+    "metaChecked": true,
+    "name": "BEST SPAC I Acquisition Corp.",
+    "sector": "Financial Services",
+    "ticker": "BSAA"
   },
   "BSAAU": {
     "industry": "Shell Companies",
@@ -8785,6 +9065,13 @@
     "name": "WisdomTree Bitcoin Fund",
     "sector": "Other",
     "ticker": "BTCW"
+  },
+  "BTCY": {
+    "industry": "Medical Devices",
+    "metaChecked": true,
+    "name": "Biotricity, Inc.",
+    "sector": "Healthcare",
+    "ticker": "BTCY"
   },
   "BTDR": {
     "industry": "Software\u2014Application",
@@ -9332,6 +9619,13 @@
     "sector": "Financial Services",
     "ticker": "C"
   },
+  "C-PN": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Citigroup Capital XIII TR PFD SECS",
+    "sector": "Financial Services",
+    "ticker": "C-PN"
+  },
   "CAAA": {
     "industry": "",
     "metaChecked": true,
@@ -9511,6 +9805,13 @@
     "name": "Callaway Golf Company",
     "sector": "Consumer Cyclical",
     "ticker": "CALY"
+  },
+  "CAM": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "AB California Intermediate Municipal ETF",
+    "sector": "Other",
+    "ticker": "CAM"
   },
   "CAMP": {
     "industry": "Biotechnology",
@@ -9847,6 +10148,13 @@
     "sector": "Financial Services",
     "ticker": "CBOE"
   },
+  "CBON": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "VanEck China Bond ETF",
+    "sector": "Other",
+    "ticker": "CBON"
+  },
   "CBRE": {
     "industry": "Real Estate Services",
     "name": "CBRE Group, Inc.",
@@ -9994,6 +10302,13 @@
     "sector": "Other",
     "ticker": "CCEP-AS"
   },
+  "CCG": {
+    "industry": "Internet Content & Information",
+    "metaChecked": true,
+    "name": "Cheche Group Inc.",
+    "sector": "Communication Services",
+    "ticker": "CCG"
+  },
   "CCGWW": {
     "industry": "Internet Content & Information",
     "metaChecked": true,
@@ -10013,6 +10328,13 @@
     "name": "Crown Castle Inc.",
     "sector": "Real Estate",
     "ticker": "CCI"
+  },
+  "CCIF": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Carlyle Credit Income Fund",
+    "sector": "Financial Services",
+    "ticker": "CCIF"
   },
   "CCII": {
     "industry": "Shell Companies",
@@ -10140,6 +10462,13 @@
     "name": "Coeur Mining, Inc.",
     "sector": "Basic Materials",
     "ticker": "CDE"
+  },
+  "CDHIX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "CDHIX"
   },
   "CDIO": {
     "industry": "Biotechnology",
@@ -10408,6 +10737,13 @@
     "sector": "Technology",
     "ticker": "CEVA"
   },
+  "CEYIX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "CEYIX"
+  },
   "CF": {
     "industry": "Agricultural Inputs",
     "name": "CF Industries Holdings, Inc.",
@@ -10444,6 +10780,13 @@
     "name": "Citizens Financial Group, Inc.",
     "sector": "Financial Services",
     "ticker": "CFG"
+  },
+  "CFJIX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "CFJIX"
   },
   "CFND": {
     "industry": "Asset Management",
@@ -10618,6 +10961,27 @@
     "sector": "",
     "ticker": "CGGR"
   },
+  "CGHM": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Capital Group Municipal High-Income ETF",
+    "sector": "Other",
+    "ticker": "CGHM"
+  },
+  "CGHY": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Capital Group High Yield Bond ETF",
+    "sector": "Other",
+    "ticker": "CGHY"
+  },
+  "CGIB": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Capital Group International Bond ETF (USD-Hedged)",
+    "sector": "Other",
+    "ticker": "CGIB"
+  },
   "CGIC": {
     "industry": "",
     "name": "Capital Group International Core Equity ETF",
@@ -10630,6 +10994,13 @@
     "name": "Capital Group International Equity ETF",
     "sector": "Other",
     "ticker": "CGIE"
+  },
+  "CGJIX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "CGJIX"
   },
   "CGMM": {
     "industry": "",
@@ -10714,6 +11085,13 @@
     "name": "Capital Group Core Equity ETF",
     "sector": "",
     "ticker": "CGUS"
+  },
+  "CGVV": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Capital Group U.S. Large Value ETF",
+    "sector": "Other",
+    "ticker": "CGVV"
   },
   "CGW": {
     "industry": "",
@@ -11175,6 +11553,13 @@
     "sector": "Industrials",
     "ticker": "CIX"
   },
+  "CJPRY": {
+    "industry": "Railroads",
+    "metaChecked": true,
+    "name": "Central Japan Railway Company",
+    "sector": "Industrials",
+    "ticker": "CJPRY"
+  },
   "CKHGY": {
     "industry": "Banks\u2014Regional",
     "metaChecked": true,
@@ -11442,6 +11827,13 @@
     "name": "Celestica Inc.",
     "sector": "Technology",
     "ticker": "CLS"
+  },
+  "CLSD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Clearside Biomedical, Inc.",
+    "sector": "Other",
+    "ticker": "CLSD"
   },
   "CLSE": {
     "industry": "",
@@ -11734,6 +12126,13 @@
     "sector": "Healthcare",
     "ticker": "CNC"
   },
+  "CNCK": {
+    "industry": "Capital Markets",
+    "metaChecked": true,
+    "name": "Coincheck Group N.V.",
+    "sector": "Financial Services",
+    "ticker": "CNCK"
+  },
   "CNCKW": {
     "industry": "Capital Markets",
     "name": "Coincheck Group N.V.",
@@ -12022,6 +12421,13 @@
     "sector": "Financial Services",
     "ticker": "COF"
   },
+  "COFS": {
+    "industry": "Banks\u2014Regional",
+    "metaChecked": true,
+    "name": "ChoiceOne Financial Services, Inc.",
+    "sector": "Financial Services",
+    "ticker": "COFS"
+  },
   "COGT": {
     "industry": "Biotechnology",
     "name": "Cogent Biosciences, Inc.",
@@ -12097,6 +12503,13 @@
     "sector": "Other",
     "ticker": "COLTX"
   },
+  "COM": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Direxion Auspice Broad Commodity Strategy ETF",
+    "sector": "Other",
+    "ticker": "COM"
+  },
   "COMB": {
     "industry": "",
     "metaChecked": true,
@@ -12109,6 +12522,13 @@
     "name": "Compass, Inc.",
     "sector": "Real Estate",
     "ticker": "COMP"
+  },
+  "COMS": {
+    "industry": "Communication Equipment",
+    "metaChecked": true,
+    "name": "COMSovereign Holding Corp.",
+    "sector": "Technology",
+    "ticker": "COMS"
   },
   "COMT": {
     "industry": "",
@@ -12196,6 +12616,13 @@
     "name": "Sprott Copper Miners ETF",
     "sector": "Other",
     "ticker": "COPP"
+  },
+  "COPR": {
+    "industry": "Copper",
+    "metaChecked": true,
+    "name": "Idaho Copper Corporation",
+    "sector": "Basic Materials",
+    "ticker": "COPR"
   },
   "COPX": {
     "industry": "",
@@ -12646,6 +13073,20 @@
     "sector": "Financial Services",
     "ticker": "CRF"
   },
+  "CRGO": {
+    "industry": "Software\u2014Application",
+    "metaChecked": true,
+    "name": "Freightos Limited",
+    "sector": "Technology",
+    "ticker": "CRGO"
+  },
+  "CRGOW": {
+    "industry": "Integrated Freight & Logistics",
+    "metaChecked": true,
+    "name": "Freightos Limited",
+    "sector": "Industrials",
+    "ticker": "CRGOW"
+  },
   "CRGY": {
     "industry": "Oil & Gas E&P",
     "name": "Crescent Energy Company",
@@ -12676,6 +13117,13 @@
     "name": "Comstock Resources, Inc.",
     "sector": "Energy",
     "ticker": "CRK"
+  },
+  "CRKN": {
+    "industry": "Specialty Chemicals",
+    "metaChecked": true,
+    "name": "Crown Electrokinetics Corp.",
+    "sector": "Basic Materials",
+    "ticker": "CRKN"
   },
   "CRL": {
     "industry": "Diagnostics & Research",
@@ -12721,6 +13169,13 @@
     "name": "Critical Metals Corp.",
     "sector": "Basic Materials",
     "ticker": "CRMLW"
+  },
+  "CRMN": {
+    "industry": "Engineering & Construction",
+    "metaChecked": true,
+    "name": "Skyline Builders Group Holding Limited",
+    "sector": "Industrials",
+    "ticker": "CRMN"
   },
   "CRMT": {
     "industry": "Auto & Truck Dealerships",
@@ -12892,6 +13347,13 @@
     "name": "Cisco Systems, Inc.",
     "sector": "Technology",
     "ticker": "CSCO"
+  },
+  "CSD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Invesco S&P Spin-Off ETF",
+    "sector": "Other",
+    "ticker": "CSD"
   },
   "CSEN": {
     "industry": "",
@@ -13076,6 +13538,13 @@
     "sector": "Other",
     "ticker": "CTA"
   },
+  "CTAA": {
+    "industry": "Shell Companies",
+    "metaChecked": true,
+    "name": "ClearThink 1 Acquisition Corp.",
+    "sector": "Financial Services",
+    "ticker": "CTAA"
+  },
   "CTAAR": {
     "industry": "",
     "metaChecked": true,
@@ -13101,6 +13570,13 @@
     "name": "Community Trust Bancorp, Inc.",
     "sector": "Financial Services",
     "ticker": "CTBI"
+  },
+  "CTEC": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Global X ClimateTech ETF",
+    "sector": "Other",
+    "ticker": "CTEC"
   },
   "CTEV": {
     "industry": "Health Information Services",
@@ -13283,6 +13759,13 @@
     "name": "CuriosityStream Inc.",
     "sector": "Communication Services",
     "ticker": "CURI"
+  },
+  "CURN": {
+    "industry": "Capital Markets",
+    "metaChecked": true,
+    "name": "Currency Exchange International, Corp.",
+    "sector": "Financial Services",
+    "ticker": "CURN"
   },
   "CURR": {
     "industry": "Software\u2014Application",
@@ -13630,6 +14113,13 @@
     "name": "China Yuchai International Limited",
     "sector": "Consumer Cyclical",
     "ticker": "CYD"
+  },
+  "CYDY": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "CytoDyn Inc.",
+    "sector": "Healthcare",
+    "ticker": "CYDY"
   },
   "CYH": {
     "industry": "Medical Care Facilities",
@@ -14491,6 +14981,20 @@
     "sector": "Financial Services",
     "ticker": "DFDV"
   },
+  "DFDVW": {
+    "industry": "Software\u2014Infrastructure",
+    "metaChecked": true,
+    "name": "DeFi Development Corp.",
+    "sector": "Technology",
+    "ticker": "DFDVW"
+  },
+  "DFE": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "WisdomTree Europe SmallCap Dividend Fund",
+    "sector": "Other",
+    "ticker": "DFE"
+  },
   "DFEB": {
     "industry": "",
     "metaChecked": true,
@@ -14516,6 +15020,13 @@
     "name": "Dimensional Emerging Markets Value ETF",
     "sector": "",
     "ticker": "DFEV"
+  },
+  "DFGP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Dimensional Global Core Plus Fixed Income ETF",
+    "sector": "Other",
+    "ticker": "DFGP"
   },
   "DFGR": {
     "industry": "",
@@ -14924,6 +15435,13 @@
     "name": "HF Sinclair Corporation",
     "sector": "Energy",
     "ticker": "DINO"
+  },
+  "DINT": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Davis Select International ETF",
+    "sector": "Other",
+    "ticker": "DINT"
   },
   "DIOD": {
     "industry": "Semiconductors",
@@ -15460,6 +15978,13 @@
     "sector": "Other",
     "ticker": "DOG"
   },
+  "DOL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "WisdomTree True Developed International Fund",
+    "sector": "Other",
+    "ticker": "DOL"
+  },
   "DOLE": {
     "industry": "Farm Products",
     "name": "Dole plc",
@@ -15605,6 +16130,13 @@
     "sector": "Financial Services",
     "ticker": "DRDB"
   },
+  "DRDBU": {
+    "industry": "Shell Companies",
+    "metaChecked": true,
+    "name": "Roman DBDR Acquisition Corp. II",
+    "sector": "Financial Services",
+    "ticker": "DRDBU"
+  },
   "DRDBW": {
     "industry": "Shell Companies",
     "name": "Roman DBDR Acquisition Corp. II",
@@ -15656,6 +16188,13 @@
     "name": "Global X Autonomous & Electric Vehicles ETF",
     "sector": "Other",
     "ticker": "DRIV"
+  },
+  "DRLL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Strive U.S. Energy ETF",
+    "sector": "Other",
+    "ticker": "DRLL"
   },
   "DRMKY": {
     "industry": "Building Products & Equipment",
@@ -15775,6 +16314,13 @@
     "name": "DSV A/S",
     "sector": "Industrials",
     "ticker": "DSDVY"
+  },
+  "DSEFX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "DSEFX"
   },
   "DSEP": {
     "industry": "",
@@ -15923,6 +16469,13 @@
     "name": "DTE Energy Company",
     "sector": "Utilities",
     "ticker": "DTE"
+  },
+  "DTEC": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ALPS Disruptive Technologies ETF",
+    "sector": "Other",
+    "ticker": "DTEC"
   },
   "DTEGY": {
     "industry": "Telecom Services",
@@ -16158,6 +16711,13 @@
     "sector": "Other",
     "ticker": "DWM"
   },
+  "DWSN": {
+    "industry": "Oil & Gas Equipment & Services",
+    "metaChecked": true,
+    "name": "Dawson Geophysical Company",
+    "sector": "Energy",
+    "ticker": "DWSN"
+  },
   "DWX": {
     "industry": "",
     "metaChecked": true,
@@ -16357,6 +16917,13 @@
     "sector": "Other",
     "ticker": "EALT"
   },
+  "EAPR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator Emerging Markets Power Buffer ETF - April",
+    "sector": "Other",
+    "ticker": "EAPR"
+  },
   "EARN": {
     "industry": "Asset Management",
     "metaChecked": true,
@@ -16401,6 +16968,13 @@
     "name": "",
     "sector": "Other",
     "ticker": "EBIX-BO"
+  },
+  "EBIZ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Global X E-commerce ETF",
+    "sector": "Other",
+    "ticker": "EBIZ"
   },
   "EBKDY": {
     "industry": "Banks\u2014Regional",
@@ -16492,6 +17066,13 @@
     "sector": "Basic Materials",
     "ticker": "ECL"
   },
+  "ECNS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares MSCI China Small-Cap ETF",
+    "sector": "Other",
+    "ticker": "ECNS"
+  },
   "ECO": {
     "industry": "Marine Shipping",
     "name": "Okeanis Eco Tankers Corp.",
@@ -16569,6 +17150,13 @@
     "sector": "Other",
     "ticker": "EDC"
   },
+  "EDD": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Morgan Stanley Emerging Markets Domestic Debt Fund, Inc.",
+    "sector": "Financial Services",
+    "ticker": "EDD"
+  },
   "EDEN": {
     "industry": "",
     "metaChecked": true,
@@ -16603,6 +17191,13 @@
     "sector": "Other",
     "ticker": "EDNMY"
   },
+  "EDOC-SW": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "EDOC-SW"
+  },
   "EDOW": {
     "industry": "",
     "metaChecked": true,
@@ -16616,6 +17211,13 @@
     "name": "EDP, S.A.",
     "sector": "Utilities",
     "ticker": "EDPFY"
+  },
+  "EDRVF": {
+    "industry": "Utilities\u2014Renewable",
+    "metaChecked": true,
+    "name": "EDP Renewables, S.A.",
+    "sector": "Utilities",
+    "ticker": "EDRVF"
   },
   "EDRY": {
     "industry": "Marine Shipping",
@@ -16690,6 +17292,13 @@
     "name": "iShares MSCI Emerging Markets Asia ETF",
     "sector": "",
     "ticker": "EEMA"
+  },
+  "EEMS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares MSCI Emerging Markets Small-Cap ETF",
+    "sector": "Other",
+    "ticker": "EEMS"
   },
   "EEMV": {
     "industry": "",
@@ -17206,6 +17815,13 @@
     "sector": "Healthcare",
     "ticker": "ELVN"
   },
+  "ELVR": {
+    "industry": "Other Industrial Metals & Mining",
+    "metaChecked": true,
+    "name": "Elevra Lithium Limited",
+    "sector": "Basic Materials",
+    "ticker": "ELVR"
+  },
   "EM": {
     "industry": "",
     "name": "Emerging Markets AI Mag 3 ETF",
@@ -17229,6 +17845,13 @@
     "name": "Embecta Corp.",
     "sector": "Healthcare",
     "ticker": "EMBC"
+  },
+  "EMBD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Global X Emerging Markets Bond ETF",
+    "sector": "Other",
+    "ticker": "EMBD"
   },
   "EMBJ": {
     "industry": "Aerospace & Defense",
@@ -17262,6 +17885,13 @@
     "name": "EMCOR Group, Inc.",
     "sector": "Industrials",
     "ticker": "EME"
+  },
+  "EMET": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "VanEck Copper and Electrification Metals ETF",
+    "sector": "Other",
+    "ticker": "EMET"
   },
   "EMF": {
     "industry": "Asset Management",
@@ -17743,6 +18373,13 @@
     "sector": "Real Estate",
     "ticker": "EPRT"
   },
+  "EPRX": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Eupraxia Pharmaceuticals Inc.",
+    "sector": "Healthcare",
+    "ticker": "EPRX"
+  },
   "EPS": {
     "industry": "",
     "metaChecked": true,
@@ -17822,6 +18459,13 @@
     "sector": "Real Estate",
     "ticker": "EQIX"
   },
+  "EQL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ALPS Equal Sector Weight ETF",
+    "sector": "Other",
+    "ticker": "EQL"
+  },
   "EQNR": {
     "industry": "Oil & Gas Integrated",
     "name": "Equinor ASA",
@@ -17833,6 +18477,13 @@
     "name": "EquipmentShare.com Inc.",
     "sector": "Industrials",
     "ticker": "EQPT"
+  },
+  "EQS": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Equus Total Return, Inc.",
+    "sector": "Financial Services",
+    "ticker": "EQS"
   },
   "EQT": {
     "industry": "Oil & Gas E&P",
@@ -18063,6 +18714,13 @@
     "name": "iShares ESG Aware MSCI USA Small-Cap ETF",
     "sector": "",
     "ticker": "ESML"
+  },
+  "ESN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Essential 40 Stock ETF",
+    "sector": "Other",
+    "ticker": "ESN"
   },
   "ESNT": {
     "industry": "Insurance\u2014Specialty",
@@ -18499,6 +19157,13 @@
     "sector": "Other",
     "ticker": "EVLN"
   },
+  "EVLO": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Evelo Biosciences, Inc.",
+    "sector": "Healthcare",
+    "ticker": "EVLO"
+  },
   "EVLV": {
     "industry": "Security & Protection Services",
     "name": "Evolv Technologies Holdings, Inc.",
@@ -18765,6 +19430,13 @@
     "sector": "",
     "ticker": "EWU"
   },
+  "EWUS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares MSCI United Kingdom Small-Cap ETF",
+    "sector": "Other",
+    "ticker": "EWUS"
+  },
   "EWW": {
     "industry": "",
     "name": "iShares MSCI Mexico ETF",
@@ -18992,6 +19664,13 @@
     "sector": "Other",
     "ticker": "EZET"
   },
+  "EZGO": {
+    "industry": "Recreational Vehicles",
+    "metaChecked": true,
+    "name": "EZGO Technologies Ltd.",
+    "sector": "Consumer Cyclical",
+    "ticker": "EZGO"
+  },
   "EZM": {
     "industry": "",
     "metaChecked": true,
@@ -19004,6 +19683,13 @@
     "name": "EZCORP, Inc.",
     "sector": "Financial Services",
     "ticker": "EZPW"
+  },
+  "EZRA": {
+    "industry": "Insurance Brokers",
+    "metaChecked": true,
+    "name": "Reliance Global Group, Inc.",
+    "sector": "Financial Services",
+    "ticker": "EZRA"
   },
   "EZU": {
     "industry": "",
@@ -19212,6 +19898,13 @@
     "sector": "Other",
     "ticker": "FB"
   },
+  "FBALX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "FBALX"
+  },
   "FBCG": {
     "industry": "",
     "metaChecked": true,
@@ -19225,6 +19918,13 @@
     "name": "Fidelity Blue Chip Value ETF",
     "sector": "Other",
     "ticker": "FBCV"
+  },
+  "FBGRX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "FBGRX"
   },
   "FBIN": {
     "industry": "Building Products & Equipment",
@@ -19306,6 +20006,13 @@
     "name": "Fidelity Wise Origin Bitcoin Fund",
     "sector": "",
     "ticker": "FBTC"
+  },
+  "FBYDW": {
+    "industry": "Conglomerates",
+    "metaChecked": true,
+    "name": "Falcon's Beyond Global, Inc.",
+    "sector": "Industrials",
+    "ticker": "FBYDW"
   },
   "FC": {
     "industry": "Education & Training Services",
@@ -19540,6 +20247,13 @@
     "name": "Freedom Metals Acquisition Corp.",
     "sector": "Financial Services",
     "ticker": "FDMM"
+  },
+  "FDMMU": {
+    "industry": "Shell Companies",
+    "metaChecked": true,
+    "name": "Freedom Metals Acquisition Corp.",
+    "sector": "Financial Services",
+    "ticker": "FDMMU"
   },
   "FDMMW": {
     "industry": "",
@@ -20333,6 +21047,13 @@
     "sector": "Industrials",
     "ticker": "FJET"
   },
+  "FJP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "First Trust Japan AlphaDEX Fund",
+    "sector": "Other",
+    "ticker": "FJP"
+  },
   "FJUL": {
     "industry": "",
     "metaChecked": true,
@@ -20367,6 +21088,13 @@
     "name": "",
     "sector": "Other",
     "ticker": "FKTFX"
+  },
+  "FKU": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "First Trust United Kingdom AlphaDEX Fund",
+    "sector": "Other",
+    "ticker": "FKU"
   },
   "FKWL": {
     "industry": "Communication Equipment",
@@ -20415,6 +21143,13 @@
     "name": "Franklin FTSE China ETF",
     "sector": "Other",
     "ticker": "FLCH"
+  },
+  "FLCO": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Franklin Investment Grade Corporate ETF",
+    "sector": "Other",
+    "ticker": "FLCO"
   },
   "FLD": {
     "industry": "Capital Markets",
@@ -20759,6 +21494,13 @@
     "sector": "Financial Services",
     "ticker": "FMACU"
   },
+  "FMAG": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Fidelity Magellan ETF",
+    "sector": "Other",
+    "ticker": "FMAG"
+  },
   "FMAGX": {
     "industry": "",
     "metaChecked": true,
@@ -20980,6 +21722,13 @@
     "sector": "Communication Services",
     "ticker": "FNGR"
   },
+  "FNGS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "MicroSectors FANG+ ETN",
+    "sector": "Other",
+    "ticker": "FNGS"
+  },
   "FNGU": {
     "industry": "",
     "name": "MicroSectors FANG+ Index 3X Leveraged ETN",
@@ -21108,6 +21857,13 @@
     "name": "Forrester Research, Inc.",
     "sector": "Industrials",
     "ticker": "FORR"
+  },
+  "FORTY": {
+    "industry": "Information Technology Services",
+    "metaChecked": true,
+    "name": "Formula Systems (1985) Ltd.",
+    "sector": "Technology",
+    "ticker": "FORTY"
   },
   "FOSBX": {
     "industry": "",
@@ -21426,6 +22182,13 @@
     "name": "Primis Financial Corp.",
     "sector": "Financial Services",
     "ticker": "FRST"
+  },
+  "FRSX": {
+    "industry": "Auto Parts",
+    "metaChecked": true,
+    "name": "Foresight Autonomous Holdings Ltd.",
+    "sector": "Consumer Cyclical",
+    "ticker": "FRSX"
   },
   "FRT": {
     "industry": "REIT\u2014Retail",
@@ -21944,6 +22707,13 @@
     "sector": "Other",
     "ticker": "FTXL"
   },
+  "FTXN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "First Trust Nasdaq Oil & Gas ETF",
+    "sector": "Other",
+    "ticker": "FTXN"
+  },
   "FTXO": {
     "industry": "",
     "metaChecked": true,
@@ -22447,6 +23217,13 @@
     "sector": "Communication Services",
     "ticker": "GAME"
   },
+  "GAMR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Amplify Video Game Leaders ETF",
+    "sector": "Other",
+    "ticker": "GAMR"
+  },
   "GANX": {
     "industry": "Biotechnology",
     "name": "Gain Therapeutics, Inc.",
@@ -22647,6 +23424,13 @@
     "name": "Pacer Global Cash Cows Dividend ETF",
     "sector": "Other",
     "ticker": "GCOW"
+  },
+  "GCSH": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Guggenheim Ultra Short Income E",
+    "sector": "Other",
+    "ticker": "GCSH"
   },
   "GCT": {
     "industry": "Software\u2014Infrastructure",
@@ -24962,6 +25746,13 @@
     "sector": "Other",
     "ticker": "HAP"
   },
+  "HAPI": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Harbor Human Capital Factor US Large Cap ETF",
+    "sector": "Other",
+    "ticker": "HAPI"
+  },
   "HAPN": {
     "industry": "Banks\u2014Regional",
     "name": "Happen, Inc.",
@@ -25068,6 +25859,13 @@
     "name": "HBT Financial, Inc.",
     "sector": "Financial Services",
     "ticker": "HBT"
+  },
+  "HC2-F": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "HC2-F"
   },
   "HCA": {
     "industry": "Medical Care Facilities",
@@ -25553,6 +26351,13 @@
     "sector": "Financial Services",
     "ticker": "HGLB"
   },
+  "HGRO": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Hedgeye Quality Growth ETF",
+    "sector": "Other",
+    "ticker": "HGRO"
+  },
   "HGTY": {
     "industry": "Insurance\u2014Property & Casualty",
     "name": "Hagerty, Inc.",
@@ -25564,6 +26369,13 @@
     "name": "Hilton Grand Vacations Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "HGV"
+  },
+  "HHDS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "HHDS"
   },
   "HHH": {
     "industry": "Real Estate\u2014Development",
@@ -25962,6 +26774,13 @@
     "sector": "Other",
     "ticker": "HOLA"
   },
+  "HOLD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Harbor Alpha Layering ETF",
+    "sector": "Other",
+    "ticker": "HOLD"
+  },
   "HOLO": {
     "industry": "Software\u2014Application",
     "name": "MicroCloud Hologram Inc.",
@@ -26276,6 +27095,13 @@
     "sector": "Financial Services",
     "ticker": "HTD"
   },
+  "HTEC": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Robo Global Healthcare Technology and Innovation ETF",
+    "sector": "Other",
+    "ticker": "HTEC"
+  },
   "HTFL": {
     "industry": "Health Information Services",
     "name": "Heartflow, Inc.",
@@ -26466,6 +27292,13 @@
     "sector": "Communication Services",
     "ticker": "HUYA"
   },
+  "HVAC": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "AdvisorShares HVAC and Industrials ETF",
+    "sector": "Other",
+    "ticker": "HVAC"
+  },
   "HVMC": {
     "industry": "Shell Companies",
     "name": "Highview Merger Corp.",
@@ -26608,6 +27441,13 @@
     "name": "VanEck Emerging Markets High Yield Bond ETF",
     "sector": "Other",
     "ticker": "HYEM"
+  },
+  "HYFI": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Ab Active ETFs Inc. - High Yield ETF Fund",
+    "sector": "Other",
+    "ticker": "HYFI"
   },
   "HYFM": {
     "industry": "Farm & Heavy Construction Machinery",
@@ -26861,6 +27701,13 @@
     "name": "iShares Systematic Alternatives",
     "sector": "",
     "ticker": "IALT"
+  },
+  "IAPR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator International Developed Power Buffer ETF - April",
+    "sector": "Other",
+    "ticker": "IAPR"
   },
   "IART": {
     "industry": "Medical Devices",
@@ -27233,6 +28080,13 @@
     "sector": "Other",
     "ticker": "IBTM"
   },
+  "IBTP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares iBonds Dec 2034 Term Tr",
+    "sector": "Other",
+    "ticker": "IBTP"
+  },
   "IBUF": {
     "industry": "",
     "metaChecked": true,
@@ -27427,6 +28281,13 @@
     "name": "Voya Infrastructure, Industrials and Materials Fund",
     "sector": "Financial Services",
     "ticker": "IDE"
+  },
+  "IDEC": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator International Developed Power Buffer ETF - December",
+    "sector": "Other",
+    "ticker": "IDEC"
   },
   "IDEF": {
     "industry": "",
@@ -27642,6 +28503,13 @@
     "sector": "",
     "ticker": "IEUR"
   },
+  "IEUS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares MSCI Europe Small-Cap ETF",
+    "sector": "Other",
+    "ticker": "IEUS"
+  },
   "IEV": {
     "industry": "",
     "name": "iShares Europe ETF",
@@ -27667,6 +28535,13 @@
     "name": "Infobird Co., Ltd",
     "sector": "Technology",
     "ticker": "IFBD"
+  },
+  "IFEB": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator International Developed Power Buffer ETF - February",
+    "sector": "Other",
+    "ticker": "IFEB"
   },
   "IFF": {
     "industry": "Specialty Chemicals",
@@ -28042,6 +28917,13 @@
     "sector": "",
     "ticker": "IJT"
   },
+  "IJUL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator International Developed Power Buffer ETF - July",
+    "sector": "Other",
+    "ticker": "IJUL"
+  },
   "IKT": {
     "industry": "Biotechnology",
     "name": "Inhibikase Therapeutics, Inc.",
@@ -28158,6 +29040,13 @@
     "name": "",
     "sector": "Other",
     "ticker": "IMAQW"
+  },
+  "IMAR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator International Developed Power Buffer ETF - March",
+    "sector": "Other",
+    "ticker": "IMAR"
   },
   "IMAX": {
     "industry": "Entertainment",
@@ -28458,6 +29347,13 @@
     "sector": "Healthcare",
     "ticker": "INDP"
   },
+  "INDS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Pacer Benchmark Industrial Real Estate SCTR ETF",
+    "sector": "Other",
+    "ticker": "INDS"
+  },
   "INDY": {
     "industry": "",
     "metaChecked": true,
@@ -28478,6 +29374,13 @@
     "name": "Horizon Kinetics Inflation Beneficiaries ETF",
     "sector": "Other",
     "ticker": "INFL"
+  },
+  "INFO": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Harbor PanAgora Dynamic Large Cap Core ETF",
+    "sector": "Other",
+    "ticker": "INFO"
   },
   "INFQ": {
     "industry": "Software\u2014Infrastructure",
@@ -28943,6 +29846,13 @@
     "sector": "Other",
     "ticker": "IPO"
   },
+  "IPOS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Renaissance International IPO ETF",
+    "sector": "Other",
+    "ticker": "IPOS"
+  },
   "IPSC": {
     "industry": "Biotechnology",
     "name": "Century Therapeutics, Inc.",
@@ -29148,6 +30058,13 @@
     "sector": "Healthcare",
     "ticker": "IRIX"
   },
+  "IRLA": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "IRulya Therapeutics Inc.",
+    "sector": "Healthcare",
+    "ticker": "IRLA"
+  },
   "IRM": {
     "industry": "REIT\u2014Specialty",
     "name": "Iron Mountain Incorporated",
@@ -29230,6 +30147,13 @@
     "name": "PGIM High Yield Bond Fund, Inc.",
     "sector": "Financial Services",
     "ticker": "ISD"
+  },
+  "ISEP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator International Developed Power Buffer ETF - September",
+    "sector": "Other",
+    "ticker": "ISEP"
   },
   "ISHG": {
     "industry": "",
@@ -29441,6 +30365,13 @@
     "name": "iShares Core S&P Total U.S. Stock Market ETF",
     "sector": "",
     "ticker": "ITOT"
+  },
+  "ITP": {
+    "industry": "Paper & Paper Products",
+    "metaChecked": true,
+    "name": "IT Tech Packaging, Inc.",
+    "sector": "Basic Materials",
+    "ticker": "ITP"
   },
   "ITRG": {
     "industry": "Gold",
@@ -30317,6 +31248,20 @@
     "sector": "Other",
     "ticker": "JHEQX"
   },
+  "JHI": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "John Hancock Investors Trust",
+    "sector": "Financial Services",
+    "ticker": "JHI"
+  },
+  "JHMD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "John Hancock Multifactor Developed International ETF",
+    "sector": "Other",
+    "ticker": "JHMD"
+  },
   "JHML": {
     "industry": "",
     "metaChecked": true,
@@ -30668,6 +31613,13 @@
     "sector": "Other",
     "ticker": "JPUS"
   },
+  "JPXN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares JPX-Nikkei 400 ETF",
+    "sector": "Other",
+    "ticker": "JPXN"
+  },
   "JPY": {
     "industry": "",
     "metaChecked": true,
@@ -30928,6 +31880,13 @@
     "sector": "Consumer Defensive",
     "ticker": "KAOOY"
   },
+  "KAPR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator Russell 2000 Power Buffer ETF - April",
+    "sector": "Other",
+    "ticker": "KAPR"
+  },
   "KARD": {
     "industry": "Biotechnology",
     "name": "Kardigan, Inc.",
@@ -30940,12 +31899,26 @@
     "sector": "Technology",
     "ticker": "KARO"
   },
+  "KARS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "KraneShares Electric Vehicles and Future Mobility Index ETF",
+    "sector": "Other",
+    "ticker": "KARS"
+  },
   "KAT": {
     "industry": "",
     "metaChecked": true,
     "name": "Scharf ETF",
     "sector": "Other",
     "ticker": "KAT"
+  },
+  "KAUG": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator U.S. Small Cap Power Buffer ETF - August",
+    "sector": "Other",
+    "ticker": "KAUG"
   },
   "KB": {
     "industry": "Banks\u2014Regional",
@@ -31222,6 +32195,13 @@
     "sector": "Financial Services",
     "ticker": "KF"
   },
+  "KFEB": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator U.S. Small Cap Power Buffer ETF - February",
+    "sector": "Other",
+    "ticker": "KFEB"
+  },
   "KFII": {
     "industry": "Shell Companies",
     "name": "K&F Growth Acquisition Corp. II",
@@ -31251,6 +32231,13 @@
     "name": "Kinross Gold Corporation",
     "sector": "Basic Materials",
     "ticker": "KGC"
+  },
+  "KGLD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Kurv Gold Enhanced Income ETF",
+    "sector": "Other",
+    "ticker": "KGLD"
   },
   "KGRN": {
     "industry": "",
@@ -31297,6 +32284,20 @@
     "name": "OrthoPediatrics Corp.",
     "sector": "Healthcare",
     "ticker": "KIDS"
+  },
+  "KIDZ": {
+    "industry": "Education & Training Services",
+    "metaChecked": true,
+    "name": "KIDZ AI Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "KIDZ"
+  },
+  "KIDZW": {
+    "industry": "Education & Training Services",
+    "metaChecked": true,
+    "name": "KIDZ AI Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "KIDZW"
   },
   "KIE": {
     "industry": "",
@@ -31357,6 +32358,13 @@
     "name": "Innovator Russell 2000 Power Buffer ETF - July",
     "sector": "Other",
     "ticker": "KJUL"
+  },
+  "KJUN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator U.S. Small Cap Power ",
+    "sector": "Other",
+    "ticker": "KJUN"
   },
   "KKPNY": {
     "industry": "Telecom Services",
@@ -31479,6 +32487,13 @@
     "sector": "Financial Services",
     "ticker": "KMPR"
   },
+  "KMRK": {
+    "industry": "Leisure",
+    "metaChecked": true,
+    "name": "K-TECH Solutions Company Limited",
+    "sector": "Consumer Cyclical",
+    "ticker": "KMRK"
+  },
   "KMT": {
     "industry": "Tools & Accessories",
     "name": "Kennametal Inc.",
@@ -31570,6 +32585,13 @@
     "name": "The Coca-Cola Company",
     "sector": "Consumer Defensive",
     "ticker": "KO"
+  },
+  "KOCT": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator U.S. Small Cap Power Buffer ETF - October",
+    "sector": "Other",
+    "ticker": "KOCT"
   },
   "KOD": {
     "industry": "Biotechnology",
@@ -31699,6 +32721,13 @@
     "name": "Karyopharm Therapeutics Inc.",
     "sector": "Healthcare",
     "ticker": "KPTIQ"
+  },
+  "KQQQ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Kurv Technology Titans Select E",
+    "sector": "Other",
+    "ticker": "KQQQ"
   },
   "KR": {
     "industry": "Grocery Stores",
@@ -31875,6 +32904,20 @@
     "sector": "Industrials",
     "ticker": "KSCP"
   },
+  "KSEP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator U.S. Small Cap Power ",
+    "sector": "Other",
+    "ticker": "KSEP"
+  },
+  "KSLV": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Kurv Silver Enhanced Income ETF",
+    "sector": "Other",
+    "ticker": "KSLV"
+  },
   "KSPI": {
     "industry": "Software\u2014Infrastructure",
     "name": "Joint Stock Company Kaspi.kz",
@@ -31945,6 +32988,13 @@
     "name": "Kubota Corporation",
     "sector": "Industrials",
     "ticker": "KUBTY"
+  },
+  "KULR": {
+    "industry": "Electronic Components",
+    "metaChecked": true,
+    "name": "KULR Technology Group, Inc.",
+    "sector": "Technology",
+    "ticker": "KULR"
   },
   "KURA": {
     "industry": "Biotechnology",
@@ -32532,6 +33582,13 @@
     "sector": "Other",
     "ticker": "LEVWQ"
   },
+  "LEXX": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Lexaria Bioscience Corp.",
+    "sector": "Healthcare",
+    "ticker": "LEXX"
+  },
   "LFAC": {
     "industry": "Shell Companies",
     "name": "Leapfrog Acquisition Corporation",
@@ -32563,6 +33620,13 @@
     "name": "VanEck Long/Flat Trend ETF",
     "sector": "Other",
     "ticker": "LFEQ"
+  },
+  "LFGY": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "YieldMax Crypto Industry & Tech Portfolio Option Income ETF",
+    "sector": "Other",
+    "ticker": "LFGY"
   },
   "LFLYW": {
     "industry": "",
@@ -34135,6 +35199,13 @@
     "sector": "Financial Services",
     "ticker": "MATH"
   },
+  "MATR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Harbor Multi-Asset Explorer ETF",
+    "sector": "Other",
+    "ticker": "MATR"
+  },
   "MATV": {
     "industry": "Specialty Chemicals",
     "name": "Mativ Holdings, Inc.",
@@ -34569,6 +35640,13 @@
     "sector": "Consumer Defensive",
     "ticker": "MDLZ"
   },
+  "MDNAF": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Medicenna Therapeutics Corp.",
+    "sector": "Healthcare",
+    "ticker": "MDNAF"
+  },
   "MDNLX": {
     "industry": "",
     "metaChecked": true,
@@ -34681,6 +35759,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "MELI"
   },
+  "MENS": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Jyong Biotech Ltd.",
+    "sector": "Healthcare",
+    "ticker": "MENS"
+  },
   "MEOH": {
     "industry": "Chemicals",
     "name": "Methanex Corporation",
@@ -34782,6 +35867,13 @@
     "sector": "",
     "ticker": "MEVOW"
   },
+  "MEXX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Direxion Daily MSCI Mexico Bull 3X Shares",
+    "sector": "Other",
+    "ticker": "MEXX"
+  },
   "MF": {
     "industry": "Advertising Agencies",
     "name": "MindForge Inc.",
@@ -34832,6 +35924,13 @@
     "name": "Medallion Financial Corp.",
     "sector": "Financial Services",
     "ticker": "MFIN"
+  },
+  "MFLX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "First Trust Flexible Municipal High Income ETF",
+    "sector": "Other",
+    "ticker": "MFLX"
   },
   "MFM": {
     "industry": "Asset Management",
@@ -35120,6 +36219,13 @@
     "name": "Mitsubishi Electric Corporation",
     "sector": "Industrials",
     "ticker": "MIELY"
+  },
+  "MILN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Global X Millennials Consumer ETF",
+    "sector": "Other",
+    "ticker": "MILN"
   },
   "MIN": {
     "industry": "Asset Management",
@@ -35537,6 +36643,13 @@
     "sector": "Financial Services",
     "ticker": "MMT"
   },
+  "MMTIF": {
+    "industry": "Semiconductors",
+    "metaChecked": true,
+    "name": "Micromem Technologies Inc.",
+    "sector": "Technology",
+    "ticker": "MMTIF"
+  },
   "MMTX": {
     "industry": "Shell Companies",
     "name": "Miluna Acquisition Corp",
@@ -35628,6 +36741,13 @@
     "name": "Monro, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "MNRO"
+  },
+  "MNSB": {
+    "industry": "Banks\u2014Regional",
+    "metaChecked": true,
+    "name": "MainStreet Bancshares, Inc.",
+    "sector": "Financial Services",
+    "ticker": "MNSB"
   },
   "MNSO": {
     "industry": "Specialty Retail",
@@ -35916,6 +37036,20 @@
     "sector": "Technology",
     "ticker": "MQ"
   },
+  "MQBKY": {
+    "industry": "Capital Markets",
+    "metaChecked": true,
+    "name": "Macquarie Group Limited",
+    "sector": "Financial Services",
+    "ticker": "MQBKY"
+  },
+  "MQIFX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "MQIFX"
+  },
   "MQQQ": {
     "industry": "",
     "metaChecked": true,
@@ -35982,6 +37116,13 @@
     "name": "Mereo BioPharma Group plc",
     "sector": "Healthcare",
     "ticker": "MREO"
+  },
+  "MRGR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ProShares Merger ETF",
+    "sector": "Other",
+    "ticker": "MRGR"
   },
   "MRK": {
     "industry": "Drug Manufacturers\u2014General",
@@ -36102,6 +37243,20 @@
     "sector": "Financial Services",
     "ticker": "MSBI"
   },
+  "MSBT": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Morgan Stanley Bitcoin Trust",
+    "sector": "Other",
+    "ticker": "MSBT"
+  },
+  "MSC": {
+    "industry": "Resorts & Casinos",
+    "metaChecked": true,
+    "name": "Studio City International Holdings Limited",
+    "sector": "Consumer Cyclical",
+    "ticker": "MSC"
+  },
   "MSCI": {
     "industry": "Financial Data & Stock Exchanges",
     "name": "MSCI Inc.",
@@ -36184,6 +37339,13 @@
     "name": "MSC Income Fund, Inc.",
     "sector": "Financial Services",
     "ticker": "MSIF"
+  },
+  "MSLE": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Satellos Bioscience Inc.",
+    "sector": "Healthcare",
+    "ticker": "MSLE"
   },
   "MSM": {
     "industry": "Industrial Distribution",
@@ -36329,6 +37491,13 @@
     "sector": "",
     "ticker": "MTBA"
   },
+  "MTBC-VI": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "MTBC-VI"
+  },
   "MTBLY": {
     "industry": "Software\u2014Application",
     "metaChecked": true,
@@ -36409,6 +37578,13 @@
     "name": "CH4 Natural Solutions Corporation",
     "sector": "Financial Services",
     "ticker": "MTNE"
+  },
+  "MTR": {
+    "industry": "Oil & Gas E&P",
+    "metaChecked": true,
+    "name": "Mesa Royalty Trust",
+    "sector": "Energy",
+    "ticker": "MTR"
   },
   "MTRN": {
     "industry": "Other Industrial Metals & Mining",
@@ -36891,6 +38067,13 @@
     "sector": "Healthcare",
     "ticker": "NAKAW"
   },
+  "NAMM": {
+    "industry": "Gold",
+    "metaChecked": true,
+    "name": "Namib Minerals",
+    "sector": "Basic Materials",
+    "ticker": "NAMM"
+  },
   "NAMS": {
     "industry": "Biotechnology",
     "name": "NewAmsterdam Pharma Company N.V.",
@@ -37369,6 +38552,13 @@
     "sector": "Basic Materials",
     "ticker": "NEU"
   },
+  "NEUP": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Neuphoria Therapeutics Inc.",
+    "sector": "Healthcare",
+    "ticker": "NEUP"
+  },
   "NEWFX": {
     "industry": "",
     "metaChecked": true,
@@ -37594,6 +38784,13 @@
     "name": "National Health Investors, Inc.",
     "sector": "Real Estate",
     "ticker": "NHI"
+  },
+  "NHIQ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "NHIQ"
   },
   "NHIV": {
     "industry": "Shell Companies",
@@ -38509,6 +39706,13 @@
     "sector": "Basic Materials",
     "ticker": "NTIC"
   },
+  "NTIOF": {
+    "industry": "Banks\u2014Diversified",
+    "metaChecked": true,
+    "name": "National Bank of Canada",
+    "sector": "Financial Services",
+    "ticker": "NTIOF"
+  },
   "NTIP": {
     "industry": "Specialty Business Services",
     "name": "Network-1 Technologies, Inc.",
@@ -38772,6 +39976,13 @@
     "name": "NovoCure Limited",
     "sector": "Healthcare",
     "ticker": "NVCR"
+  },
+  "NVCT": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Nuvectis Pharma, Inc.",
+    "sector": "Healthcare",
+    "ticker": "NVCT"
   },
   "NVD": {
     "industry": "",
@@ -39173,6 +40384,20 @@
     "name": "First Trust IndXX NextG ETF",
     "sector": "Other",
     "ticker": "NXTG"
+  },
+  "NXTT": {
+    "industry": "Software\u2014Application",
+    "metaChecked": true,
+    "name": "Next Technology Holding Inc.",
+    "sector": "Technology",
+    "ticker": "NXTT"
+  },
+  "NXXT": {
+    "industry": "Utilities\u2014Renewable",
+    "metaChecked": true,
+    "name": "NextNRG, Inc.",
+    "sector": "Utilities",
+    "ticker": "NXXT"
   },
   "NYAX": {
     "industry": "Software\u2014Infrastructure",
@@ -39879,6 +41104,13 @@
     "sector": "Financial Services",
     "ticker": "ONCHW"
   },
+  "ONCSQ": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "OncoSec Medical Incorporated",
+    "sector": "Healthcare",
+    "ticker": "ONCSQ"
+  },
   "ONCY": {
     "industry": "Biotechnology",
     "metaChecked": true,
@@ -39929,6 +41161,13 @@
     "name": "OneWater Marine Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "ONEW"
+  },
+  "ONEY": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "State Street SPDR Russell 1000 Yield Focus ETF",
+    "sector": "Other",
+    "ticker": "ONEY"
   },
   "ONEZ": {
     "industry": "",
@@ -40120,6 +41359,13 @@
     "sector": "Other",
     "ticker": "OPPAX"
   },
+  "OPPJ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "WisdomTree Japan Opportunities ",
+    "sector": "Other",
+    "ticker": "OPPJ"
+  },
   "OPRA": {
     "industry": "Internet Content & Information",
     "name": "Opera Limited",
@@ -40138,11 +41384,25 @@
     "sector": "Healthcare",
     "ticker": "OPRX"
   },
+  "OPTT": {
+    "industry": "Specialty Industrial Machinery",
+    "metaChecked": true,
+    "name": "Ocean Power Technologies, Inc.",
+    "sector": "Industrials",
+    "ticker": "OPTT"
+  },
   "OPTU": {
     "industry": "Telecom Services",
     "name": "Optimum Communications, Inc.",
     "sector": "Communication Services",
     "ticker": "OPTU"
+  },
+  "OPTX": {
+    "industry": "Electronic Components",
+    "metaChecked": true,
+    "name": "Syntec Optics Holdings, Inc.",
+    "sector": "Technology",
+    "ticker": "OPTX"
   },
   "OPXS": {
     "industry": "Aerospace & Defense",
@@ -40231,6 +41491,13 @@
     "sector": "Healthcare",
     "ticker": "ORIC"
   },
+  "ORIO": {
+    "industry": "Software\u2014Infrastructure",
+    "metaChecked": true,
+    "name": "Orion Digital Corp.",
+    "sector": "Technology",
+    "ticker": "ORIO"
+  },
   "ORIQ": {
     "industry": "Shell Companies",
     "metaChecked": true,
@@ -40300,6 +41567,13 @@
     "name": "Opus Small Cap Value Plus ETF",
     "sector": "Other",
     "ticker": "OSCV"
+  },
+  "OSEA": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Harbor International Compounders ETF",
+    "sector": "Other",
+    "ticker": "OSEA"
   },
   "OSG": {
     "industry": "Insurance\u2014Specialty",
@@ -40484,6 +41758,13 @@
     "sector": "Healthcare",
     "ticker": "OVID"
   },
+  "OVL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Overlay Shares Large Cap Equity ETF",
+    "sector": "Other",
+    "ticker": "OVL"
+  },
   "OVLH": {
     "industry": "",
     "metaChecked": true,
@@ -40503,17 +41784,38 @@
     "sector": "Energy",
     "ticker": "OVV"
   },
+  "OWACX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "OWACX"
+  },
   "OWL": {
     "industry": "Asset Management",
     "name": "Blue Owl Capital Inc.",
     "sector": "Financial Services",
     "ticker": "OWL"
   },
+  "OWLSX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "OWLSX"
+  },
   "OWLT": {
     "industry": "Medical Devices",
     "name": "Owlet, Inc.",
     "sector": "Healthcare",
     "ticker": "OWLT"
+  },
+  "OWMBX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "OWMBX"
   },
   "OWN": {
     "industry": "",
@@ -40528,6 +41830,13 @@
     "name": "CCM Affordable Housing MBS ETF",
     "sector": "Other",
     "ticker": "OWNS"
+  },
+  "OWSMX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "OWSMX"
   },
   "OXBR": {
     "industry": "Insurance\u2014Reinsurance",
@@ -40878,6 +42187,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "PATK"
   },
+  "PATN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Pacer Nasdaq International Patent Leaders ETF",
+    "sector": "Other",
+    "ticker": "PATN"
+  },
   "PAUG": {
     "industry": "",
     "metaChecked": true,
@@ -41066,6 +42382,13 @@
     "sector": "Healthcare",
     "ticker": "PBMWW"
   },
+  "PBNC": {
+    "industry": "Banks\u2014Regional",
+    "metaChecked": true,
+    "name": "PB Financial Corporation",
+    "sector": "Financial Services",
+    "ticker": "PBNC"
+  },
   "PBOT": {
     "industry": "",
     "metaChecked": true,
@@ -41224,6 +42547,13 @@
     "sector": "",
     "ticker": "PCLG"
   },
+  "PCLO": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Virtus SEIX AAA Private Credit CLO ETF",
+    "sector": "Other",
+    "ticker": "PCLO"
+  },
   "PCM": {
     "industry": "Asset Management",
     "metaChecked": true,
@@ -41243,6 +42573,13 @@
     "name": "Procore Technologies, Inc.",
     "sector": "Technology",
     "ticker": "PCOR"
+  },
+  "PCOXX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "PCOXX"
   },
   "PCPC": {
     "industry": "",
@@ -41973,6 +43310,13 @@
     "sector": "Healthcare",
     "ticker": "PHVS"
   },
+  "PHYL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "PGIM Active High Yield Bond ETF",
+    "sector": "Other",
+    "ticker": "PHYL"
+  },
   "PHYS": {
     "industry": "Asset Management",
     "name": "Sprott Physical Gold Trust",
@@ -41984,6 +43328,13 @@
     "name": "Impinj, Inc.",
     "sector": "Technology",
     "ticker": "PI"
+  },
+  "PI6-MU": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "PI6-MU"
   },
   "PICB": {
     "industry": "",
@@ -42111,12 +43462,26 @@
     "sector": "Industrials",
     "ticker": "PITEF"
   },
+  "PIZ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Invesco Dorsey Wright Developed Markets Momentum ETF",
+    "sector": "Other",
+    "ticker": "PIZ"
+  },
   "PJAN": {
     "industry": "",
     "metaChecked": true,
     "name": "Innovator U.S. Equity Power Buffer ETF - January",
     "sector": "Other",
     "ticker": "PJAN"
+  },
+  "PJFG": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "PGIM Jennison Focused Growth ETF",
+    "sector": "Other",
+    "ticker": "PJFG"
   },
   "PJFV": {
     "industry": "",
@@ -42399,6 +43764,20 @@
     "sector": "Technology",
     "ticker": "PLTR"
   },
+  "PLTU": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Direxion Daily PLTR Bull 2X ETF",
+    "sector": "Other",
+    "ticker": "PLTU"
+  },
+  "PLTY": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "YieldMax PLTR Option Income Strategy ETF",
+    "sector": "Other",
+    "ticker": "PLTY"
+  },
   "PLUG": {
     "industry": "Electrical Equipment & Parts",
     "name": "Plug Power Inc.",
@@ -42496,6 +43875,13 @@
     "name": "iShares Prime Money Market ETF",
     "sector": "Other",
     "ticker": "PMMF"
+  },
+  "PMN": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "ProMIS Neurosciences, Inc.",
+    "sector": "Healthcare",
+    "ticker": "PMN"
   },
   "PMNT": {
     "industry": "Apparel Manufacturing",
@@ -43406,6 +44792,20 @@
     "sector": "Other",
     "ticker": "PSC"
   },
+  "PSCC": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Invesco S&P SmallCap Consumer Staples ETF",
+    "sector": "Other",
+    "ticker": "PSCC"
+  },
+  "PSCD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Invesco S&P SmallCap Consumer Discretionary ETF",
+    "sector": "Other",
+    "ticker": "PSCD"
+  },
   "PSCE": {
     "industry": "",
     "metaChecked": true,
@@ -43439,6 +44839,13 @@
     "name": "Pacer Swan SOS Conservative (July) ETF",
     "sector": "Other",
     "ticker": "PSCJ"
+  },
+  "PSCM": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Invesco S&P SmallCap Materials ETF",
+    "sector": "Other",
+    "ticker": "PSCM"
   },
   "PSCQ": {
     "industry": "",
@@ -43688,6 +45095,20 @@
     "sector": "",
     "ticker": "PSQLW"
   },
+  "PSQO": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Palmer Square Credit Opportunities ETF",
+    "sector": "Other",
+    "ticker": "PSQO"
+  },
+  "PSR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Invesco Active U.S. Real Estate Fund",
+    "sector": "Other",
+    "ticker": "PSR"
+  },
   "PSTL": {
     "industry": "REIT\u2014Office",
     "name": "Postal Realty Trust, Inc.",
@@ -43765,6 +45186,13 @@
     "sector": "Energy",
     "ticker": "PTEN"
   },
+  "PTEU": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Pacer Trendpilot European Index ETF",
+    "sector": "Other",
+    "ticker": "PTEU"
+  },
   "PTF": {
     "industry": "",
     "metaChecked": true,
@@ -43784,6 +45212,13 @@
     "name": "Invesco Dorsey Wright Healthcare Momentum ETF",
     "sector": "Other",
     "ticker": "PTH"
+  },
+  "PTHS": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Pelthos Therapeutics Inc.",
+    "sector": "Healthcare",
+    "ticker": "PTHS"
   },
   "PTIR": {
     "industry": "",
@@ -43861,6 +45296,13 @@
     "name": "Praetorian Acquisition Corp.",
     "sector": "",
     "ticker": "PTORW"
+  },
+  "PTPI": {
+    "industry": "Drug Manufacturers\u2014Specialty & Generic",
+    "metaChecked": true,
+    "name": "Petros Pharmaceuticals, Inc.",
+    "sector": "Healthcare",
+    "ticker": "PTPI"
   },
   "PTRB": {
     "industry": "",
@@ -44065,6 +45507,13 @@
     "name": "Invesco California AMT-Free Municipal Bond ETF",
     "sector": "Other",
     "ticker": "PWZ"
+  },
+  "PX91-DU": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "PX91-DU"
   },
   "PXE": {
     "industry": "",
@@ -44513,6 +45962,13 @@
     "sector": "Other",
     "ticker": "QMMY"
   },
+  "QMNV": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "FT Vest Nasdaq-100 Moderate Buf",
+    "sector": "Other",
+    "ticker": "QMNV"
+  },
   "QMOM": {
     "industry": "",
     "metaChecked": true,
@@ -44695,6 +46151,13 @@
     "sector": "Healthcare",
     "ticker": "QTTB"
   },
+  "QTTOY": {
+    "industry": "Internet Content & Information",
+    "metaChecked": true,
+    "name": "Qutoutiao Inc.",
+    "sector": "Communication Services",
+    "ticker": "QTTOY"
+  },
   "QTUM": {
     "industry": "",
     "metaChecked": true,
@@ -44859,6 +46322,13 @@
     "name": "",
     "sector": "Other",
     "ticker": "RACED-BA"
+  },
+  "RACK": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "VanEck Data Center Supply Chain",
+    "sector": "Other",
+    "ticker": "RACK"
   },
   "RAIL": {
     "industry": "Railroads",
@@ -45080,6 +46550,13 @@
     "sector": "Industrials",
     "ticker": "RCMT"
   },
+  "RCON": {
+    "industry": "Oil & Gas Equipment & Services",
+    "metaChecked": true,
+    "name": "Recon Technology, Ltd.",
+    "sector": "Energy",
+    "ticker": "RCON"
+  },
   "RCRUY": {
     "industry": "Internet Content & Information",
     "metaChecked": true,
@@ -45243,11 +46720,25 @@
     "sector": "Real Estate",
     "ticker": "REAX"
   },
+  "RECI": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Columbia ETF Trust I - Columbia Research Enhanced Core Premium Income ETF",
+    "sector": "Other",
+    "ticker": "RECI"
+  },
   "RECS": {
     "industry": "",
     "name": "Columbia Research Enhanced Core ETF",
     "sector": "",
     "ticker": "RECS"
+  },
+  "RECT": {
+    "industry": "Specialty Retail",
+    "metaChecked": true,
+    "name": "Rectitude Holdings Ltd",
+    "sector": "Consumer Cyclical",
+    "ticker": "RECT"
   },
   "REEAF": {
     "industry": "Auto Parts",
@@ -45400,6 +46891,13 @@
     "name": "RPC, Inc.",
     "sector": "Energy",
     "ticker": "RES"
+  },
+  "RETO": {
+    "industry": "Building Materials",
+    "metaChecked": true,
+    "name": "ReTo Eco-Solutions, Inc.",
+    "sector": "Basic Materials",
+    "ticker": "RETO"
   },
   "REVB": {
     "industry": "Biotechnology",
@@ -45874,6 +47372,13 @@
     "sector": "Basic Materials",
     "ticker": "RMIX"
   },
+  "RMM": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Rivernorth Managed Duration Municipal Income Fund Inc.",
+    "sector": "Financial Services",
+    "ticker": "RMM"
+  },
   "RMMZ": {
     "industry": "Asset Management",
     "metaChecked": true,
@@ -45936,6 +47441,13 @@
     "name": "Renesas Electronics Corporation",
     "sector": "Technology",
     "ticker": "RNECY"
+  },
+  "RNEM": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "First Trust Emerging Markets Equity Select ETF",
+    "sector": "Other",
+    "ticker": "RNEM"
   },
   "RNG": {
     "industry": "Software\u2014Application",
@@ -46294,6 +47806,13 @@
     "sector": "Industrials",
     "ticker": "RR"
   },
+  "RRBGX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "RRBGX"
+  },
   "RRBI": {
     "industry": "Banks\u2014Regional",
     "name": "Red River Bancshares, Inc.",
@@ -46581,6 +48100,13 @@
     "sector": "Other",
     "ticker": "RTR-AX"
   },
+  "RTWFF": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "RTW Biotech Opportunities Ltd",
+    "sector": "Other",
+    "ticker": "RTWFF"
+  },
   "RTX": {
     "industry": "Aerospace & Defense",
     "name": "RTX Corporation",
@@ -46775,6 +48301,13 @@
     "name": "Redwood Trust, Inc.",
     "sector": "Real Estate",
     "ticker": "RWT"
+  },
+  "RWX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "State Street SPDR Dow Jones International Real Estate ETF",
+    "sector": "Other",
+    "ticker": "RWX"
   },
   "RXI": {
     "industry": "",
@@ -47566,6 +49099,13 @@
     "sector": "Other",
     "ticker": "SCLZ"
   },
+  "SCM": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Stellus Capital Investment Corporation",
+    "sector": "Financial Services",
+    "ticker": "SCM"
+  },
   "SCMB": {
     "industry": "",
     "metaChecked": true,
@@ -47664,6 +49204,13 @@
     "sector": "",
     "ticker": "SCZ"
   },
+  "SCZM": {
+    "industry": "Other Industrial Metals & Mining",
+    "metaChecked": true,
+    "name": "Santacruz Silver Mining Ltd.",
+    "sector": "Basic Materials",
+    "ticker": "SCZM"
+  },
   "SD": {
     "industry": "Oil & Gas E&P",
     "name": "SandRidge Energy, Inc.",
@@ -47735,6 +49282,13 @@
     "name": "Siddhi Acquisition Corp.",
     "sector": "",
     "ticker": "SDHIR"
+  },
+  "SDHY": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "PGIM Short Duration High Yield Opportunities Fund",
+    "sector": "Financial Services",
+    "ticker": "SDHY"
   },
   "SDIV": {
     "industry": "",
@@ -48337,6 +49891,13 @@
     "name": "Shake Shack Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "SHAK"
+  },
+  "SHAPX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "SHAPX"
   },
   "SHAZ": {
     "industry": "Information Technology Services",
@@ -49079,6 +50640,13 @@
     "sector": "Industrials",
     "ticker": "SLND"
   },
+  "SLND-WS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "SLND-WS"
+  },
   "SLNH": {
     "industry": "Capital Markets",
     "name": "Soluna Holdings, Inc.",
@@ -49230,6 +50798,13 @@
     "sector": "Financial Services",
     "ticker": "SMBK"
   },
+  "SMBS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Schwab Mortgage-Backed Securities ETF",
+    "sector": "Other",
+    "ticker": "SMBS"
+  },
   "SMC": {
     "industry": "Oil & Gas Midstream",
     "name": "Summit Midstream Corporation",
@@ -49275,6 +50850,13 @@
     "name": "ProShares S&P SmallCap 600 Dividend Aristocrats ETF",
     "sector": "Other",
     "ticker": "SMDV"
+  },
+  "SMERY": {
+    "industry": "Specialty Industrial Machinery",
+    "metaChecked": true,
+    "name": "Siemens Energy AG",
+    "sector": "Industrials",
+    "ticker": "SMERY"
   },
   "SMFG": {
     "industry": "Banks\u2014Diversified",
@@ -49339,6 +50921,13 @@
     "name": "iShares MSCI India Small-Cap ETF",
     "sector": "",
     "ticker": "SMIN"
+  },
+  "SMIZ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Zacks Small/Mid Cap ETF",
+    "sector": "Other",
+    "ticker": "SMIZ"
   },
   "SMLF": {
     "industry": "",
@@ -49522,6 +51111,13 @@
     "sector": "Industrials",
     "ticker": "SNA"
   },
+  "SNAL": {
+    "industry": "Electronic Gaming & Multimedia",
+    "metaChecked": true,
+    "name": "Snail, Inc.",
+    "sector": "Communication Services",
+    "ticker": "SNAL"
+  },
   "SNAP": {
     "industry": "Internet Content & Information",
     "name": "Snap Inc.",
@@ -49676,6 +51272,13 @@
     "sector": "Technology",
     "ticker": "SNPS"
   },
+  "SNPW": {
+    "industry": "Shell Companies",
+    "metaChecked": true,
+    "name": "Sun Pacific Holding Corp.",
+    "sector": "Financial Services",
+    "ticker": "SNPW"
+  },
   "SNSR": {
     "industry": "",
     "metaChecked": true,
@@ -49826,6 +51429,13 @@
     "name": "SoFi Technologies, Inc.",
     "sector": "Financial Services",
     "ticker": "SOFI"
+  },
+  "SOFO": {
+    "industry": "Software\u2014Application",
+    "metaChecked": true,
+    "name": "Sonic Foundry, Inc.",
+    "sector": "Technology",
+    "ticker": "SOFO"
   },
   "SOGP": {
     "industry": "Internet Content & Information",
@@ -50029,6 +51639,13 @@
     "name": "Sovereign's Capital Flourish Fu",
     "sector": "",
     "ticker": "SOVF"
+  },
+  "SOWG": {
+    "industry": "Confectioners",
+    "metaChecked": true,
+    "name": "Sow Good Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "SOWG"
   },
   "SOXL": {
     "industry": "",
@@ -50337,6 +51954,13 @@
     "sector": "",
     "ticker": "SPMB"
   },
+  "SPMC": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Sound Point Meridian Capital, Inc.",
+    "sector": "Financial Services",
+    "ticker": "SPMC"
+  },
   "SPMD": {
     "industry": "",
     "name": "State Street SPDR Portfolio S&P 400 Mid Cap ETF",
@@ -50394,6 +52018,13 @@
     "sector": "Healthcare",
     "ticker": "SPRB"
   },
+  "SPRE": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "SP Funds S&P Global REIT Sharia ETF",
+    "sector": "Other",
+    "ticker": "SPRE"
+  },
   "SPRO": {
     "industry": "Biotechnology",
     "name": "Spero Therapeutics, Inc.",
@@ -50449,6 +52080,13 @@
     "name": "Sprout Social, Inc.",
     "sector": "Technology",
     "ticker": "SPT"
+  },
+  "SPTE": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "SP Funds S&P Global Technology ETF",
+    "sector": "Other",
+    "ticker": "SPTE"
   },
   "SPTI": {
     "industry": "",
@@ -50573,6 +52211,13 @@
     "name": "ProShares UltraPro Short S&P500",
     "sector": "Other",
     "ticker": "SPXU"
+  },
+  "SPXV": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ProShares S&P 500 ex-Health Care ETF",
+    "sector": "Other",
+    "ticker": "SPXV"
   },
   "SPXX": {
     "industry": "Asset Management",
@@ -50721,6 +52366,13 @@
     "sector": "Utilities",
     "ticker": "SRE"
   },
+  "SRET": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Global X SuperDividend REIT ETF",
+    "sector": "Other",
+    "ticker": "SRET"
+  },
   "SRFM": {
     "industry": "Airlines",
     "metaChecked": true,
@@ -50798,6 +52450,13 @@
     "sector": "Other",
     "ticker": "SRVR"
   },
+  "SRXH": {
+    "industry": "Packaged Foods",
+    "metaChecked": true,
+    "name": "SRX Global Inc.",
+    "sector": "Consumer Defensive",
+    "ticker": "SRXH"
+  },
   "SRZN": {
     "industry": "Biotechnology",
     "name": "Surrozen, Inc.",
@@ -50871,6 +52530,13 @@
     "sector": "Other",
     "ticker": "SSEAR"
   },
+  "SSG": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ProShares UltraShort Semiconductors",
+    "sector": "Other",
+    "ticker": "SSG"
+  },
   "SSII": {
     "industry": "Medical Devices",
     "name": "SS Innovations International, Inc.",
@@ -50902,6 +52568,13 @@
     "sector": "Technology",
     "ticker": "SSNC"
   },
+  "SSNHZ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "SSNHZ"
+  },
   "SSO": {
     "industry": "",
     "name": "ProShares Ultra S&P500",
@@ -50920,6 +52593,13 @@
     "name": "Stratified LargeCap Index ETF",
     "sector": "Other",
     "ticker": "SSPY"
+  },
+  "SSREY": {
+    "industry": "Insurance\u2014Reinsurance",
+    "metaChecked": true,
+    "name": "Swiss Re AG",
+    "sector": "Financial Services",
+    "ticker": "SSREY"
   },
   "SSRM": {
     "industry": "Gold",
@@ -51112,6 +52792,13 @@
     "name": "Columbia Seligman Premium Technology Growth Fund",
     "sector": "Financial Services",
     "ticker": "STK"
+  },
+  "STKE": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Sol Strategies Inc.",
+    "sector": "Financial Services",
+    "ticker": "STKE"
   },
   "STKH": {
     "industry": "Packaged Foods",
@@ -51661,6 +53348,13 @@
     "sector": "Other",
     "ticker": "SWAGX"
   },
+  "SWAN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Amplify BlackSwan Growth & Treasury Core ETF",
+    "sector": "Other",
+    "ticker": "SWAN"
+  },
   "SWBI": {
     "industry": "Aerospace & Defense",
     "name": "Smith & Wesson Brands, Inc.",
@@ -52091,6 +53785,13 @@
     "sector": "Consumer Defensive",
     "ticker": "TAP"
   },
+  "TAP-A": {
+    "industry": "Beverages\u2014Brewers",
+    "metaChecked": true,
+    "name": "Molson Coors Beverage Company",
+    "sector": "Consumer Defensive",
+    "ticker": "TAP-A"
+  },
   "TARA": {
     "industry": "Biotechnology",
     "name": "Protara Therapeutics, Inc.",
@@ -52174,6 +53875,13 @@
     "sector": "Technology",
     "ticker": "TBCH"
   },
+  "TBCIX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "TBCIX"
+  },
   "TBCVU": {
     "industry": "Shell Companies",
     "metaChecked": true,
@@ -52254,6 +53962,13 @@
     "sector": "Other",
     "ticker": "TBLU"
   },
+  "TBMCR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "TBMCR"
+  },
   "TBN": {
     "industry": "Oil & Gas E&P",
     "name": "Tamboran Resources Corporation",
@@ -52286,6 +54001,13 @@
     "name": "Thai Beverage Public Company Limited",
     "sector": "Consumer Defensive",
     "ticker": "TBVPY"
+  },
+  "TBX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ProShares Short 7-10 Year Treasury",
+    "sector": "Other",
+    "ticker": "TBX"
   },
   "TC": {
     "industry": "Advertising Agencies",
@@ -52769,6 +54491,13 @@
     "sector": "Basic Materials",
     "ticker": "TFPM"
   },
+  "TFPN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Blueprint Chesapeake Multi-Asse",
+    "sector": "Other",
+    "ticker": "TFPN"
+  },
   "TFSL": {
     "industry": "Banks\u2014Regional",
     "name": "TFS Financial Corporation",
@@ -53019,6 +54748,13 @@
     "name": "The Investment House ETF",
     "sector": "Other",
     "ticker": "TIH"
+  },
+  "TII": {
+    "industry": "Other Industrial Metals & Mining",
+    "metaChecked": true,
+    "name": "Titan Mining Corporation",
+    "sector": "Basic Materials",
+    "ticker": "TII"
   },
   "TIL": {
     "industry": "Biotechnology",
@@ -53597,6 +55333,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "TOL"
   },
+  "TOLZ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ProShares DJ Brookfield Global Infrastructure ETF",
+    "sector": "Other",
+    "ticker": "TOLZ"
+  },
   "TOMZ": {
     "industry": "Pollution & Treatment Controls",
     "metaChecked": true,
@@ -53628,6 +55371,13 @@
     "name": "TOP Financial Group Limited",
     "sector": "Financial Services",
     "ticker": "TOP"
+  },
+  "TOPS": {
+    "industry": "Oil & Gas Midstream",
+    "metaChecked": true,
+    "name": "Top Ships Inc.",
+    "sector": "Energy",
+    "ticker": "TOPS"
   },
   "TOPT": {
     "industry": "",
@@ -53716,6 +55466,13 @@
     "name": "TPG Inc.",
     "sector": "Financial Services",
     "ticker": "TPG"
+  },
+  "TPHD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Timothy Plan High Dividend Stock ETF",
+    "sector": "Other",
+    "ticker": "TPHD"
   },
   "TPHS": {
     "industry": "Real Estate\u2014Development",
@@ -53830,6 +55587,13 @@
     "sector": "Other",
     "ticker": "TRBCX"
   },
+  "TRBG": {
+    "industry": "Specialty Industrial Machinery",
+    "metaChecked": true,
+    "name": "Turbogen Ltd",
+    "sector": "Industrials",
+    "ticker": "TRBG"
+  },
   "TRC": {
     "industry": "Conglomerates",
     "name": "Tejon Ranch Co.",
@@ -53918,6 +55682,13 @@
     "name": "Tripadvisor, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "TRIP"
+  },
+  "TRLGX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "TRLGX"
   },
   "TRLV": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
@@ -55115,6 +56886,13 @@
     "sector": "Industrials",
     "ticker": "ULCC"
   },
+  "ULE": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ProShares Ultra Euro",
+    "sector": "Other",
+    "ticker": "ULE"
+  },
   "ULH": {
     "industry": "Trucking",
     "metaChecked": true,
@@ -55205,6 +56983,13 @@
     "name": "Umicore SA",
     "sector": "Industrials",
     "ticker": "UMICY"
+  },
+  "UMMA": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Wahed Dow Jones Islamic World ETF",
+    "sector": "Other",
+    "ticker": "UMMA"
   },
   "UNB": {
     "industry": "Banks\u2014Regional",
@@ -55565,6 +57350,13 @@
     "sector": "Other",
     "ticker": "USD"
   },
+  "USDP": {
+    "industry": "Railroads",
+    "metaChecked": true,
+    "name": "USD Partners LP",
+    "sector": "Industrials",
+    "ticker": "USDP"
+  },
   "USDU": {
     "industry": "",
     "metaChecked": true,
@@ -55614,6 +57406,13 @@
     "name": "Usio, Inc.",
     "sector": "Technology",
     "ticker": "USIO"
+  },
+  "USL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "United States 12 Month Oil Fund, LP",
+    "sector": "Other",
+    "ticker": "USL"
   },
   "USLM": {
     "industry": "Building Materials",
@@ -55750,6 +57549,13 @@
     "name": "Utah Medical Products, Inc.",
     "sector": "Healthcare",
     "ticker": "UTMD"
+  },
+  "UTRS": {
+    "industry": "Medical Devices",
+    "metaChecked": true,
+    "name": "Minerva Surgical, Inc.",
+    "sector": "Healthcare",
+    "ticker": "UTRS"
   },
   "UTSI": {
     "industry": "Communication Equipment",
@@ -55926,11 +57732,25 @@
     "sector": "Industrials",
     "ticker": "VATE"
   },
+  "VAVX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "VanEck Avalanche ETF",
+    "sector": "Other",
+    "ticker": "VAVX"
+  },
   "VAW": {
     "industry": "",
     "name": "Vanguard Materials Index Fund ETF Shares",
     "sector": "",
     "ticker": "VAW"
+  },
+  "VAXX": {
+    "industry": "Biotechnology",
+    "metaChecked": true,
+    "name": "Vaxxinity, Inc.",
+    "sector": "Healthcare",
+    "ticker": "VAXX"
   },
   "VB": {
     "industry": "",
@@ -56140,6 +57960,13 @@
     "sector": "Technology",
     "ticker": "VECO"
   },
+  "VEEAW": {
+    "industry": "Information Technology Services",
+    "metaChecked": true,
+    "name": "Veea Inc.",
+    "sector": "Technology",
+    "ticker": "VEEAW"
+  },
   "VEEV": {
     "industry": "Health Information Services",
     "name": "Veeva Systems Inc.",
@@ -56171,6 +57998,13 @@
     "name": "Velo3D, Inc.",
     "sector": "Technology",
     "ticker": "VELO"
+  },
+  "VEMY": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Virtus Stone Harbor Emerging Markets High Yield Bond ETF",
+    "sector": "Other",
+    "ticker": "VEMY"
   },
   "VENU": {
     "industry": "Restaurants",
@@ -56656,6 +58490,13 @@
     "sector": "Communication Services",
     "ticker": "VIVHY"
   },
+  "VIVK": {
+    "industry": "Oil & Gas Integrated",
+    "metaChecked": true,
+    "name": "Vivakor, Inc.",
+    "sector": "Energy",
+    "ticker": "VIVK"
+  },
   "VIVO": {
     "industry": "Software\u2014Infrastructure",
     "metaChecked": true,
@@ -57101,6 +58942,13 @@
     "name": "Vera Bradley, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "VRA"
+  },
+  "VRAI": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Virtus Real Asset Income ETF",
+    "sector": "Other",
+    "ticker": "VRAI"
   },
   "VRAX": {
     "industry": "Biotechnology",
@@ -57849,6 +59697,13 @@
     "sector": "Industrials",
     "ticker": "WBX"
   },
+  "WCAP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Spinnaker ETF Series - WarCap Unconstrained Equity ETF",
+    "sector": "Other",
+    "ticker": "WCAP"
+  },
   "WCC": {
     "industry": "Industrial Distribution",
     "name": "WESCO International, Inc.",
@@ -58096,6 +59951,13 @@
     "sector": "Technology",
     "ticker": "WEX"
   },
+  "WEYS": {
+    "industry": "Footwear & Accessories",
+    "metaChecked": true,
+    "name": "Weyco Group, Inc.",
+    "sector": "Consumer Cyclical",
+    "ticker": "WEYS"
+  },
   "WF": {
     "industry": "Banks\u2014Regional",
     "name": "Woori Financial Group Inc.",
@@ -58277,6 +60139,13 @@
     "name": "Wingstop Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "WING"
+  },
+  "WINN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Harbor Long-Term Growers ETF",
+    "sector": "Other",
+    "ticker": "WINN"
   },
   "WIP": {
     "industry": "",
@@ -58646,6 +60515,13 @@
     "sector": "Technology",
     "ticker": "WSE"
   },
+  "WSEFX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "WSEFX"
+  },
   "WSFS": {
     "industry": "Banks\u2014Regional",
     "name": "WSFS Financial Corporation",
@@ -58980,6 +60856,13 @@
     "sector": "Healthcare",
     "ticker": "XBIT"
   },
+  "XBJA": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Innovator U.S. Equity Accelerated 9 Buffer ETF - January",
+    "sector": "Other",
+    "ticker": "XBJA"
+  },
   "XBKNX": {
     "industry": "",
     "metaChecked": true,
@@ -58999,6 +60882,13 @@
     "name": "Roundhill Box Spread ETF",
     "sector": "",
     "ticker": "XBOX"
+  },
+  "XBP": {
+    "industry": "Software\u2014Infrastructure",
+    "metaChecked": true,
+    "name": "XBP Global Holdings, Inc.",
+    "sector": "Technology",
+    "ticker": "XBP"
   },
   "XBPEW": {
     "industry": "Software\u2014Infrastructure",
@@ -59099,6 +60989,13 @@
     "name": "X-Energy, Inc.",
     "sector": "Industrials",
     "ticker": "XE"
+  },
+  "XEFLX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "XEFLX"
   },
   "XEL": {
     "industry": "Utilities\u2014Regulated Electric",
@@ -59306,6 +61203,20 @@
     "sector": "Other",
     "ticker": "XIM-SG"
   },
+  "XISE": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "FT Vest U.S. Equity Buffer & Premium Income ETF \u2013 September",
+    "sector": "Other",
+    "ticker": "XISE"
+  },
+  "XITK": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "State Street SPDR FactSet Innovative Technology ETF",
+    "sector": "Other",
+    "ticker": "XITK"
+  },
   "XJEQX": {
     "industry": "",
     "metaChecked": true,
@@ -59439,6 +61350,13 @@
     "sector": "Other",
     "ticker": "XMAG"
   },
+  "XMAR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "FT Vest U.S. Equity Enhance & Moderate Buffer ETF - March",
+    "sector": "Other",
+    "ticker": "XMAR"
+  },
   "XMAX": {
     "industry": "Furnishings, Fixtures & Appliances",
     "name": "XMAX, Inc.",
@@ -59483,6 +61401,13 @@
     "name": "Invesco S&P MidCap Momentum ETF",
     "sector": "",
     "ticker": "XMMO"
+  },
+  "XMPT": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "VanEck CEF Municipal Income ETF",
+    "sector": "Other",
+    "ticker": "XMPT"
   },
   "XMQTX": {
     "industry": "",
@@ -60000,6 +61925,13 @@
     "sector": "Other",
     "ticker": "XXRP"
   },
+  "XXV": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Simplify Exchange Traded Funds - Simplify Ancorato Target 25 Distribution ETF",
+    "sector": "Other",
+    "ticker": "XXV"
+  },
   "XYF": {
     "industry": "Credit Services",
     "name": "X Financial",
@@ -60068,6 +62000,13 @@
     "name": "Yuanbao Inc.",
     "sector": "Technology",
     "ticker": "YB"
+  },
+  "YBIT": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "YieldMax Bitcoin Option Income Strategy ETF",
+    "sector": "Other",
+    "ticker": "YBIT"
   },
   "YCBD": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
@@ -60388,6 +62327,13 @@
     "name": "Zedge, Inc.",
     "sector": "Communication Services",
     "ticker": "ZDGE"
+  },
+  "ZECP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Zacks Earnings Consistent Portfolio ETF",
+    "sector": "Other",
+    "ticker": "ZECP"
   },
   "ZENA": {
     "industry": "Software\u2014Infrastructure",

@@ -212,7 +212,7 @@ export const RankingTab: FC<RankingTabProps> = ({
               {showAll ? `All Qualified Tech-Focused Funds (${rankedRows.length})` : `Top ${top75Ids.length || 75} Ranked Funds (${windowSize})`}
             </h3>
             <p className="panel-subtitle">
-              Filtered for ≥20% Tech/TMT allocation and portfolio concentration (Top 10 ≥35% or ≤75 positions) · Ranked by {windowSize} ({mode === 'quarter_end' ? 'Quarter-End Attribution' : '45-Day Lag Actionable'})
+              Filtered for ≥20% Tech/TMT allocation and portfolio concentration (Top 10 ≥35% or ≤100 positions) · Ranked by {windowSize} ({mode === 'quarter_end' ? 'Quarter-End Attribution' : '45-Day Lag Actionable'})
             </p>
           </div>
           <div className="controls-row">

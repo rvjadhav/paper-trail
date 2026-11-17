@@ -1487,7 +1487,7 @@ def main() -> None:
                     raw_by_c[r["cusip"]] = raw_by_c.get(r["cusip"], 0.0) + r["valueUsd"]
                 raw_pos = len(raw_by_c)
                 raw_top10 = sum(sorted(raw_by_c.values(), reverse=True)[:10]) / eq_aum * 100.0
-                if not (raw_top10 >= 30.0 or raw_pos <= 85):
+                if not (raw_top10 >= 30.0 or raw_pos <= 115):
                     return cik, None, f"unconcentrated (rawPos={raw_pos}, rawTop10={raw_top10:.1f}%)"
 
             return cik, {
@@ -1694,7 +1694,7 @@ def main() -> None:
     update_cands: list[dict[str, Any]] = []
     needed_tickers: set[str] = {"QQQ", "SPY", "XLK"}
 
-    print("\n=== Fund Qualification Audit (Tech/TMT >= 20%, $200M+ Reported / $100M+ Equity, Top10 >= 35% or Pos <= 75) ===")
+    print("\n=== Fund Qualification Audit (Tech/TMT >= 20%, $200M+ Reported / $100M+ Equity, Top10 >= 35% or Pos <= 100) ===")
     for cand in stage2_targets:
         cik = cand["cik"]
         if cik not in raw_fund_filings:
@@ -1704,7 +1704,7 @@ def main() -> None:
         weights, eq_aum, rep_aum, pos_cnt, top10_pct, tech_pct = extract_equity_weights(latest, cusip_meta)
 
         is_tech = tech_pct >= 20.0
-        is_conc = top10_pct >= 35.0 or pos_cnt <= 75
+        is_conc = top10_pct >= 35.0 or pos_cnt <= 100
         is_size = rep_aum >= 200_000_000 and eq_aum >= 100_000_000
         # Require at least 4 quarters of filings so TTM works in Rankings
         has_hist = len(filings) >= 4

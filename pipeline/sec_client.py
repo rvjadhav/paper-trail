@@ -444,12 +444,14 @@ def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 100
 
     discovered_ciks: list[tuple[str, str]] = []
     seen = set(known_ciks)
-    raw_cap = max(max_candidates * 2 + 500, 2500)
+    raw_cap = max(max_candidates * 4, 4500)
+    cluster_hits: dict[str, set[int]] = {}
+    first_page_seen: dict[str, int] = {}
     exhausted_queries: set[str] = set()
 
-    for page in range(5):
+    for page in range(10):
         offset = page * 100
-        for q_raw in queries:
+        for ci, q_raw in enumerate(queries):
             if q_raw in exhausted_queries or len(discovered_ciks) >= raw_cap:
                 continue
             q = urllib.parse.quote(q_raw)
@@ -473,6 +475,7 @@ def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 100
                 names = src.get("display_names", [])
                 for cik, dname in zip(ciks, names):
                     cik10 = f"{int(cik):010d}"
+                    cluster_hits.setdefault(cik10, set()).add(ci)
                     if cik10 in seen:
                         continue
                     clean_name = dname.split("(CIK")[0].strip()
@@ -484,6 +487,7 @@ def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 100
                         seen.add(cik10)
                         continue
                     seen.add(cik10)
+                    first_page_seen[cik10] = page
                     discovered_ciks.append((cik10, clean_name))
                     if len(discovered_ciks) >= raw_cap:
                         break
@@ -495,7 +499,7 @@ def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 100
     print(f"[discovery] Collected {len(discovered_ciks)} filtered candidate CIKs from {len(queries)} subsector clusters; pre-screening...", flush=True)
 
     # Concurrent pre-screen via submissions + latest primary_doc tableEntryTotal / tableValueTotal
-    def _prescreen_one(item: tuple[int, str, str]) -> tuple[int, dict[str, Any]] | None:
+    def _prescreen_one(item: tuple[int, str, str]) -> tuple[tuple[float, int], dict[str, Any]] | None:
         order_idx, cik10, cname = item
         try:
             sub = get_submissions(cik10)
@@ -562,8 +566,8 @@ def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 100
             root = _parse_xml_root(raw)
             cnt = int(float(_find_text(root, "tableEntryTotal", "0") or 0))
             val = float(_find_text(root, "tableValueTotal", "0") or 0)
-            # Pre-screen for $200M+ reported value and manageable entry count (allow puts/calls + up to ~450 lines)
-            if not (1 <= cnt <= 450 and val >= 200_000_000):
+            # Pre-screen for $200M+ reported value and manageable entry count (allow puts/calls + up to ~650 lines)
+            if not (1 <= cnt <= 650 and val >= 200_000_000):
                 return None
 
             # Verify >= 4 distinct quarters of 13F history since 2024-01-01 (only after structure check passes)
@@ -577,20 +581,27 @@ def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 100
                 if len(distinct_qtrs) < 4:
                     return None
 
+            # Prioritize multi-cluster tech/AI matches & focused books over single-pair sprawling RIAs when trimming to max_candidates
+            ch = len(cluster_hits.get(cik10, ()))
+            fp = first_page_seen.get(cik10, 9)
+            conc_bonus = 2.0 if cnt <= 100 else (1.0 if cnt <= 200 else 0.0)
+            page_bonus = max(0.0, 1.5 - 0.15 * fp)
+            rank_score = min(10, ch) * 1.4 + conc_bonus + page_bonus
+
             fmt_name = _format_entity_name(cname)
-            return order_idx, {
+            return (-rank_score, order_idx), {
                 "cik": cik10,
                 "name": fmt_name,
                 "manager": "SEC EDGAR Discovered",
                 "hq": "United States",
                 "styleTag": "Discovered Tech Concentrated",
-                "strategySummary": f"Automatically surfaced from SEC EDGAR quarterly 13F scan ({cnt} filing entries, AI/tech exposure).",
+                "strategySummary": f"Automatically surfaced from SEC EDGAR quarterly 13F scan ({cnt} filing entries, {ch} seed clusters, AI/tech exposure).",
                 "source": "EDGAR Discovered",
             }
         except Exception:
             return None
 
-    matched: list[tuple[int, dict[str, Any]]] = []
+    matched: list[tuple[tuple[float, int], dict[str, Any]]] = []
     work_items = [(i, cik10, cname) for i, (cik10, cname) in enumerate(discovered_ciks)]
     with ThreadPoolExecutor(max_workers=8) as ex:
         futs = [ex.submit(_prescreen_one, w) for w in work_items]

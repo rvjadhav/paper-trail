@@ -405,7 +405,7 @@ export function App() {
             <div className="drawer-body" style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
               <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>1. Tech-Focused Concentrated Screening</h3>
               <p>
-                Every quarter, our pipeline combines 100 curated AI/TMT &amp; crossover funds with an automated SEC EDGAR full-text scan across {watchlist?.seedPairCount ?? 28} configured sub-sector CUSIP seed pairs (up to 1,000 candidates with $200M+ reported value). Qualified funds maintain ≥20% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥35% or ≤75 equity positions).
+                Every quarter, our pipeline combines 100 curated AI/TMT &amp; crossover funds with an automated SEC EDGAR full-text scan across {watchlist?.seedPairCount ?? 28} configured sub-sector CUSIP seed pairs (up to 1,000 candidates with $200M+ reported value across up to 10 EFTS pages &amp; ≤650 filing entries). Qualified funds maintain ≥20% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥35% or ≤100 equity positions).
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>2. Performance Reconstruction (Quarter-End vs. 45-Day Lag)</h3>
