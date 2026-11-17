@@ -1410,6 +1410,9 @@
 }
 
 @media (max-width: 960px) {
+  .site-header {
+    position: static;
+  }
   .split-grid {
     grid-template-columns: 1fr;
   }
@@ -1431,6 +1434,16 @@
 }
 
 @media (max-width: 640px) {
+  .header-inner {
+    padding-top: 1rem;
+  }
+  .header-top {
+    gap: 0.9rem;
+    padding-bottom: 0.85rem;
+  }
+  .header-kpis {
+    gap: 1rem;
+  }
   .header-inner,
   .main-content,
   .status-strip-inner,
