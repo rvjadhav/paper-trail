@@ -1189,6 +1189,7 @@ def main() -> None:
     # Step 1: Fetch 13F filings (2020-12-31 onward for full 5Y coverage)
     raw_fund_filings: dict[str, list[dict[str, Any]]] = {}
     all_cusips: dict[str, str] = {}
+    fetch_errors: list[tuple[str, str]] = []
 
     today_date = datetime.now(timezone.utc).date()
     for cand in all_candidates:
@@ -1219,7 +1220,15 @@ def main() -> None:
                             all_cusips[row["cusip"]] = row["issuer"]
             print(f"  [ok]   {cand['name']:28s} ({cik}): {len(filings):2d} quarters, latest={latest_rd} (filed {filings[-1]['filingDate']})")
         except Exception as e:
+            fetch_errors.append((f"{cand['name']} ({cik})", str(e)))
             print(f"  [err]  {cand['name']} ({cik}): {e}")
+
+    if len(raw_fund_filings) < 12:
+        sample = "; ".join(f"{k}: {v}" for k, v in fetch_errors[:3])
+        raise RuntimeError(
+            f"Aborting build_data.py before modifying output: only {len(raw_fund_filings)} funds ingested "
+            f"({len(fetch_errors)} fetch errors). Sample errors: {sample}"
+        )
 
     # Step 2: Resolve all CUSIPs -> Tickers, Sectors, Industries
     cusip_meta = resolve_cusips(all_cusips)
@@ -1897,8 +1906,29 @@ def main() -> None:
         "updatesOverview": updates_overview,
     }
 
+    if (
+        len(funds_out) < 12
+        or len(ranked_union_ciks["quarter_end"]) < 5
+        or total_filings_cnt < 100
+        or len(fund_updates_out) < 15
+        or len(ideal_positions) < 15
+    ):
+        raise RuntimeError(
+            f"Refusing to overwrite {OUTPUT_JSON} with incomplete output: "
+            f"funds={len(funds_out)}, ranked={len(ranked_union_ciks['quarter_end'])}, "
+            f"filings={total_filings_cnt}, updates={len(fund_updates_out)}, ideal={len(ideal_positions)}"
+        )
+
+    serialized = json.dumps(dataset, allow_nan=False)
+    if len(serialized.encode("utf-8")) < 500_000:
+        raise RuntimeError(
+            f"Refusing to overwrite {OUTPUT_JSON}: serialized payload abnormally small ({len(serialized)} bytes)"
+        )
+
     OUTPUT_JSON.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_JSON.write_text(json.dumps(dataset, allow_nan=False), encoding="utf-8")
+    tmp_path = OUTPUT_JSON.with_suffix(".json.tmp")
+    tmp_path.write_text(serialized, encoding="utf-8")
+    tmp_path.replace(OUTPUT_JSON)
     size_kb = OUTPUT_JSON.stat().st_size / 1024.0
     print(f"\n=== Pipeline Complete ===")
     print(f"Wrote {OUTPUT_JSON} ({size_kb:.1f} KB)")

@@ -18,8 +18,13 @@ from pathlib import Path
 from typing import Any
 from lxml import etree
 
+_DEFAULT_SEC_UA = "PaperTrail13FResearch contact@papertrail13f.dev"
+_env_sec_ua = os.environ.get("SEC_USER_AGENT", "").strip()
+if not _env_sec_ua or "noreply.github.com" in _env_sec_ua.lower():
+    _env_sec_ua = _DEFAULT_SEC_UA
+
 SEC_HEADERS = {
-    "User-Agent": os.environ.get("SEC_USER_AGENT", "PaperTrail13FResearch contact@papertrail13f.dev"),
+    "User-Agent": _env_sec_ua,
     "Accept-Encoding": "gzip, deflate",
 }
 
@@ -66,7 +71,10 @@ def fetch_bytes(url: str, cache_key: str | None = None, max_age_hours: float = 2
             if e.code in (429, 500, 502, 503, 504) and attempt < 3:
                 time.sleep(1.2 * (attempt + 1))
                 continue
-            raise
+            if e.code == 403 and attempt < 2:
+                time.sleep(2.5 * (attempt + 1))
+                continue
+            raise RuntimeError(f"HTTP {e.code} {e.reason} for {url}") from e
         except Exception:
             if attempt < 3:
                 time.sleep(1.0 * (attempt + 1))

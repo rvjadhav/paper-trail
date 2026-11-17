@@ -6,10 +6,10 @@ on:
       - main
   workflow_dispatch:
   schedule:
-    # Run every 2 days during peak 13F filing seasons (Feb, May, Aug, Nov 10-20) at 23:00 UTC (after SEC 5:30 PM ET close)
-    - cron: '0 23 10,12,14,15,16,18,20 2,5,8,11 *'
-    # Weekly Monday market price & amendment refresh
-    - cron: '0 23 * * 1'
+    # Peak 13F filing seasons (Feb, May, Aug, Nov) at 23:00 UTC (after SEC 5:30 PM ET close)
+    - cron: '0 23 1,8,10,12,14,15,16,18,20,25 2,5,8,11 *'
+    # Off-peak Sunday weekly market price & amendment refresh (never overlaps peak filing days)
+    - cron: '0 23 * 1,3,4,6,7,9,10,12 0'
 
 permissions:
   contents: write
@@ -18,7 +18,7 @@ permissions:
 
 concurrency:
   group: pages-and-13f-sync
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update-and-build:
@@ -38,8 +38,25 @@ jobs:
       - name: Run SEC EDGAR 13F pipeline (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
-          SEC_USER_AGENT: "PaperTrail13FGitHubBot (${{ github.repository_owner }}@users.noreply.github.com)"
+          SEC_USER_AGENT: "PaperTrail13FResearch contact@papertrail13f.dev"
         run: python3 -u pipeline/build_data.py
+
+      - name: Verify dataset integrity before commit/deploy
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("src/data/portfolio_data.json")
+          assert p.exists() and p.stat().st_size >= 500_000, f"Dataset too small: {p.stat().st_size if p.exists() else 0}B"
+          d = json.loads(p.read_text(encoding="utf-8"))
+          m = d["metadata"]
+          assert m["qualifiedFundsCount"] >= 12, f"Too few qualified funds: {m}"
+          assert m["total13fFilingsProcessed"] >= 100, f"Too few filings: {m}"
+          assert len(d.get("funds", [])) >= 12, "Missing funds list"
+          assert len(d.get("fundUpdates", [])) >= 15, "Missing fundUpdates list"
+          assert len(d.get("idealPortfolio", {}).get("positions", [])) >= 15, "Missing idealPortfolio positions"
+          print(f"Dataset verified: {m['qualifiedFundsCount']} funds, {m['total13fFilingsProcessed']} filings, {len(d['fundUpdates'])} updates")
+          PY
 
       - name: Commit updated 13F dataset & caches
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -49,6 +66,7 @@ jobs:
           git add src/data/portfolio_data.json pipeline/cusip_cache.json pipeline/ticker_meta_cache.json
           if ! git diff --cached --quiet; then
             git commit -m "chore(data): automated quarterly 13F & market data update"
+            git pull --rebase origin main || true
             git push
           else
             echo "No dataset changes to commit."
