@@ -2048,6 +2048,219 @@ def build_fund_timelines(
     return qe_segments, lag_segments, qe_snapshots, lag_snapshots, quarterly_hist, avg_turnover_pct
 
 
+def compute_elite_holding_periods(
+    elite_ciks: list[str] | set[str],
+    raw_fund_filings: dict[str, list[dict[str, Any]]],
+    cusip_meta: dict[str, dict[str, Any]],
+    excluded_etfs: set[str] | frozenset[str] = NON_STOCK_ETFS,
+) -> dict[str, float]:
+    """
+    Compute average consecutive quarters held among Elite-50 current holders for each stock ticker.
+    Resets streak immediately if a fund completely exited the ticker in any intervening quarter.
+    """
+    streaks_by_ticker: dict[str, list[int]] = {}
+    for cik in elite_ciks:
+        filings = raw_fund_filings.get(cik) or []
+        if not filings:
+            continue
+        sorted_fls = sorted(filings, key=lambda x: x["reportDate"])
+        latest_sh = extract_canon_equity_shares(sorted_fls[-1]["rows"], cusip_meta, excluded_etfs=excluded_etfs)
+        curr_held = {t for t, sh in latest_sh.items() if sh > 0}
+        if not curr_held:
+            continue
+        fund_streaks: dict[str, int] = {t: 1 for t in curr_held}
+        active = set(curr_held)
+        for fl in reversed(sorted_fls[:-1]):
+            if not active:
+                break
+            prev_sh = extract_canon_equity_shares(fl["rows"], cusip_meta, excluded_etfs=excluded_etfs)
+            still_held = set()
+            for t in active:
+                if prev_sh.get(t, 0.0) > 0:
+                    fund_streaks[t] += 1
+                    still_held.add(t)
+            active = still_held
+
+        for t, q_cnt in fund_streaks.items():
+            streaks_by_ticker.setdefault(t, []).append(q_cnt)
+
+    return {
+        t: round(sum(vals) / len(vals), 1)
+        for t, vals in streaks_by_ticker.items()
+        if vals
+    }
+
+
+def compute_stock_filing_date_anchors(
+    raw_fund_filings: dict[str, list[dict[str, Any]]],
+    cusip_meta: dict[str, dict[str, Any]],
+    excluded_etfs: set[str] | frozenset[str],
+    latest_pe_mode: str,
+    elite_ciks: set[str] | frozenset[str] | None = None,
+    lb_ciks: set[str] | frozenset[str] | None = None,
+) -> dict[str, str]:
+    """
+    Compute representative SEC public filing disclosure date per ticker by taking the median
+    latest-quarter filingDate among Elite-50 holders (falling back to leaderboard-eligible or
+    all tracked holders, then the statutory 45-day deadline).
+    """
+    elite_dates: dict[str, list[str]] = {}
+    lb_dates: dict[str, list[str]] = {}
+    all_dates: dict[str, list[str]] = {}
+    elite_set = elite_ciks or set()
+    lb_set = lb_ciks or set()
+
+    for cik, filings in raw_fund_filings.items():
+        if not filings:
+            continue
+        sorted_fls = sorted(filings, key=lambda x: x["reportDate"])
+        target_fl = next((fl for fl in reversed(sorted_fls) if fl["reportDate"] == latest_pe_mode), sorted_fls[-1])
+        f_date = str(target_fl.get("filingDate") or "")
+        if not f_date:
+            continue
+        held = extract_canon_equity_shares(target_fl["rows"], cusip_meta, excluded_etfs=excluded_etfs)
+        for t, sh in held.items():
+            if sh <= 0:
+                continue
+            if cik in elite_set:
+                elite_dates.setdefault(t, []).append(f_date)
+            if cik in lb_set:
+                lb_dates.setdefault(t, []).append(f_date)
+            all_dates.setdefault(t, []).append(f_date)
+
+    out: dict[str, str] = {}
+    for t in all_dates:
+        pool = elite_dates.get(t) or lb_dates.get(t) or all_dates[t]
+        pool_sorted = sorted(pool)
+        out[t] = pool_sorted[len(pool_sorted) // 2]
+    return out
+
+
+def compute_alpha_decay_metrics(
+    ticker: str,
+    aligned_prices: dict[str, tuple[np.ndarray, int, int]],
+    cal_dates: list[str],
+    price_usd: float | None,
+    est_quarter_vwap: float | None,
+    pct_vs_quarter_vwap: float | None,
+    latest_pe_mode: str,
+    consensus_filing_date: str | None,
+    avg_elite_holding_quarters: float | None,
+    new_count: int,
+    added_count: int,
+    trimmed_count: int,
+    exited_count: int,
+    elite_buyers_count: int,
+    elite_sellers_count: int,
+    elite_holders_count: int,
+    net_est_flow_usd: float | None,
+) -> dict[str, Any]:
+    """
+    Post-13F Lag & Alpha-Decay Engine ('Is the Move Already Over?'):
+      - Computes 3-timestamp price return bridge: Est. Q-VWAP -> SEC Filing Date -> Today
+      - Tracks Average Smart-Money Holding Period across Elite-50 holders
+      - Flags FOMO / Late Crowded traps (>20% above Q-VWAP while Elite/funds trim into strength)
+        vs. Lag Advantage dips (<=Q-VWAP after strong NEW/ADDED buying clusters)
+    """
+    anchor_date = consensus_filing_date or statutory_deadline_date(latest_pe_mode)
+    filing_px: float | None = None
+    if ticker in aligned_prices and cal_dates and anchor_date:
+        arr, fi, li = aligned_prices[ticker]
+        try:
+            anchor_dt = datetime.strptime(anchor_date, "%Y-%m-%d").date()
+        except Exception:
+            anchor_dt = None
+        cand_idx = find_idx_on_or_after(cal_dates, anchor_date)
+        chosen_idx: int | None = None
+        if cand_idx is not None and fi <= cand_idx <= li and anchor_dt is not None:
+            cand_dt = datetime.strptime(cal_dates[cand_idx], "%Y-%m-%d").date()
+            if abs((cand_dt - anchor_dt).days) <= 7:
+                chosen_idx = cand_idx
+        if chosen_idx is None:
+            bef_idx = find_idx_on_or_before(cal_dates, anchor_date)
+            if bef_idx is not None and fi <= bef_idx <= li and anchor_dt is not None:
+                bef_dt = datetime.strptime(cal_dates[bef_idx], "%Y-%m-%d").date()
+                if abs((anchor_dt - bef_dt).days) <= 7:
+                    chosen_idx = bef_idx
+        if chosen_idx is not None:
+            raw_px = float(arr[chosen_idx])
+            if math.isfinite(raw_px) and raw_px > 0:
+                filing_px = clean_num(raw_px, 2)
+
+    q_vwap_to_filing: float | None = None
+    if filing_px is not None and est_quarter_vwap is not None and est_quarter_vwap > 0:
+        q_vwap_to_filing = round(((filing_px / est_quarter_vwap) - 1.0) * 100.0, 1)
+
+    filing_to_today: float | None = None
+    if price_usd is not None and price_usd > 0 and filing_px is not None and filing_px > 0:
+        filing_to_today = round(((price_usd / filing_px) - 1.0) * 100.0, 1)
+
+    pct_vs = pct_vs_quarter_vwap
+    if pct_vs is None and price_usd is not None and price_usd > 0 and est_quarter_vwap is not None and est_quarter_vwap > 0:
+        pct_vs = round(((price_usd / est_quarter_vwap) - 1.0) * 100.0, 1)
+
+    total_buyers = new_count + added_count
+    total_sellers = trimmed_count + exited_count
+    flow = net_est_flow_usd or 0.0
+
+    is_fomo_trap = (
+        pct_vs is not None
+        and pct_vs > 20.0
+        and (
+            (
+                elite_sellers_count >= 1
+                and (
+                    elite_sellers_count > elite_buyers_count
+                    or (elite_sellers_count == elite_buyers_count and total_sellers >= total_buyers)
+                    or flow < 0
+                )
+            )
+            or (total_sellers >= 2 and total_sellers > total_buyers and flow < 0)
+        )
+    )
+    is_lag_advantage = (
+        pct_vs is not None
+        and pct_vs <= 0.0
+        and total_buyers >= 2
+        and total_buyers > total_sellers
+        and (new_count >= 2 or flow > 0 or elite_buyers_count >= 1 or elite_holders_count >= 1)
+    )
+
+    if is_fomo_trap:
+        status = "FOMO_TRAP"
+        reason = (
+            f"Trading {pct_vs:+.1f}% above Est. Q-VWAP while "
+            f"{elite_sellers_count} Elite-50 & {total_sellers} total funds trimmed/exited vs. {total_buyers} buys."
+        )
+    elif is_lag_advantage:
+        status = "LAG_ADVANTAGE"
+        reason = (
+            f"Available at {pct_vs:+.1f}% vs. Est. Q-VWAP after {new_count} NEW & "
+            f"{added_count} ADDED cluster buys (vs. {total_sellers} cuts)."
+        )
+    elif (pct_vs is not None and pct_vs > 20.0) or (filing_to_today is not None and filing_to_today > 15.0):
+        status = "POST_FILING_EXTENDED"
+        if pct_vs is not None and pct_vs > 20.0:
+            reason = f"Trading {pct_vs:+.1f}% above Est. Q-VWAP with net institutional buying (+{total_buyers}/-{total_sellers}); entry chases the move."
+        else:
+            reason = f"Surged {filing_to_today:+.1f}% since the 13F filing date; verify risk/reward before chasing."
+    else:
+        status = "NEUTRAL"
+        reason = "Trading near institutional cost basis without skewed FOMO distribution or cluster dip dislocation."
+
+    return {
+        "consensusFilingDate": anchor_date,
+        "filingDatePriceUsd": filing_px,
+        "qVwapToFilingPct": q_vwap_to_filing,
+        "filingToTodayPct": filing_to_today,
+        "avgEliteHoldingQuarters": avg_elite_holding_quarters,
+        "eliteBuyersCount": elite_buyers_count,
+        "eliteSellersCount": elite_sellers_count,
+        "alphaDecayStatus": status,
+        "alphaDecayReason": reason,
+    }
+
+
 def build_signal_screener(
     funds_out: list[dict[str, Any]],
     fund_updates_out: list[dict[str, Any]],
@@ -3553,6 +3766,8 @@ def main() -> None:
                 "netEstFlowUsd": 0.0,
                 "weights": [],
                 "eliteHoldersCount": 0,
+                "eliteBuyersCount": 0,
+                "eliteSellersCount": 0,
                 "newCount": 0,
                 "addedCount": 0,
                 "trimmedCount": 0,
@@ -3579,6 +3794,7 @@ def main() -> None:
     for u in fund_updates_out:
         cik = u["cik"]
         f_tier = u.get("fundTier", "Watchlist")
+        is_elite_u = f_tier == "Elite 50"
         per_u_stock: dict[str, dict[str, Any]] = {}
         for mv in u["allMoves"]:
             if mv["securityType"] != "EQUITY":
@@ -3634,6 +3850,8 @@ def main() -> None:
                 "netEstFlowUsd": 0.0,
                 "weights": [],
                 "eliteHoldersCount": 0,
+                "eliteBuyersCount": 0,
+                "eliteSellersCount": 0,
                 "newCount": 0,
                 "addedCount": 0,
                 "trimmedCount": 0,
@@ -3642,12 +3860,20 @@ def main() -> None:
             rec["netEstFlowUsd"] += s["estFlow"]
             if act == "NEW":
                 rec["newCount"] += 1
+                if is_elite_u:
+                    rec["eliteBuyersCount"] += 1
             elif act == "ADDED":
                 rec["addedCount"] += 1
+                if is_elite_u:
+                    rec["eliteBuyersCount"] += 1
             elif act == "TRIMMED":
                 rec["trimmedCount"] += 1
+                if is_elite_u:
+                    rec["eliteSellersCount"] += 1
             elif act == "EXITED":
                 rec["exitedCount"] += 1
+                if is_elite_u:
+                    rec["eliteSellersCount"] += 1
 
             rec["recentMoves"].append({
                 "cik": cik,
@@ -3779,6 +4005,55 @@ def main() -> None:
 
     enrichment_by_ticker = {t: _compute_stock_enrichment(t) for t in all_dossier_tickers}
 
+    elite_holding_periods = compute_elite_holding_periods(
+        elite_ciks=elite50_ciks,
+        raw_fund_filings=raw_fund_filings,
+        cusip_meta=cusip_meta,
+        excluded_etfs=excluded_etf_tickers,
+    )
+    stock_filing_anchors = compute_stock_filing_date_anchors(
+        raw_fund_filings=raw_fund_filings,
+        cusip_meta=cusip_meta,
+        excluded_etfs=excluded_etf_tickers,
+        latest_pe_mode=latest_pe_mode,
+        elite_ciks=elite50_set,
+        lb_ciks=lb_ciks,
+    )
+    for t in all_dossier_tickers:
+        rec_b = all_dossier_builders[t]
+        enr = enrichment_by_ticker[t]
+        enr.update(compute_alpha_decay_metrics(
+            ticker=t,
+            aligned_prices=aligned_prices,
+            cal_dates=cal_dates,
+            price_usd=enr["priceUsd"],
+            est_quarter_vwap=enr["estQuarterVwap"],
+            pct_vs_quarter_vwap=enr["pctVsQuarterVwap"],
+            latest_pe_mode=latest_pe_mode,
+            consensus_filing_date=stock_filing_anchors.get(t),
+            avg_elite_holding_quarters=elite_holding_periods.get(t),
+            new_count=rec_b["newCount"],
+            added_count=rec_b["addedCount"],
+            trimmed_count=rec_b["trimmedCount"],
+            exited_count=rec_b["exitedCount"],
+            elite_buyers_count=rec_b["eliteBuyersCount"],
+            elite_sellers_count=rec_b["eliteSellersCount"],
+            elite_holders_count=rec_b["eliteHoldersCount"],
+            net_est_flow_usd=rec_b["netEstFlowUsd"],
+        ))
+
+    _ALPHA_DECAY_KEYS = (
+        "consensusFilingDate",
+        "filingDatePriceUsd",
+        "qVwapToFilingPct",
+        "filingToTodayPct",
+        "avgEliteHoldingQuarters",
+        "eliteBuyersCount",
+        "eliteSellersCount",
+        "alphaDecayStatus",
+        "alphaDecayReason",
+    )
+
     # Build Ideal Portfolio Top-40 positions AND Top-80 candidatePool (for interactive filters)
     ideal_rank_map = {t: idx + 1 for idx, (t, _) in enumerate(ideal_sorted_items[:80])}
     top80_raw = [ideal_stock_agg[t]["rawScore"] for t, _ in ideal_sorted_items[:80]] if ideal_sorted_items else [1.0]
@@ -3863,6 +4138,7 @@ def main() -> None:
             "pctVsQuarterVwap": enr["pctVsQuarterVwap"],
             "entryZoneStatus": enr["entryZoneStatus"],
             "fundamentals": enr["fundamentals"],
+            **{ak: enr.get(ak) for ak in _ALPHA_DECAY_KEYS},
         }
         ideal_candidate_pool.append(cand_obj)
         if t in ideal_weights:
@@ -3921,7 +4197,7 @@ def main() -> None:
         },
     }
 
-    # Enrich Top 30 Consensus Holdings & Signal Screener with Q-VWAP + XBRL
+    # Enrich Top 30 Consensus Holdings & Signal Screener with Q-VWAP + XBRL + Alpha-Decay
     for mode in MODES:
         for h in top_holdings_out[mode]:
             enr = enrichment_by_ticker.get(h["ticker"])
@@ -3932,6 +4208,8 @@ def main() -> None:
                 h["pctVsQuarterVwap"] = enr["pctVsQuarterVwap"]
                 h["entryZoneStatus"] = enr["entryZoneStatus"]
                 h["fundamentals"] = enr["fundamentals"]
+                for ak in _ALPHA_DECAY_KEYS:
+                    h[ak] = enr.get(ak)
 
     for bkey in ("clusterInitiations", "heavyAdds", "smartMoneyExits", "contrarianBets"):
         for item in signal_screener[bkey]:
@@ -3943,6 +4221,8 @@ def main() -> None:
                 item["pctVsQuarterVwap"] = enr["pctVsQuarterVwap"]
                 item["entryZoneStatus"] = enr["entryZoneStatus"]
                 item["fundamentals"] = enr["fundamentals"]
+                for ak in _ALPHA_DECAY_KEYS:
+                    item[ak] = enr.get(ak)
 
     # Build Stocks Index & 8 Sharded Stock Dossiers (public/data/stocks_{0..7}.json)
     ideal_w_by_t = {p["ticker"]: p["idealWeightPct"] for p in ideal_positions}
@@ -3996,6 +4276,14 @@ def main() -> None:
             "signalVerdict": verdict,
             "entryZoneStatus": enr["entryZoneStatus"],
             "pctVsQuarterVwap": enr["pctVsQuarterVwap"],
+            "consensusFilingDate": enr.get("consensusFilingDate"),
+            "filingDatePriceUsd": enr.get("filingDatePriceUsd"),
+            "qVwapToFilingPct": enr.get("qVwapToFilingPct"),
+            "filingToTodayPct": enr.get("filingToTodayPct"),
+            "avgEliteHoldingQuarters": enr.get("avgEliteHoldingQuarters"),
+            "eliteBuyersCount": enr.get("eliteBuyersCount", rec["eliteBuyersCount"]),
+            "eliteSellersCount": enr.get("eliteSellersCount", rec["eliteSellersCount"]),
+            "alphaDecayStatus": enr.get("alphaDecayStatus"),
         }
 
         stock_shards[sh_id][t] = {
@@ -4033,6 +4321,7 @@ def main() -> None:
             "holders": holders_s,
             "recentMoves": moves_s,
             "midQuarterAlerts": alerts_by_ticker.get(t, []),
+            **{ak: enr.get(ak) for ak in _ALPHA_DECAY_KEYS},
         }
 
     # Sort funds by default 45-Day Lag Skill Score / TTM performance

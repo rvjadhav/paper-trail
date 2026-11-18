@@ -8,7 +8,10 @@ import type {
   ReturnWindow,
   StockIndexEntry,
 } from '../types/data';
+import { resolveAlphaDecayMetrics } from '../utils/alphaDecay';
 import {
+  alphaDecayChipClass,
+  alphaDecayLabel,
   downloadCsv,
   entryZoneChipClass,
   formatPct,
@@ -420,29 +423,37 @@ export const RankingTab: FC<RankingTabProps> = ({
             </span>
           </div>
           <div className="matching-stocks-cards">
-            {matchingStocks.map((st) => (
-              <button
-                key={st.ticker}
-                type="button"
-                className="matching-stock-card"
-                onClick={() => onSelectStock(st.ticker)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <span className="ticker-badge">{st.ticker}</span>
-                  <strong style={{ fontSize: '0.82rem' }}>{st.name}</strong>
-                </div>
-                <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-                  <span>{st.priceUsd ? `$${st.priceUsd.toFixed(2)}` : '—'}</span>
-                  <span>·</span>
-                  <span>{st.holderCount} funds ({st.eliteHoldersCount} Elite)</span>
-                  {st.entryZoneStatus && (
-                    <span className={`chip ${entryZoneChipClass(st.entryZoneStatus)}`} style={{ fontSize: '0.66rem' }}>
-                      {st.entryZoneStatus}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
+            {matchingStocks.map((st) => {
+              const ad = resolveAlphaDecayMetrics(st, { latestQuarterLabel: latestQuarterCovered });
+              return (
+                <button
+                  key={st.ticker}
+                  type="button"
+                  className="matching-stock-card"
+                  onClick={() => onSelectStock(st.ticker)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <span className="ticker-badge">{st.ticker}</span>
+                    <strong style={{ fontSize: '0.82rem' }}>{st.name}</strong>
+                  </div>
+                  <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                    <span>{st.priceUsd ? `$${st.priceUsd.toFixed(2)}` : '—'}</span>
+                    <span>·</span>
+                    <span>{st.holderCount} funds ({st.eliteHoldersCount} Elite)</span>
+                    {st.entryZoneStatus && (
+                      <span className={`chip ${entryZoneChipClass(st.entryZoneStatus)}`} style={{ fontSize: '0.66rem' }}>
+                        {st.entryZoneStatus}
+                      </span>
+                    )}
+                    {(ad.status === 'FOMO_TRAP' || ad.status === 'LAG_ADVANTAGE') && (
+                      <span className={`chip ${alphaDecayChipClass(ad.status)}`} style={{ fontSize: '0.66rem' }}>
+                        {alphaDecayLabel(ad.status)}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

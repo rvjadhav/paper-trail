@@ -1,4 +1,10 @@
-import type { EntryZoneStatus, FundTier, ReturnMode, ReturnWindow } from '../types/data';
+import type {
+  AlphaDecayStatus,
+  EntryZoneStatus,
+  FundTier,
+  ReturnMode,
+  ReturnWindow,
+} from '../types/data';
 
 export const RETURN_WINDOWS: Array<{ id: ReturnWindow; label: string; fullLabel: string }> = [
   { id: 'YTD', label: 'YTD', fullLabel: 'Year to Date' },
@@ -84,6 +90,20 @@ export function entryZoneChipClass(zone: EntryZoneStatus | null | undefined): st
   if (zone === 'Near Q-Avg') return 'tech';
   if (zone === 'Extended') return 'warn';
   return 'neg';
+}
+
+export function alphaDecayChipClass(status: AlphaDecayStatus | null | undefined): string {
+  if (status === 'LAG_ADVANTAGE') return 'pos';
+  if (status === 'FOMO_TRAP') return 'neg';
+  if (status === 'POST_FILING_EXTENDED') return 'warn';
+  return '';
+}
+
+export function alphaDecayLabel(status: AlphaDecayStatus | null | undefined): string {
+  if (status === 'LAG_ADVANTAGE') return 'Lag Advantage';
+  if (status === 'FOMO_TRAP') return 'FOMO / Late Crowded';
+  if (status === 'POST_FILING_EXTENDED') return 'Post-Filing Extended';
+  return 'Q-VWAP Neutral';
 }
 
 export function tierChipClass(tier: FundTier | string | undefined): string {
