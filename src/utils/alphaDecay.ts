@@ -223,7 +223,11 @@ export function resolveAlphaDecayMetrics(
         : input.alphaDecayStatus === 'FOMO_TRAP'
           ? `Trading ${pctVsQuarterVwap != null ? `${pctVsQuarterVwap > 0 ? '+' : ''}${pctVsQuarterVwap.toFixed(1)}%` : '>20%'} above Est. Q-VWAP while smart money trimmed into strength.`
           : input.alphaDecayStatus === 'LAG_ADVANTAGE'
-            ? `Available at or below Est. Q-VWAP after ${totalBuyersCount} cluster buy signals.`
+            ? totalBuyersCount > 0
+              ? `Available at or below Est. Q-VWAP after ${totalBuyersCount} cluster buy signals.`
+              : counts.eliteBuyersCount > 0
+                ? `Available at or below Est. Q-VWAP with ${counts.eliteBuyersCount} Elite-50 accumulation signal${counts.eliteBuyersCount > 1 ? 's' : ''}.`
+                : 'Available at or below Est. Q-VWAP with net institutional holding strength.'
             : 'See full Stock Dossier for three-timestamp lag breakdown.';
     return {
       consensusFilingDate,

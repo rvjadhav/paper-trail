@@ -25,7 +25,8 @@ export type ConvictionSourceTag =
   | 'Heavy Add'
   | 'Smart Exit'
   | 'Contrarian'
-  | 'Ideal Portfolio';
+  | 'Ideal Portfolio'
+  | 'Elite 50 Held';
 
 export interface UnifiedConvictionRow {
   ticker: string;
@@ -58,6 +59,9 @@ export interface UnifiedConvictionRow {
   netFlowUsd: number | null;
   netDeltaUsd: number | null;
   isCoreConsensus: boolean;
+  isIndexOnly: boolean;
+  hasExactPillars: boolean;
+  signalVerdict: string | null;
   sourceTags: ConvictionSourceTag[];
   avgEliteHoldingQuarters: number | null;
   filingToTodayPct: number | null;
@@ -598,6 +602,7 @@ export function buildUnifiedConvictionList({
   stocksIndex,
   funds,
   mode,
+  includeAllEliteHeld = false,
 }: {
   topHoldings: Record<ReturnMode, ConsensusHolding[]>;
   signalScreener: SignalScreenerData;
@@ -605,6 +610,7 @@ export function buildUnifiedConvictionList({
   stocksIndex: Record<string, StockIndexEntry>;
   funds?: FundSummary[];
   mode: ReturnMode;
+  includeAllEliteHeld?: boolean;
 }): UnifiedConvictionRow[] {
   const skillMap = buildFundSkillMap(funds, mode);
   const consensusList = topHoldings[mode] ?? [];
@@ -653,10 +659,69 @@ export function buildUnifiedConvictionList({
     if (!r.idealCandidate) r.idealCandidate = cand;
   }
 
+  if (includeAllEliteHeld) {
+    for (const [key, entry] of Object.entries(stocksIndex)) {
+      const tk = (entry.ticker || key).trim();
+      if (!tk) continue;
+      if ((entry.eliteHoldersCount ?? 0) < 1 || entry.holderCount <= 0) continue;
+      const tkUpper = tk.toUpperCase();
+      if (byTicker.has(tk) || byTicker.has(key) || byTicker.has(tkUpper)) continue;
+      ensure(tk);
+    }
+  }
+
+  interface IndexedFundMatch {
+    cik: string;
+    fundName: string;
+    fundTier: FundTier;
+    skillScore: number | null;
+    weightPct: number | null;
+  }
+  const indexedHoldersByTicker = new Map<string, IndexedFundMatch[]>();
+  if (includeAllEliteHeld && funds && funds.length > 0) {
+    const tierOrder = (t: FundTier | string) =>
+      t === 'Elite 50' ? 0 : t === 'Top 100' ? 1 : t === 'Qualified' ? 2 : 3;
+    const sortedFunds = [...funds].sort((a, b) => {
+      const td = tierOrder(a.fundTier) - tierOrder(b.fundTier);
+      if (td !== 0) return td;
+      return (b.metrics?.[mode]?.skillScore ?? -1) - (a.metrics?.[mode]?.skillScore ?? -1);
+    });
+    for (const f of sortedFunds) {
+      const previewWtByTicker = new Map<string, number>();
+      const fundTickers = new Set<string>();
+      for (const hp of f.topHoldingsPreview ?? []) {
+        if (!hp.ticker) continue;
+        const up = hp.ticker.toUpperCase();
+        previewWtByTicker.set(up, hp.weightPct);
+        fundTickers.add(up);
+      }
+      for (const tk of f.searchableTickers ?? []) {
+        if (tk) fundTickers.add(tk.toUpperCase());
+      }
+      const sk = f.metrics?.[mode]?.skillScore ?? null;
+      for (const tkUp of fundTickers) {
+        let arr = indexedHoldersByTicker.get(tkUp);
+        if (!arr) {
+          arr = [];
+          indexedHoldersByTicker.set(tkUp, arr);
+        }
+        if (arr.length < 8) {
+          arr.push({
+            cik: f.cik,
+            fundName: f.name,
+            fundTier: f.fundTier,
+            skillScore: sk,
+            weightPct: previewWtByTicker.get(tkUp) ?? null,
+          });
+        }
+      }
+    }
+  }
+
   const out: UnifiedConvictionRow[] = [];
 
   for (const [ticker, rec] of byTicker.entries()) {
-    const idxEntry = stocksIndex[ticker];
+    const idxEntry = stocksIndex[ticker] ?? stocksIndex[ticker.toUpperCase()];
     const c = rec.consensus;
     const ideal = rec.idealPos ?? rec.idealCandidate;
     // Choose the screener entry with the broadest movers + absolute flow metadata
@@ -669,6 +734,7 @@ export function buildUnifiedConvictionList({
                 Math.abs(a.entry.netEstFlowUsd ?? a.entry.netDeltaUsd)
           )[0].entry
         : undefined;
+    const isIndexOnly = !c && !bestScreener && !ideal;
 
     const sourceTags: ConvictionSourceTag[] = [];
     if (c) sourceTags.push('Top Consensus');
@@ -676,6 +742,7 @@ export function buildUnifiedConvictionList({
       if (!sourceTags.includes(se.tag)) sourceTags.push(se.tag);
     }
     if (rec.idealPos) sourceTags.push('Ideal Portfolio');
+    if (isIndexOnly) sourceTags.push('Elite 50 Held');
 
     const backendActionability =
       bestScreener?.actionability ??
@@ -809,6 +876,9 @@ export function buildUnifiedConvictionList({
       exitedCount = 0;
       eliteBuyersCount = ideal.eliteBuyersCount ?? ideal.netNew + ideal.netAdd;
       eliteSellersCount = ideal.eliteSellersCount ?? ideal.netTrim;
+    } else if (isIndexOnly && idxEntry) {
+      eliteBuyersCount = idxEntry.eliteBuyersCount ?? 0;
+      eliteSellersCount = idxEntry.eliteSellersCount ?? 0;
     }
 
     const netFlowUsd =
@@ -956,7 +1026,10 @@ export function buildUnifiedConvictionList({
       actionability: backendActionability,
     };
 
-    const ad = resolveAlphaDecayMetrics(alphaInput, { latestQuarterLabel: quarterLabel });
+    const ad =
+      isIndexOnly && idxEntry
+        ? resolveAlphaDecayMetrics(idxEntry, { latestQuarterLabel: quarterLabel })
+        : resolveAlphaDecayMetrics(alphaInput, { latestQuarterLabel: quarterLabel });
 
     let tpFallback: ThesisPersistenceSummary | null = null;
     if (
@@ -977,29 +1050,56 @@ export function buildUnifiedConvictionList({
       };
     }
 
-    const actionability =
-      backendActionability ??
-      computeActionabilityMatrix({
-        newCount,
-        addedCount,
-        trimmedCount,
-        exitedCount,
-        eliteBuyersCount,
-        eliteSellersCount,
-        eliteHoldersCount,
-        totalValueUsd,
-        netEstFlowUsd: netFlowUsd,
-        movers: combinedMovers,
-        holders: combinedHolders,
-        fundSkillByCik: skillMap,
-        pctVsQuarterVwap: ad.pctVsQuarterVwap,
-        filingToTodayPct: ad.filingToTodayPct,
-        alphaDecayStatus: ad.status,
-        fundamentals,
-        avgEliteHoldingQuarters: ad.avgEliteHoldingQuarters,
-        thesisPersistence: tpFallback,
-        isCoreConsensus: Boolean(c) || eliteHoldersCount >= 5,
-      });
+    const fallbackMatrix = computeActionabilityMatrix({
+      newCount: isIndexOnly ? eliteBuyersCount : newCount,
+      addedCount,
+      trimmedCount: isIndexOnly ? eliteSellersCount : trimmedCount,
+      exitedCount,
+      eliteBuyersCount,
+      eliteSellersCount,
+      eliteHoldersCount,
+      totalValueUsd,
+      netEstFlowUsd: netFlowUsd,
+      movers: combinedMovers,
+      holders: combinedHolders,
+      fundSkillByCik: skillMap,
+      pctVsQuarterVwap: ad.pctVsQuarterVwap,
+      filingToTodayPct: ad.filingToTodayPct,
+      alphaDecayStatus: ad.status,
+      fundamentals,
+      avgEliteHoldingQuarters: ad.avgEliteHoldingQuarters,
+      thesisPersistence: tpFallback,
+      isCoreConsensus: Boolean(c) || eliteHoldersCount >= 5,
+    });
+
+    let actionability: ActionabilityMatrix;
+    let hasExactPillars: boolean;
+    if (backendActionability) {
+      actionability = backendActionability;
+      hasExactPillars = true;
+    } else if (isIndexOnly) {
+      hasExactPillars = false;
+      const indexScore = idxEntry?.actionabilityScore ?? fallbackMatrix.score;
+      const indexVerdict = idxEntry?.actionVerdict ?? fallbackMatrix.verdict;
+      const sigVerdict = idxEntry?.signalVerdict ?? 'Tracked Equity';
+      const qoqNote =
+        eliteBuyersCount > 0 || eliteSellersCount > 0
+          ? ` · +${eliteBuyersCount}/-${eliteSellersCount} Elite QoQ`
+          : '';
+      actionability = {
+        ...fallbackMatrix,
+        score: indexScore,
+        verdict: indexVerdict,
+        summary: `${sigVerdict} across ${holderCount} funds (${eliteHoldersCount} Elite 50${qoqNote}). Open Complete Stock Dossier for the full 4-pillar Flow, Price, XBRL & Persistence breakdown.`,
+      };
+    } else {
+      actionability = fallbackMatrix;
+      hasExactPillars = true;
+    }
+
+    const indexedMatches = isIndexOnly
+      ? indexedHoldersByTicker.get(ticker.toUpperCase()) ?? []
+      : [];
 
     const topHoldersPreview: UnifiedConvictionRow['topHoldersPreview'] =
       combinedMovers.length > 0
@@ -1016,21 +1116,38 @@ export function buildUnifiedConvictionList({
             chipTone: m.action === 'NEW' || m.action === 'ADDED' ? 'pos' : 'neg',
             subline: `Book ${m.prevBookPct.toFixed(1)}% → ${m.currBookPct.toFixed(1)}%`,
           }))
-        : combinedHolders.slice(0, 6).map((b) => ({
-            cik: b.cik,
-            fundName: b.fundName,
-            fundTier: b.fundTier,
-            meta: `${b.weightPct.toFixed(1)}%`,
-            chipTone:
-              b.status === 'NEW' || b.status === 'ADDED'
-                ? 'pos'
-                : b.status === 'TRIMMED'
-                  ? 'neg'
-                  : b.fundTier === 'Elite 50'
-                    ? 'elite'
-                    : '',
-            subline: `Status: ${b.status}`,
-          }));
+        : combinedHolders.length > 0
+          ? combinedHolders.slice(0, 6).map((b) => ({
+              cik: b.cik,
+              fundName: b.fundName,
+              fundTier: b.fundTier,
+              meta: `${b.weightPct.toFixed(1)}%`,
+              chipTone:
+                b.status === 'NEW' || b.status === 'ADDED'
+                  ? 'pos'
+                  : b.status === 'TRIMMED'
+                    ? 'neg'
+                    : b.fundTier === 'Elite 50'
+                      ? 'elite'
+                      : '',
+              subline: `Status: ${b.status}`,
+            }))
+          : indexedMatches.slice(0, 6).map((fh) => ({
+              cik: fh.cik,
+              fundName: fh.fundName,
+              fundTier: fh.fundTier,
+              meta:
+                fh.weightPct != null
+                  ? `${fh.weightPct.toFixed(1)}%`
+                  : fh.skillScore != null
+                    ? `Skill ${fh.skillScore.toFixed(0)}`
+                    : fh.fundTier,
+              chipTone: fh.fundTier === 'Elite 50' ? 'elite' : '',
+              subline:
+                fh.weightPct != null
+                  ? `Top holding (${fh.weightPct.toFixed(2)}% weight)`
+                  : `Held in Q filing${fh.skillScore != null ? ` · Skill ${fh.skillScore.toFixed(0)}` : ''}`,
+            }));
 
     out.push({
       ticker,
@@ -1063,6 +1180,9 @@ export function buildUnifiedConvictionList({
       netFlowUsd,
       netDeltaUsd,
       isCoreConsensus: Boolean(c) || eliteHoldersCount >= 5,
+      isIndexOnly,
+      hasExactPillars,
+      signalVerdict: idxEntry?.signalVerdict ?? null,
       sourceTags,
       avgEliteHoldingQuarters: ad.avgEliteHoldingQuarters,
       filingToTodayPct: ad.filingToTodayPct,
