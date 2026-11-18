@@ -1,96 +1,241 @@
 import { useMemo, useState, type FC } from 'react';
-import { ArrowUpRight, Download, Search } from 'lucide-react';
-import type { BenchmarkSeries, FundSummary, ReturnMode, ReturnWindow } from '../types/data';
+import { AlertCircle, ArrowUpRight, Award, Download, Search } from 'lucide-react';
+import type {
+  BenchmarkSeries,
+  FundSummary,
+  RankedWindowEntry,
+  ReturnMode,
+  ReturnWindow,
+  StockIndexEntry,
+} from '../types/data';
 import {
   downloadCsv,
+  entryZoneChipClass,
   formatPct,
   formatSignedPct,
   formatUsdCompact,
   RETURN_WINDOWS,
   returnClass,
+  tierChipClass,
 } from '../utils/format';
-import { MiniSparkline } from './SvgCharts';
 
 interface RankingTabProps {
   funds: FundSummary[];
-  rankings: Record<ReturnMode, Record<ReturnWindow, Array<{ rank: number; cik: string; returnPct: number }>>>;
+  rankings: Record<ReturnMode, Record<ReturnWindow, RankedWindowEntry[]>>;
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
+  stocksIndex: Record<string, StockIndexEntry>;
   windowSize: ReturnWindow;
   onWindowChange: (w: ReturnWindow) => void;
   mode: ReturnMode;
   onModeChange: (m: ReturnMode) => void;
   onSelectFund: (cik: string) => void;
+  onSelectStock: (ticker: string) => void;
+}
+
+type TierFilter = 'ELITE50' | 'TOP100' | 'ALL' | 'EXCLUDED';
+type SortMetric = 'skillScore' | 'return' | 'sortinoRatio' | 'infoRatioVsQqq' | 'battingAvgPct';
+
+function getSortMetricValue(
+  fund: FundSummary,
+  metric: SortMetric,
+  mode: ReturnMode,
+  windowSize: ReturnWindow
+): number | null {
+  if (metric === 'return') return fund.returns[mode][windowSize];
+  return fund.metrics[mode][metric];
 }
 
 export const RankingTab: FC<RankingTabProps> = ({
   funds,
   rankings,
   benchmarks,
+  stocksIndex,
   windowSize,
   onWindowChange,
   mode,
   onModeChange,
   onSelectFund,
+  onSelectStock,
 }) => {
-  const [showAll, setShowAll] = useState(false);
+  const [tierFilter, setTierFilter] = useState<TierFilter>('ELITE50');
+  const [sortMetric, setSortMetric] = useState<SortMetric>('skillScore');
   const [search, setSearch] = useState('');
 
-  const fundByCik = useMemo(() => new Map(funds.map((f) => [f.cik, f])), [funds]);
+  const eliteCount = useMemo(
+    () => funds.filter((f) => f.isLeaderboardEligible && f.fundTier === 'Elite 50').length,
+    [funds]
+  );
+  const eligibleCount = useMemo(
+    () => funds.filter((f) => f.isLeaderboardEligible).length,
+    [funds]
+  );
+  const excludedCount = useMemo(
+    () => funds.filter((f) => !f.isLeaderboardEligible).length,
+    [funds]
+  );
 
-  const rankedRows = useMemo(() => {
+  const cohortRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const top100Map = new Map(rankings[mode][windowSize].map((r) => [r.cik, r.rank]));
 
-    const eligible = funds
-      .filter((f) => f.returns[mode][windowSize] !== null)
-      .sort((a, b) => (b.returns[mode][windowSize] ?? -9999) - (a.returns[mode][windowSize] ?? -9999));
-
-    const noWindowFunds = funds.filter((f) => f.returns[mode][windowSize] === null);
-    const ordered = showAll ? [...eligible, ...noWindowFunds] : eligible.slice(0, 100);
-
-    return ordered
-      .filter((f) => {
-        if (!q) return true;
+    const matchesSearch = (f: FundSummary) => {
+      if (!q) return true;
+      if (q.length === 1) {
         return (
           f.name.toLowerCase().includes(q) ||
           f.manager.toLowerCase().includes(q) ||
-          f.styleTag.toLowerCase().includes(q) ||
-          f.topHoldingsPreview.some((h) => h.ticker.toLowerCase().includes(q))
+          f.searchableTickers.some((t) => t.toLowerCase() === q)
         );
-      })
+      }
+      return (
+        f.name.toLowerCase().includes(q) ||
+        f.manager.toLowerCase().includes(q) ||
+        f.styleTag.toLowerCase().includes(q) ||
+        f.topHoldingsPreview.some((h) => h.ticker.toLowerCase().includes(q)) ||
+        f.searchableTickers.some((t) => t.toLowerCase().includes(q))
+      );
+    };
+
+    const comparator = (a: FundSummary, b: FundSummary) => {
+      const av = getSortMetricValue(a, sortMetric, mode, windowSize);
+      const bv = getSortMetricValue(b, sortMetric, mode, windowSize);
+      if (av === null && bv === null) {
+        return (b.metrics[mode].skillScore ?? -1) - (a.metrics[mode].skillScore ?? -1);
+      }
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (bv !== av) return bv - av;
+      const ask = a.metrics[mode].skillScore ?? -1;
+      const bsk = b.metrics[mode].skillScore ?? -1;
+      if (bsk !== ask) return bsk - ask;
+      return (b.returns[mode][windowSize] ?? -999) - (a.returns[mode][windowSize] ?? -999);
+    };
+
+    let basePool: FundSummary[];
+    if (tierFilter === 'EXCLUDED') {
+      basePool = funds.filter((f) => !f.isLeaderboardEligible).sort(comparator);
+    } else {
+      const eligible = funds.filter((f) => f.isLeaderboardEligible);
+      if (tierFilter === 'ELITE50') {
+        basePool = eligible.filter((f) => f.fundTier === 'Elite 50').sort(comparator);
+      } else if (tierFilter === 'TOP100') {
+        const sortedEligible = [...eligible].sort(comparator);
+        basePool = sortedEligible.slice(0, 100);
+      } else {
+        basePool = [...eligible].sort(comparator);
+      }
+    }
+
+    return basePool
       .map((f, idx) => ({
         fund: f,
-        displayRank: top100Map.get(f.cik) ?? (f.returns[mode][windowSize] !== null ? idx + 1 : null),
-        isTop100: top100Map.has(f.cik),
-      }));
-  }, [funds, rankings, mode, windowSize, showAll, search]);
+        displayRank: tierFilter === 'EXCLUDED' ? null : idx + 1,
+      }))
+      .filter(({ fund }) => matchesSearch(fund));
+  }, [funds, tierFilter, sortMetric, mode, windowSize, search]);
 
-  const top100Ids = rankings[mode][windowSize];
-  const leaderFund = top100Ids[0] ? fundByCik.get(top100Ids[0].cik) : undefined;
-  const top100AvgReturn = useMemo(() => {
-    if (!top100Ids.length) return null;
-    return top100Ids.reduce((s, x) => s + x.returnPct, 0) / top100Ids.length;
-  }, [top100Ids]);
-  const top100CombinedAum = useMemo(() => {
-    return top100Ids.reduce((s, x) => s + (fundByCik.get(x.cik)?.equityAumUsd ?? 0), 0);
-  }, [top100Ids, fundByCik]);
+  const matchingStocks = useMemo(() => {
+    const raw = search.trim();
+    if (!raw) return [];
+    const ql = raw.toLowerCase();
+    const qu = raw.toUpperCase();
+    const all = Object.values(stocksIndex);
 
+    const hits = all.filter((s) => {
+      const tl = s.ticker.toLowerCase();
+      if (ql.length === 1) return tl === ql;
+      return tl.includes(ql) || s.name.toLowerCase().includes(ql);
+    });
+
+    hits.sort((a, b) => {
+      const aExact = a.ticker === qu ? 1 : 0;
+      const bExact = b.ticker === qu ? 1 : 0;
+      if (aExact !== bExact) return bExact - aExact;
+      const aPref = a.ticker.startsWith(qu) ? 1 : 0;
+      const bPref = b.ticker.startsWith(qu) ? 1 : 0;
+      if (aPref !== bPref) return bPref - aPref;
+      if (b.eliteHoldersCount !== a.eliteHoldersCount) return b.eliteHoldersCount - a.eliteHoldersCount;
+      return b.holderCount - a.holderCount;
+    });
+
+    return hits.slice(0, 6);
+  }, [search, stocksIndex]);
+
+  const skillLeader = useMemo(() => {
+    const eligible = funds.filter((f) => f.isLeaderboardEligible);
+    return [...eligible].sort(
+      (a, b) => (b.metrics[mode].skillScore ?? -1) - (a.metrics[mode].skillScore ?? -1)
+    )[0];
+  }, [funds, mode]);
+
+  const cohortStats = useMemo(() => {
+    const withWin = cohortRows
+      .map((r) => r.fund.returns[mode][windowSize])
+      .filter((v): v is number => v !== null);
+    const avgReturn = withWin.length > 0 ? withWin.reduce((s, v) => s + v, 0) / withWin.length : null;
+    const totalAum = cohortRows.reduce((s, r) => s + r.fund.equityAumUsd, 0);
+    return { avgReturn, totalAum, count: cohortRows.length };
+  }, [cohortRows, mode, windowSize]);
+
+  const returnTop100Count = rankings[mode][windowSize]?.length ?? 100;
   const qqqRet = benchmarks.QQQ.returns[windowSize];
   const spyRet = benchmarks.SPY.returns[windowSize];
   const xlkRet = benchmarks.XLK.returns[windowSize];
 
+  const handleSortMetricClick = (metric: SortMetric) => {
+    setSortMetric(metric);
+  };
+
+  const handleWindowClick = (w: ReturnWindow) => {
+    onWindowChange(w);
+    setSortMetric('return');
+  };
+
   const handleExport = () => {
     downloadCsv(
-      `paper-trail-ranking-${windowSize}-${mode}.csv`,
-      ['Rank', 'Fund Name', 'Manager', '13F Equity AUM (USD)', 'Positions', 'Top 10 %', 'Tech/TMT %', 'YTD %', 'TTM %', '18M %', '2Y %', '3Y %', '5Y %', 'Latest Period'],
-      rankedRows.map(({ fund, displayRank }) => [
-        displayRank ?? 'N/A',
+      `paper-trail-ranking-${tierFilter.toLowerCase()}-${sortMetric}-${windowSize}-${mode}.csv`,
+      [
+        'Display Rank',
+        'Fund Tier',
+        'Skill Rank',
+        'Skill Score',
+        'Fund Name',
+        'Manager',
+        '13F Equity AUM (USD)',
+        'Positions',
+        'Eff. Positions',
+        'Top 10 %',
+        'Tech/TMT %',
+        'ETF Stripped %',
+        'Sortino',
+        'IR vs QQQ',
+        'Batting Avg %',
+        'Avg Turnover %',
+        'YTD %',
+        'TTM %',
+        '18M %',
+        '2Y %',
+        '3Y %',
+        '5Y %',
+        'Latest Period',
+        'Exclusion Reason',
+      ],
+      cohortRows.map(({ fund, displayRank }) => [
+        displayRank ?? 'Excluded',
+        fund.fundTier,
+        fund.metrics[mode].skillRank ?? '',
+        fund.metrics[mode].skillScore ?? '',
         fund.name,
         fund.manager,
         fund.equityAumUsd,
         fund.equityPositionCount,
+        fund.effectivePositions,
         fund.top10WeightPct,
         fund.techTmtPct,
+        fund.etfSharePct,
+        fund.metrics[mode].sortinoRatio ?? '',
+        fund.metrics[mode].infoRatioVsQqq ?? '',
+        fund.metrics[mode].battingAvgPct ?? '',
+        fund.metrics[mode].avgTurnoverPct ?? '',
         fund.returns[mode].YTD ?? '',
         fund.returns[mode].TTM ?? '',
         fund.returns[mode]['18M'] ?? '',
@@ -98,17 +243,27 @@ export const RankingTab: FC<RankingTabProps> = ({
         fund.returns[mode]['3Y'] ?? '',
         fund.returns[mode]['5Y'] ?? '',
         fund.latestPeriod,
+        fund.exclusionReason ?? '',
       ])
     );
   };
+
+  const tierTitle =
+    tierFilter === 'ELITE50'
+      ? `Elite ${eliteCount} Skill-Ranked Concentrated Tech Funds`
+      : tierFilter === 'TOP100'
+        ? `Top ${Math.min(100, eligibleCount)} Cohort (${sortMetric === 'return' ? `${windowSize} Return · ${returnTop100Count} pool` : 'Risk-Adjusted Sort'})`
+        : tierFilter === 'ALL'
+          ? `All ${eligibleCount} Leaderboard-Eligible Specialist Funds`
+          : `Excluded Single-Stock / Ultra-Concentrated Books (${excludedCount})`;
 
   return (
     <section aria-label="Fund Rankings">
       <div className="section-toolbar">
         <div className="section-title-group">
-          <h2>Top {showAll ? funds.length : Math.min(100, Math.max(top100Ids.length, 1))} Concentrated Tech Funds — {windowSize} Performance</h2>
+          <h2>{tierTitle}</h2>
           <p>
-            Click any fund name to inspect complete 13F holdings, strategy overview, and multi-year return curves.
+            Scored across multi-year risk-adjusted skill (40% IR vs QQQ, 30% Batting Avg, 30% Sortino). Click any fund or stock ticker to inspect complete holdings and dossiers.
           </p>
         </div>
 
@@ -120,7 +275,7 @@ export const RankingTab: FC<RankingTabProps> = ({
                 type="button"
                 id={`window-btn-${w.id}`}
                 className={`seg-btn ${windowSize === w.id ? 'active' : ''}`}
-                onClick={() => onWindowChange(w.id)}
+                onClick={() => handleWindowClick(w.id)}
                 title={w.fullLabel}
               >
                 {w.label}
@@ -151,46 +306,55 @@ export const RankingTab: FC<RankingTabProps> = ({
         </div>
       </div>
 
-      {/* Benchmark & Top 100 KPI Strip */}
+      {/* Benchmark & Cohort KPI Strip */}
       <div className="metrics-strip">
         <div className="metric-card">
-          <div className="metric-label">#1 Ranked ({windowSize})</div>
+          <div className="metric-label">#1 by Skill Score ({mode === 'quarter_end' ? 'QE' : '45d Lag'})</div>
           <div className="metric-value">
-            <span className={returnClass(top100Ids[0]?.returnPct)}>
-              {formatSignedPct(top100Ids[0]?.returnPct)}
+            <span className="mono">
+              {skillLeader?.metrics[mode].skillScore != null
+                ? `${skillLeader.metrics[mode].skillScore.toFixed(1)}/100`
+                : '—'}
             </span>
+            {skillLeader?.returns[mode][windowSize] != null && (
+              <span className={`mono ${returnClass(skillLeader.returns[mode][windowSize])}`} style={{ fontSize: '0.94rem' }}>
+                {formatSignedPct(skillLeader.returns[mode][windowSize])}
+              </span>
+            )}
           </div>
           <div className="metric-sub">
-            {leaderFund ? (
+            {skillLeader ? (
               <button
                 type="button"
                 className="fund-link-btn"
                 style={{ fontSize: '0.78rem' }}
-                onClick={() => onSelectFund(leaderFund.cik)}
+                onClick={() => onSelectFund(skillLeader.cik)}
               >
-                {leaderFund.name} <ArrowUpRight size={12} />
+                {skillLeader.name} <ArrowUpRight size={12} />
               </button>
             ) : '—'}
           </div>
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Top {top100Ids.length || 100} Mean ({windowSize})</div>
+          <div className="metric-label">Cohort Mean ({windowSize})</div>
           <div className="metric-value">
-            <span className={returnClass(top100AvgReturn)}>{formatSignedPct(top100AvgReturn)}</span>
+            <span className={returnClass(cohortStats.avgReturn)}>{formatSignedPct(cohortStats.avgReturn)}</span>
           </div>
           <div className="metric-sub">
             vs. QQQ ({formatSignedPct(qqqRet)}) · Alpha{' '}
-            <span className={`mono ${returnClass(top100AvgReturn !== null && qqqRet !== null ? top100AvgReturn - qqqRet : null)}`}>
-              {top100AvgReturn !== null && qqqRet !== null ? formatSignedPct(top100AvgReturn - qqqRet) : '—'}
+            <span className={`mono ${returnClass(cohortStats.avgReturn !== null && qqqRet !== null ? cohortStats.avgReturn - qqqRet : null)}`}>
+              {cohortStats.avgReturn !== null && qqqRet !== null ? formatSignedPct(cohortStats.avgReturn - qqqRet) : '—'}
             </span>
           </div>
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Top {top100Ids.length || 100} Combined 13F AUM</div>
-          <div className="metric-value">{formatUsdCompact(top100CombinedAum)}</div>
-          <div className="metric-sub">Disclosed U.S. long equity value</div>
+          <div className="metric-label">Cohort Combined 13F AUM</div>
+          <div className="metric-value">{formatUsdCompact(cohortStats.totalAum)}</div>
+          <div className="metric-sub">
+            Across {cohortStats.count} shown · {eliteCount} Elite 50 / {eligibleCount} Eligible
+          </div>
         </div>
 
         <div className="metric-card">
@@ -200,25 +364,114 @@ export const RankingTab: FC<RankingTabProps> = ({
             <span>XLK <strong className={returnClass(xlkRet)}>{formatSignedPct(xlkRet)}</strong></span>
             <span>SPY <strong className={returnClass(spyRet)}>{formatSignedPct(spyRet)}</strong></span>
           </div>
-          <div className="metric-sub">Total return benchmarks</div>
+          <div className="metric-sub">
+            QQQ Sortino: <span className="mono">{benchmarks.QQQ.sortinoRatio ?? '—'}</span> · CAGR:{' '}
+            <span className="mono">{formatSignedPct(benchmarks.QQQ.cagrPct)}</span>
+          </div>
         </div>
       </div>
+
+      {/* Matching Stock Dossiers Strip when Search matches stocks */}
+      {matchingStocks.length > 0 && (
+        <div className="matching-stocks-strip" aria-label="Matching Stock Dossiers">
+          <div className="matching-stocks-head">
+            <span>Matching Stocks — Open Dossier</span>
+            <span className="mono" style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+              Click to view Q-VWAP cost basis, XBRL fundamentals &amp; all 13F holders
+            </span>
+          </div>
+          <div className="matching-stocks-cards">
+            {matchingStocks.map((st) => (
+              <button
+                key={st.ticker}
+                type="button"
+                className="matching-stock-card"
+                onClick={() => onSelectStock(st.ticker)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <span className="ticker-badge">{st.ticker}</span>
+                  <strong style={{ fontSize: '0.82rem' }}>{st.name}</strong>
+                </div>
+                <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                  <span>{st.priceUsd ? `$${st.priceUsd.toFixed(2)}` : '—'}</span>
+                  <span>·</span>
+                  <span>{st.holderCount} funds ({st.eliteHoldersCount} Elite)</span>
+                  {st.entryZoneStatus && (
+                    <span className={`chip ${entryZoneChipClass(st.entryZoneStatus)}`} style={{ fontSize: '0.66rem' }}>
+                      {st.entryZoneStatus}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Excluded cohort disclaimer banner */}
+      {tierFilter === 'EXCLUDED' && (
+        <div className="insight-callout hedge" style={{ marginBottom: '1.15rem' }}>
+          <div className="insight-callout-label">
+            <AlertCircle size={14} /> Separated Single-Stock / Ultra-Concentrated Filers ({excludedCount})
+          </div>
+          <p>
+            These filers hold valid SEC 13F equity books (&ge;35% Tech/TMT) but are separated from Top-100 and Elite-50 rankings because their Effective Positions are &lt;4.0 or a single stock exceeds 40% (4Q avg) / 45% (latest). Separating SPVs prevents one-stock VC lockups from distorting skill cohorts.
+          </p>
+        </div>
+      )}
 
       {/* Main Ranking Table */}
       <div className="panel">
         <div className="panel-header">
-          <div>
-            <h3 className="panel-title">
-              {showAll ? `All Qualified Tech-Focused Funds (${rankedRows.length})` : `Top ${top100Ids.length || 100} Ranked Funds (${windowSize})`}
-            </h3>
-            <p className="panel-subtitle">
-              Filtered for ≥35% Tech/TMT allocation (≥30% Curated crossover), ≥5 stocks &amp; concentration (≤120 pos or ≤250 w/ Top 10 ≥55%) · Ranked by {windowSize} ({mode === 'quarter_end' ? 'Quarter-End Attribution' : '45-Day Lag Actionable'})
-            </p>
+          <div className="controls-row" style={{ flexWrap: 'wrap' }}>
+            <div className="segmented-group" role="group" aria-label="Fund cohort tier filter">
+              {(
+                [
+                  { id: 'ELITE50', label: `Elite ${eliteCount}` },
+                  { id: 'TOP100', label: 'Top 100' },
+                  { id: 'ALL', label: `All Eligible (${eligibleCount})` },
+                  { id: 'EXCLUDED', label: `Excluded SPVs (${excludedCount})` },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  id={`tier-btn-${t.id.toLowerCase()}`}
+                  className={`seg-btn ${tierFilter === t.id ? 'active' : ''}`}
+                  onClick={() => setTierFilter(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="segmented-group" role="group" aria-label="Sort ranking metric">
+              {(
+                [
+                  { id: 'skillScore', label: 'Skill Score' },
+                  { id: 'return', label: `${windowSize} Return` },
+                  { id: 'sortinoRatio', label: 'Sortino' },
+                  { id: 'infoRatioVsQqq', label: 'IR vs QQQ' },
+                  { id: 'battingAvgPct', label: 'Bat %' },
+                ] as const
+              ).map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`seg-btn ${sortMetric === m.id ? 'active' : ''}`}
+                  onClick={() => handleSortMetricClick(m.id)}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
           </div>
+
           <div className="controls-row">
             <div className="search-input-wrap">
               <Search size={14} />
               <input
+                id="ranking-search-input"
                 type="text"
                 className="search-input"
                 placeholder="Search fund, manager, or stock..."
@@ -226,14 +479,6 @@ export const RankingTab: FC<RankingTabProps> = ({
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <button
-              type="button"
-              id="toggle-show-all-funds"
-              className={`action-btn ${showAll ? 'primary' : ''}`}
-              onClick={() => setShowAll(!showAll)}
-            >
-              {showAll ? 'Show Top 100 Only' : `View All ${funds.length} Funds`}
-            </button>
             <button type="button" className="action-btn" onClick={handleExport}>
               <Download size={14} /> Export CSV
             </button>
@@ -244,29 +489,58 @@ export const RankingTab: FC<RankingTabProps> = ({
           <table className="data-table">
             <thead>
               <tr>
-                <th>Rank</th>
+                <th>#</th>
                 <th>Fund / Strategy</th>
                 <th className="num">Total Fund Size</th>
                 <th>Top Holdings</th>
                 <th className="num">Tech %</th>
+                <th
+                  className={`num sortable ${sortMetric === 'skillScore' ? 'active-col' : ''}`}
+                  onClick={() => handleSortMetricClick('skillScore')}
+                  title="Composite Skill Score (0-100): 40% IR vs QQQ + 30% Batting Avg + 30% Sortino"
+                >
+                  Skill {sortMetric === 'skillScore' ? '▼' : ''}
+                </th>
+                <th
+                  className={`num sortable ${sortMetric === 'sortinoRatio' ? 'active-col' : ''}`}
+                  onClick={() => handleSortMetricClick('sortinoRatio')}
+                  title="Sortino Ratio vs trailing 13W T-Bill yield (^IRX)"
+                >
+                  Sortino {sortMetric === 'sortinoRatio' ? '▼' : ''}
+                </th>
+                <th
+                  className={`num sortable ${sortMetric === 'infoRatioVsQqq' ? 'active-col' : ''}`}
+                  onClick={() => handleSortMetricClick('infoRatioVsQqq')}
+                  title="Information Ratio vs QQQ"
+                >
+                  IR {sortMetric === 'infoRatioVsQqq' ? '▼' : ''}
+                </th>
+                <th
+                  className={`num sortable ${sortMetric === 'battingAvgPct' ? 'active-col' : ''}`}
+                  onClick={() => handleSortMetricClick('battingAvgPct')}
+                  title="% of quarters outperforming QQQ"
+                >
+                  Bat % {sortMetric === 'battingAvgPct' ? '▼' : ''}
+                </th>
+                <th className="num" title="Average quarterly portfolio turnover %">
+                  Turn %
+                </th>
                 {RETURN_WINDOWS.map((w) => (
                   <th
                     key={w.id}
                     className={`num sortable ${windowSize === w.id ? 'active-col' : ''}`}
-                    onClick={() => onWindowChange(w.id)}
+                    onClick={() => handleWindowClick(w.id)}
                     title={`Rank by ${w.fullLabel}`}
                   >
-                    {w.label} {windowSize === w.id ? '▼' : ''}
+                    {w.label} {sortMetric === 'return' && windowSize === w.id ? '▼' : ''}
                   </th>
                 ))}
-                <th>1Y Curve</th>
               </tr>
             </thead>
             <tbody>
-              {rankedRows.map(({ fund, displayRank, isTop100 }) => {
+              {cohortRows.map(({ fund, displayRank }) => {
                 const rets = fund.returns[mode];
-                const curvePts = fund.equityCurve[mode];
-                const ttmPos = (rets.TTM ?? rets.YTD ?? 0) >= 0;
+                const met = fund.metrics[mode];
                 return (
                   <tr key={fund.cik}>
                     <td>
@@ -275,11 +549,11 @@ export const RankingTab: FC<RankingTabProps> = ({
                           #{displayRank}
                         </span>
                       ) : (
-                        <span className="rank-badge">N/A</span>
+                        <span className="rank-badge">Excl</span>
                       )}
                     </td>
 
-                    <td style={{ minWidth: '210px' }}>
+                    <td style={{ minWidth: '225px' }}>
                       <button
                         type="button"
                         className="fund-link-btn"
@@ -289,40 +563,97 @@ export const RankingTab: FC<RankingTabProps> = ({
                         <ArrowUpRight size={14} style={{ color: 'var(--accent-primary)' }} />
                       </button>
                       <div className="fund-meta-line">
+                        <span className={`chip ${tierChipClass(fund.fundTier)}`}>
+                          {fund.fundTier === 'Elite 50' && <Award size={10} />}
+                          {fund.fundTier}
+                        </span>
                         <span>{fund.manager}</span>
                         <span>·</span>
                         <span>{fund.latestQuarterLabel}</span>
                         {fund.source === 'EDGAR Discovered' && (
                           <span className="chip discovered">Discovered</span>
                         )}
-                        {!isTop100 && showAll && displayRank !== null && (
-                          <span className="chip">Outside Top 100</span>
-                        )}
                       </div>
+                      {!fund.isLeaderboardEligible && fund.exclusionReason && (
+                        <div style={{ fontSize: '0.71rem', color: 'var(--warn-text)', marginTop: '0.2rem' }}>
+                          {fund.exclusionReason}
+                        </div>
+                      )}
                     </td>
 
                     <td className="num">
                       <div className="mono" style={{ fontWeight: 600 }}>
                         {formatUsdCompact(fund.equityAumUsd)}
                       </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        {fund.equityPositionCount} stocks · Top 10: {fund.top10WeightPct.toFixed(0)}%
+                      <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
+                        {fund.equityPositionCount} stocks · EffN {fund.effectivePositions}
+                        {fund.etfSharePct > 0 ? ` · ${fund.etfSharePct.toFixed(0)}% ETF stripped` : ''}
                       </div>
                     </td>
 
-                    <td style={{ minWidth: '195px' }}>
-                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                        {fund.topHoldingsPreview.slice(0, 3).map((h) => (
-                          <span key={h.ticker} className="chip" title={h.name}>
-                            <strong className="mono">{h.ticker}</strong>{' '}
-                            <span className="mono">{h.weightPct.toFixed(1)}%</span>
-                          </span>
-                        ))}
+                    <td style={{ minWidth: '205px' }}>
+                      <div style={{ display: 'flex', gap: '0.28rem', flexWrap: 'wrap' }}>
+                        {fund.topHoldingsPreview.slice(0, 3).map((h) =>
+                          stocksIndex[h.ticker] ? (
+                            <button
+                              key={h.ticker}
+                              type="button"
+                              className="chip clickable"
+                              onClick={() => onSelectStock(h.ticker)}
+                              title={`Open ${h.ticker} (${h.name}) Stock Dossier`}
+                            >
+                              <strong className="mono">{h.ticker}</strong>{' '}
+                              <span className="mono">{h.weightPct.toFixed(1)}%</span>
+                            </button>
+                          ) : (
+                            <span key={h.ticker} className="chip" title={h.name}>
+                              <strong className="mono">{h.ticker}</strong>{' '}
+                              <span className="mono">{h.weightPct.toFixed(1)}%</span>
+                            </span>
+                          )
+                        )}
                       </div>
                     </td>
 
                     <td className="num mono">
                       <span className="chip tech">{formatPct(fund.techTmtPct, 0)}</span>
+                    </td>
+
+                    <td className={`num mono ${sortMetric === 'skillScore' ? 'active-col' : ''}`}>
+                      {met.skillScore !== null ? (
+                        <div>
+                          <span className={`chip ${met.skillScore >= 70 ? 'elite' : met.skillScore >= 55 ? 'tech' : ''}`}>
+                            <strong>{met.skillScore.toFixed(0)}</strong>
+                          </span>
+                          {met.skillRank !== null && (
+                            <div style={{ fontSize: '0.67rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                              #{met.skillRank}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+
+                    <td className={`num mono ${sortMetric === 'sortinoRatio' ? 'active-col' : ''}`}>
+                      {met.sortinoRatio !== null ? met.sortinoRatio.toFixed(2) : '—'}
+                    </td>
+
+                    <td
+                      className={`num mono ${returnClass(met.infoRatioVsQqq)} ${
+                        sortMetric === 'infoRatioVsQqq' ? 'active-col' : ''
+                      }`}
+                    >
+                      {met.infoRatioVsQqq !== null ? met.infoRatioVsQqq.toFixed(2) : '—'}
+                    </td>
+
+                    <td className={`num mono ${sortMetric === 'battingAvgPct' ? 'active-col' : ''}`}>
+                      {met.battingAvgPct !== null ? `${met.battingAvgPct.toFixed(0)}%` : '—'}
+                    </td>
+
+                    <td className="num mono" style={{ color: 'var(--text-secondary)' }}>
+                      {met.avgTurnoverPct !== null ? `${met.avgTurnoverPct.toFixed(0)}%` : '—'}
                     </td>
 
                     {RETURN_WINDOWS.map((w) => {
@@ -337,17 +668,13 @@ export const RankingTab: FC<RankingTabProps> = ({
                         </td>
                       );
                     })}
-
-                    <td>
-                      <MiniSparkline points={curvePts} positive={ttmPos} />
-                    </td>
                   </tr>
                 );
               })}
-              {rankedRows.length === 0 && (
+              {cohortRows.length === 0 && (
                 <tr>
-                  <td colSpan={12} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    No concentrated tech funds match &ldquo;{search}&rdquo;. Try clearing the search filter.
+                  <td colSpan={16} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    No funds match &ldquo;{search}&rdquo; in this cohort. Try switching to All Eligible or clearing search.
                   </td>
                 </tr>
               )}

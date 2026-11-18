@@ -1,4 +1,4 @@
-import { useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useState, type FC } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,7 +10,13 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react';
-import type { FundUpdateEntry, MoveAction, PositionMoveItem } from '../types/data';
+import type {
+  FundUpdateSummary,
+  MoveAction,
+  PositionMoveItem,
+  StockIndexEntry,
+} from '../types/data';
+import { fetchFundShard } from '../utils/dataLoader';
 import {
   compactShares,
   downloadCsv,
@@ -18,12 +24,15 @@ import {
   formatSignedPct,
   formatUsdCompact,
   returnClass,
+  tierChipClass,
 } from '../utils/format';
 
 interface UpdateDetailDrawerProps {
-  update: FundUpdateEntry;
+  update: FundUpdateSummary;
+  stocksIndex: Record<string, StockIndexEntry>;
   onClose: () => void;
   onOpenFundProfile?: (cik: string) => void;
+  onSelectStock?: (ticker: string) => void;
   fromFundDrawer?: boolean;
 }
 
@@ -47,8 +56,10 @@ function bookBarSegments(eqPct: number, callPct: number, putPct: number) {
 
 export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
   update,
+  stocksIndex,
   onClose,
   onOpenFundProfile,
+  onSelectStock,
   fromFundDrawer = false,
 }) => {
   const [filter, setFilter] = useState<DiffFilter>('ALL');
@@ -56,9 +67,50 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
   const [sortAsc, setSortAsc] = useState(false);
   const [search, setSearch] = useState('');
 
+  const [retrySeq, setRetrySeq] = useState(0);
+  const requestKey = `${update.shard}:${update.cik}:${retrySeq}`;
+  const [shardState, setShardState] = useState<{
+    key: string;
+    moves: PositionMoveItem[] | null;
+    error: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchFundShard(update.shard)
+      .then((payload) => {
+        if (!cancelled) {
+          setShardState({
+            key: requestKey,
+            moves: payload.updates[update.cik]?.allMoves ?? [],
+            error: null,
+          });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setShardState({
+            key: requestKey,
+            moves: null,
+            error: err instanceof Error ? err.message : 'Unable to load update shard',
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, update.cik, update.shard]);
+
+  const shardLoading = shardState?.key !== requestKey;
+  const shardError = shardState?.key === requestKey ? shardState.error : null;
+  const allMoves = useMemo(
+    () => (shardState?.key === requestKey && shardState.moves ? shardState.moves : []),
+    [requestKey, shardState]
+  );
+
   const filteredMoves = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return update.allMoves
+    return allMoves
       .filter((m) => {
         if (filter === 'NEW' && m.action !== 'NEW') return false;
         if (filter === 'ADDED' && m.action !== 'ADDED') return false;
@@ -93,7 +145,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
         }
         return sortAsc ? av - bv : bv - av;
       });
-  }, [update.allMoves, filter, sortBy, sortAsc, search]);
+  }, [allMoves, filter, sortBy, sortAsc, search]);
 
   const toggleSort = (col: DiffSort) => {
     if (sortBy === col) setSortAsc(!sortAsc);
@@ -104,6 +156,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
   };
 
   const handleExport = () => {
+    if (!allMoves.length) return;
     downloadCsv(
       `paper-trail-${update.fundName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${update.periodEnd}-diff.csv`,
       [
@@ -122,7 +175,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
         'Book Delta (pts)',
         'Note',
       ],
-      update.allMoves.map((m: PositionMoveItem) => [
+      allMoves.map((m: PositionMoveItem) => [
         m.ticker,
         m.name,
         m.securityType,
@@ -153,9 +206,33 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
   );
 
   const optionsCount = useMemo(
-    () => update.allMoves.filter((m) => m.securityType === 'CALL' || m.securityType === 'PUT').length,
-    [update.allMoves]
+    () => allMoves.filter((m) => m.securityType === 'CALL' || m.securityType === 'PUT').length,
+    [allMoves]
   );
+
+  const valShiftsCount = useMemo(
+    () =>
+      shardState?.key === requestKey && shardState.moves
+        ? allMoves.filter((m) => Boolean(m.valuationShiftType)).length
+        : update.valuationShifts.length,
+    [allMoves, requestKey, shardState, update.valuationShifts.length]
+  );
+
+  const renderTicker = (t: string) => {
+    if (onSelectStock && stocksIndex[t]) {
+      return (
+        <button
+          type="button"
+          className="ticker-badge ticker-link-btn"
+          onClick={() => onSelectStock(t)}
+          title={`Open ${t} Stock Dossier`}
+        >
+          {t}
+        </button>
+      );
+    }
+    return <span className="ticker-badge">{t}</span>;
+  };
 
   return (
     <div
@@ -175,7 +252,11 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
               <h2 id="update-drawer-title" style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700 }}>
                 {update.fundName}
               </h2>
-              <span className="chip tech">{update.quarterLabel} Update</span>
+              <span className={`chip ${tierChipClass(update.fundTier)}`}>{update.fundTier}</span>
+              <span className="chip tech">{update.quarterLabel} {update.form || '13F-HR'}</span>
+              {update.amendmentType && (
+                <span className="chip warn">{update.amendmentType}</span>
+              )}
               <span
                 className={`chip ${
                   update.deadlineBadge === 'Deadline Day'
@@ -204,7 +285,11 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
               <span>·</span>
               <span>{update.prevQuarterLabel} → {update.quarterLabel}</span>
               <span>·</span>
-              <span className="mono">Filed {update.filingDate}</span>
+              <span className="mono">
+                {update.originalFilingDate && update.originalFilingDate !== update.filingDate
+                  ? `Orig ${update.originalFilingDate} · Amended ${update.latestAmendmentDate || update.filingDate}`
+                  : `Filed ${update.filingDate}`}
+              </span>
               <span>·</span>
               <a
                 href={update.filingUrl}
@@ -357,7 +442,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
                 </div>
               )}
 
-              {/* Book Composition Shift Visual Bar (Prev vs Curr) */}
+              {/* Book Composition Shift Visual Bar */}
               <div className="book-mix-compare">
                 <div className="book-mix-row">
                   <div className="book-mix-meta">
@@ -411,7 +496,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
             </div>
           </div>
 
-          {/* Structured Instrument Shifts / Valuation Moves Cards (if any) */}
+          {/* Structured Instrument Shifts / Valuation Moves Cards */}
           {(update.instrumentShifts.length > 0 || update.valuationShifts.length > 0) && (
             <div className="panel">
               <div className="panel-header">
@@ -424,7 +509,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
                 {update.valuationShifts.map((vs) => (
                   <div key={`vs-${vs.cusip}-${vs.securityType}`} className="signal-tile valuation">
                     <div className="signal-tile-head">
-                      <span className="ticker-badge">{vs.ticker}</span>
+                      {renderTicker(vs.ticker)}
                       <span className="chip warn">
                         {vs.valuationShiftType === 'MARKDOWN' ? (
                           <TrendingDown size={11} />
@@ -447,7 +532,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
                 {update.instrumentShifts.map((sig) => (
                   <div key={`${sig.shiftType}-${sig.ticker}`} className="signal-tile">
                     <div className="signal-tile-head">
-                      <span className="ticker-badge">{sig.ticker}</span>
+                      {renderTicker(sig.ticker)}
                       <span className="chip tech">{sig.shiftType.replace(/_/g, ' ')}</span>
                     </div>
                     <div className="signal-tile-title">{sig.label}</div>
@@ -463,7 +548,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
             <div className="panel-header">
               <div>
                 <h3 className="panel-title">
-                  Complete Quarter-over-Quarter Diff ({filteredMoves.length} of {update.allMoves.length})
+                  Complete Quarter-over-Quarter Diff ({shardLoading ? 'loading...' : `${filteredMoves.length} of ${allMoves.length}`})
                 </h3>
                 <p className="panel-subtitle">
                   Comparing {update.prevQuarterLabel} ({update.prevPeriodEnd}) vs. {update.quarterLabel} ({update.periodEnd})
@@ -480,139 +565,154 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                <button type="button" className="action-btn" onClick={handleExport}>
+                <button type="button" className="action-btn" onClick={handleExport} disabled={!allMoves.length}>
                   <Download size={14} /> Export Diff CSV
                 </button>
               </div>
             </div>
 
-            <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border-hairline)', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-              <div className="segmented-group" role="group" aria-label="Filter position changes">
-                {(
-                  [
-                    { id: 'ALL', label: `All (${update.allMoves.length})` },
-                    { id: 'NEW', label: `New (${update.newCount})` },
-                    { id: 'ADDED', label: `Added (${update.addedCount})` },
-                    { id: 'TRIMMED', label: `Trimmed (${update.trimmedCount})` },
-                    { id: 'EXITED', label: `Exited (${update.exitedCount})` },
-                    { id: 'OPTIONS', label: `Calls & Puts (${optionsCount})` },
-                    ...(update.valuationShifts.length > 0
-                      ? [{ id: 'VALUATION' as const, label: `Markdowns/Ups (${update.valuationShifts.length})` }]
-                      : []),
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className={`seg-btn ${filter === tab.id ? 'active' : ''}`}
-                    onClick={() => setFilter(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+            {shardError ? (
+              <div style={{ padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="ret-neg">Error loading filing diff shard: {shardError}</span>
+                <button type="button" className="action-btn" onClick={() => setRetrySeq((r) => r + 1)}>
+                  Retry
+                </button>
               </div>
-            </div>
+            ) : shardLoading ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.84rem' }}>
+                Loading complete position-by-position QoQ diff from shard <code>funds_{update.shard}.json</code>...
+              </div>
+            ) : (
+              <>
+                <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border-hairline)', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div className="segmented-group" role="group" aria-label="Filter position changes">
+                    {(
+                      [
+                        { id: 'ALL', label: `All (${allMoves.length})` },
+                        { id: 'NEW', label: `New (${update.newCount})` },
+                        { id: 'ADDED', label: `Added (${update.addedCount})` },
+                        { id: 'TRIMMED', label: `Trimmed (${update.trimmedCount})` },
+                        { id: 'EXITED', label: `Exited (${update.exitedCount})` },
+                        { id: 'OPTIONS', label: `Calls & Puts (${optionsCount})` },
+                        ...(valShiftsCount > 0
+                          ? [{ id: 'VALUATION' as const, label: `Markdowns/Ups (${valShiftsCount})` }]
+                          : []),
+                      ] as const
+                    ).map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        className={`seg-btn ${filter === tab.id ? 'active' : ''}`}
+                        onClick={() => setFilter(tab.id)}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div className="table-scroll" style={{ maxHeight: '480px', overflowY: 'auto' }}>
-              <table className="data-table compact">
-                <thead>
-                  <tr>
-                    <th style={{ minWidth: '185px' }}>Security</th>
-                    <th>Action</th>
-                    <th className="num">
-                      Shares ({update.prevQuarterLabel.replace(/^20\d{2}\s*/, '')} →{' '}
-                      {update.quarterLabel.replace(/^20\d{2}\s*/, '')})
-                    </th>
-                    <th className="num sortable" onClick={() => toggleSort('sharesDeltaPct')}>
-                      Shs Δ {sortBy === 'sharesDeltaPct' ? (sortAsc ? '↑' : '↓') : ''}
-                    </th>
-                    <th className="num sortable" onClick={() => toggleSort('maxValue')}>
-                      Value ({update.prevQuarterLabel.replace(/^20\d{2}\s*/, '')} →{' '}
-                      {update.quarterLabel.replace(/^20\d{2}\s*/, '')}){' '}
-                      {sortBy === 'maxValue' ? (sortAsc ? '↑' : '↓') : ''}
-                    </th>
-                    <th className="num sortable" onClick={() => toggleSort('valueDelta')}>
-                      Val Δ {sortBy === 'valueDelta' ? (sortAsc ? '↑' : '↓') : ''}
-                    </th>
-                    <th className="num sortable" onClick={() => toggleSort('bookDelta')}>
-                      Book % Δ {sortBy === 'bookDelta' ? (sortAsc ? '↑' : '↓') : ''}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredMoves.map((m) => (
-                    <tr key={`${m.cusip}-${m.securityType}-${m.action}`}>
-                      <td style={{ maxWidth: '250px', whiteSpace: 'normal' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                          <span className="ticker-badge">{m.ticker}</span>
-                          {m.securityType !== 'EQUITY' && (
-                            <span className={`chip ${m.securityType === 'PUT' ? 'warn' : 'tech'}`}>
-                              {m.securityType}
-                            </span>
-                          )}
-                          <span style={{ fontWeight: 500, lineHeight: 1.3 }}>{m.name}</span>
-                        </div>
-                        {m.tagNote && (
-                          <div style={{ fontSize: '0.73rem', color: 'var(--warn-text)', fontWeight: 500, marginTop: '0.2rem' }}>
-                            {m.tagNote}
-                          </div>
-                        )}
-                      </td>
+                <div className="table-scroll" style={{ maxHeight: '480px', overflowY: 'auto' }}>
+                  <table className="data-table compact">
+                    <thead>
+                      <tr>
+                        <th style={{ minWidth: '185px' }}>Security</th>
+                        <th>Action</th>
+                        <th className="num">
+                          Shares ({update.prevQuarterLabel.replace(/^20\d{2}\s*/, '')} →{' '}
+                          {update.quarterLabel.replace(/^20\d{2}\s*/, '')})
+                        </th>
+                        <th className="num sortable" onClick={() => toggleSort('sharesDeltaPct')}>
+                          Shs Δ {sortBy === 'sharesDeltaPct' ? (sortAsc ? '↑' : '↓') : ''}
+                        </th>
+                        <th className="num sortable" onClick={() => toggleSort('maxValue')}>
+                          Value ({update.prevQuarterLabel.replace(/^20\d{2}\s*/, '')} →{' '}
+                          {update.quarterLabel.replace(/^20\d{2}\s*/, '')}){' '}
+                          {sortBy === 'maxValue' ? (sortAsc ? '↑' : '↓') : ''}
+                        </th>
+                        <th className="num sortable" onClick={() => toggleSort('valueDelta')}>
+                          Val Δ {sortBy === 'valueDelta' ? (sortAsc ? '↑' : '↓') : ''}
+                        </th>
+                        <th className="num sortable" onClick={() => toggleSort('bookDelta')}>
+                          Book % Δ {sortBy === 'bookDelta' ? (sortAsc ? '↑' : '↓') : ''}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredMoves.map((m) => (
+                        <tr key={`${m.cusip}-${m.securityType}-${m.action}`}>
+                          <td style={{ maxWidth: '250px', whiteSpace: 'normal' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                              {renderTicker(m.ticker)}
+                              {m.securityType !== 'EQUITY' && (
+                                <span className={`chip ${m.securityType === 'PUT' ? 'warn' : 'tech'}`}>
+                                  {m.securityType}
+                                </span>
+                              )}
+                              <span style={{ fontWeight: 500, lineHeight: 1.3 }}>{m.name}</span>
+                            </div>
+                            {m.tagNote && (
+                              <div style={{ fontSize: '0.73rem', color: 'var(--warn-text)', fontWeight: 500, marginTop: '0.2rem' }}>
+                                {m.tagNote}
+                              </div>
+                            )}
+                          </td>
 
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <span className={`chip ${actionChipClass(m.action)}`}>{m.action}</span>
-                      </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <span className={`chip ${actionChipClass(m.action)}`}>{m.action}</span>
+                          </td>
 
-                      <td className="num mono" style={{ fontSize: '0.77rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                        {m.action === 'NEW'
-                          ? `0 → ${compactShares(m.currShares)}`
-                          : m.action === 'EXITED'
-                            ? `${compactShares(m.prevShares)} → 0`
-                            : `${compactShares(m.prevShares)} → ${compactShares(m.currShares)}`}
-                      </td>
+                          <td className="num mono" style={{ fontSize: '0.77rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                            {m.action === 'NEW'
+                              ? `0 → ${compactShares(m.currShares)}`
+                              : m.action === 'EXITED'
+                                ? `${compactShares(m.prevShares)} → 0`
+                                : `${compactShares(m.prevShares)} → ${compactShares(m.currShares)}`}
+                          </td>
 
-                      <td className={`num mono ${returnClass(m.action === 'NEW' ? 1 : m.sharesDeltaPct)}`}>
-                        {m.action === 'NEW'
-                          ? 'NEW'
-                          : m.action === 'EXITED'
-                            ? 'EXITED'
-                            : formatSignedPct(m.sharesDeltaPct, 1)}
-                      </td>
+                          <td className={`num mono ${returnClass(m.action === 'NEW' ? 1 : m.sharesDeltaPct)}`}>
+                            {m.action === 'NEW'
+                              ? 'NEW'
+                              : m.action === 'EXITED'
+                                ? 'EXITED'
+                                : formatSignedPct(m.sharesDeltaPct, 1)}
+                          </td>
 
-                      <td className="num mono" style={{ fontSize: '0.79rem' }}>
-                        {m.action === 'NEW'
-                          ? `— → ${formatUsdCompact(m.currValueUsd)}`
-                          : m.action === 'EXITED'
-                            ? `${formatUsdCompact(m.prevValueUsd)} → $0`
-                            : `${formatUsdCompact(m.prevValueUsd)} → ${formatUsdCompact(m.currValueUsd)}`}
-                      </td>
+                          <td className="num mono" style={{ fontSize: '0.79rem' }}>
+                            {m.action === 'NEW'
+                              ? `— → ${formatUsdCompact(m.currValueUsd)}`
+                              : m.action === 'EXITED'
+                                ? `${formatUsdCompact(m.prevValueUsd)} → $0`
+                                : `${formatUsdCompact(m.prevValueUsd)} → ${formatUsdCompact(m.currValueUsd)}`}
+                          </td>
 
-                      <td className={`num mono ${returnClass(m.valueDeltaUsd)}`}>
-                        {m.valueDeltaUsd > 0 ? '+' : m.valueDeltaUsd < 0 ? '-' : ''}
-                        {formatUsdCompact(Math.abs(m.valueDeltaUsd))}
-                      </td>
+                          <td className={`num mono ${returnClass(m.valueDeltaUsd)}`}>
+                            {m.valueDeltaUsd > 0 ? '+' : m.valueDeltaUsd < 0 ? '-' : ''}
+                            {formatUsdCompact(Math.abs(m.valueDeltaUsd))}
+                          </td>
 
-                      <td className="num mono">
-                        <div style={{ fontSize: '0.79rem' }}>
-                          {m.prevBookPct.toFixed(1)}% → <strong>{m.currBookPct.toFixed(1)}%</strong>
-                        </div>
-                        <div className={returnClass(m.bookDeltaPct)} style={{ fontSize: '0.72rem' }}>
-                          {m.bookDeltaPct > 0 ? '+' : ''}
-                          {m.bookDeltaPct.toFixed(2)} pts
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredMoves.length === 0 && (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '1.75rem', color: 'var(--text-muted)' }}>
-                        No position changes match the current filter.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                          <td className="num mono">
+                            <div style={{ fontSize: '0.79rem' }}>
+                              {m.prevBookPct.toFixed(1)}% → <strong>{m.currBookPct.toFixed(1)}%</strong>
+                            </div>
+                            <div className={returnClass(m.bookDeltaPct)} style={{ fontSize: '0.72rem' }}>
+                              {m.bookDeltaPct > 0 ? '+' : ''}
+                              {m.bookDeltaPct.toFixed(2)} pts
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredMoves.length === 0 && (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '1.75rem', color: 'var(--text-muted)' }}>
+                            No position changes match the current filter.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

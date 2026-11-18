@@ -1526,3 +1526,354 @@
     box-sizing: border-box;
   }
 }
+
+/* Tier & Stock Interactive Controls */
+.chip.elite {
+  background: rgba(175, 82, 222, 0.13);
+  color: #7c2ae8;
+  font-weight: 700;
+}
+
+.stock-drawer-backdrop {
+  z-index: 75;
+}
+
+.stock-hero-ticker {
+  font-size: 0.96rem;
+  padding: 0.24rem 0.62rem;
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
+  border-color: rgba(0, 113, 227, 0.24);
+}
+
+.ticker-link-btn {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ticker-link-btn:hover {
+  background: var(--accent-primary-soft);
+  border-color: rgba(0, 113, 227, 0.35);
+  color: var(--accent-primary);
+}
+
+.ticker-link-inline {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 113, 227, 0.35);
+  text-underline-offset: 2px;
+}
+
+.ticker-link-inline:hover {
+  text-decoration-color: var(--accent-primary);
+}
+
+/* Est. Quarter VWAP Cost-Basis Card */
+.vwap-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.vwap-kpis > div {
+  background: var(--bg-surface-subtle);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.vwap-k-lbl {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.vwap-range-wrap {
+  margin: 0.6rem 0 0.75rem;
+}
+
+.vwap-track {
+  position: relative;
+  height: 14px;
+  background: var(--bg-surface-subtle);
+  border-radius: 999px;
+  overflow: visible;
+  border: 1px solid var(--border-subtle);
+}
+
+.vwap-qband {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: rgba(0, 113, 227, 0.24);
+  border-radius: 999px;
+}
+
+.vwap-marker {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+}
+
+.vwap-now-pin {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  margin-top: -6px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  background: #1d1d1f;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}
+
+.vwap-now-pin.pos {
+  background: var(--pos-text);
+}
+
+.vwap-now-pin.tech {
+  background: var(--accent-primary);
+}
+
+.vwap-now-pin.warn {
+  background: var(--warn-text);
+}
+
+.vwap-now-pin.neg {
+  background: var(--neg-text);
+}
+
+.vwap-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 0.45rem;
+}
+
+.vwap-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  margin-right: 0.3rem;
+}
+
+.vwap-dot.band {
+  background: rgba(0, 113, 227, 0.35);
+}
+
+.vwap-dot.avg {
+  background: var(--accent-primary);
+}
+
+.vwap-dot.now {
+  background: #1d1d1f;
+}
+
+.vwap-caption {
+  margin: 0.45rem 0 0;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* SEC XBRL Fundamentals Grid */
+.xbrl-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.xbrl-cell {
+  background: var(--bg-surface-subtle);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.xbrl-lbl {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Mid-Quarter Schedule 13D/13G Alerts */
+.midq-alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(410px, 1fr));
+  gap: 0.65rem;
+  padding: 0.9rem 1.25rem;
+}
+
+.alerts-strip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.alert-row-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.62rem 0.85rem;
+  border-radius: 10px;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Matching Stock Dossiers Strip in RankingTab */
+.matching-stocks-strip {
+  background: var(--bg-surface);
+  border: 1px solid rgba(0, 113, 227, 0.22);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 1.15rem;
+  margin-bottom: 1.15rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.matching-stocks-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.55rem;
+}
+
+.matching-stocks-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+.matching-stock-card {
+  text-align: left;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 0.58rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.matching-stock-card:hover {
+  background: var(--accent-primary-soft);
+  border-color: rgba(0, 113, 227, 0.35);
+}
+
+/* Pulse Sibling Pill (filter + open dossier arrow) */
+.pulse-pill-group {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.pulse-pill-group .pulse-ticker-btn {
+  border: none;
+  border-radius: 0;
+}
+
+.pulse-dossier-btn {
+  background: var(--bg-surface);
+  border: none;
+  border-left: 1px solid var(--border-hairline);
+  padding: 0 0.38rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s ease;
+}
+
+.pulse-dossier-btn:hover {
+  background: var(--accent-primary-soft);
+  color: var(--accent-primary);
+}
+
+/* Interactive Portfolio Builder & Rebalance Calculator */
+.builder-controls-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.35rem;
+  align-items: flex-end;
+}
+
+.builder-ctrl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+}
+
+.builder-ctrl-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.rebalance-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  resize: vertical;
+  outline: none;
+}
+
+.rebalance-textarea:focus {
+  background: var(--bg-surface);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.14);
+}
+
+@media (max-width: 720px) {
+  .vwap-kpis,
+  .xbrl-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .midq-alerts-grid {
+    grid-template-columns: 1fr;
+  }
+  .rebalance-panel > div:last-child {
+    grid-template-columns: 1fr !important;
+  }
+}
+

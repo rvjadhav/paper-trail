@@ -1,6 +1,13 @@
 export type ReturnWindow = 'YTD' | 'TTM' | '18M' | '2Y' | '3Y' | '5Y';
 export type ReturnMode = 'quarter_end' | 'filing_lag';
 export type WeightMode = 'equal' | 'aum';
+export type FundTier = 'Elite 50' | 'Top 100' | 'Qualified' | 'Excluded' | 'Watchlist';
+export type MarketCapTier = 'Mega >$200B' | 'Large $30B-$200B' | 'Emerging <$30B';
+export type EntryZoneStatus =
+  | 'Discount to Q-Avg'
+  | 'Near Q-Avg'
+  | 'Extended'
+  | 'Chasing (+30%+)';
 
 export interface WindowReturns {
   YTD: number | null;
@@ -21,21 +28,21 @@ export interface FundHolding {
   securityType: 'EQUITY' | 'CALL' | 'PUT' | 'NOTE';
   shares: number;
   valueUsd: number;
-  weightPct: number; // % of equity portfolio (0 for options/notes if excluded, or % of reported)
-  reportedWeightPct: number; // % of total reported 13F value
-  qoqSharesChangePct: number | null; // null if new position
+  weightPct: number;
+  reportedWeightPct: number;
+  qoqSharesChangePct: number | null;
   qoqWeightDeltaPct: number | null;
   status: 'NEW' | 'ADDED' | 'UNCHANGED' | 'TRIMMED';
   pricePerShare: number | null;
 }
 
 export interface EquityPoint {
-  date: string; // YYYY-MM-DD
-  nav: number; // Base 100 at start of series
+  date: string;
+  nav: number;
 }
 
 export interface QuarterlyReturnRow {
-  quarter: string; // e.g. "2026 Q3"
+  quarter: string;
   periodEnd: string;
   filingDate: string;
   equityAumUsd: number;
@@ -46,8 +53,38 @@ export interface QuarterlyReturnRow {
   qqqQuarterReturnPct: number | null;
 }
 
+export interface FundMetrics {
+  cagrPct: number | null;
+  maxDrawdownPct: number | null;
+  sharpeProxy: number | null;
+  sortinoRatio: number | null;
+  infoRatioVsQqq: number | null;
+  betaVsQqq: number | null;
+  alphaVsQqqPct: number | null;
+  annualizedVolPct: number | null;
+  battingAvgPct: number | null;
+  avgTurnoverPct: number | null;
+  skillScore: number | null;
+  skillRank: number | null;
+}
+
+export interface MidQuarterAlert {
+  id: string;
+  filerCik: string;
+  fundName: string;
+  form: string;
+  isActivist: boolean;
+  filingDate: string;
+  accessionNumber: string;
+  subjectCik: string;
+  ticker: string;
+  issuerName: string;
+  edgarUrl: string;
+}
+
 export interface FundSummary {
   cik: string;
+  shard: string;
   name: string;
   legalName: string;
   manager: string;
@@ -55,9 +92,12 @@ export interface FundSummary {
   styleTag: string;
   strategySummary: string;
   source: 'Curated Core' | 'EDGAR Discovered';
-  latestPeriod: string; // YYYY-MM-DD
-  latestQuarterLabel: string; // e.g. "2026 Q3"
-  latestFilingDate: string; // YYYY-MM-DD
+  fundTier: FundTier;
+  isLeaderboardEligible: boolean;
+  exclusionReason: string | null;
+  latestPeriod: string;
+  latestQuarterLabel: string;
+  latestFilingDate: string;
   equityAumUsd: number;
   totalReportedUsd: number;
   equityPositionCount: number;
@@ -65,28 +105,15 @@ export interface FundSummary {
   top10WeightPct: number;
   effectivePositions: number;
   techTmtPct: number;
+  etfSharePct: number;
   quartersTracked: number;
   returns: {
     quarter_end: WindowReturns;
     filing_lag: WindowReturns;
   };
   metrics: {
-    quarter_end: {
-      cagrPct: number | null;
-      maxDrawdownPct: number | null;
-      sharpeProxy: number | null;
-      betaVsQqq: number | null;
-      alphaVsQqqPct: number | null;
-      annualizedVolPct: number | null;
-    };
-    filing_lag: {
-      cagrPct: number | null;
-      maxDrawdownPct: number | null;
-      sharpeProxy: number | null;
-      betaVsQqq: number | null;
-      alphaVsQqqPct: number | null;
-      annualizedVolPct: number | null;
-    };
+    quarter_end: FundMetrics;
+    filing_lag: FundMetrics;
   };
   topHoldingsPreview: Array<{
     ticker: string;
@@ -97,24 +124,42 @@ export interface FundSummary {
     sector: string;
     weightPct: number;
   }>;
+  searchableTickers: string[];
+  edgarUrl: string;
+}
+
+export interface FundShardDetail {
+  cik: string;
+  holdings: FundHolding[];
   equityCurve: {
     quarter_end: EquityPoint[];
     filing_lag: EquityPoint[];
   };
   quarterlyHistory: QuarterlyReturnRow[];
-  holdings: FundHolding[];
-  edgarUrl: string;
+  midQuarterAlerts: MidQuarterAlert[];
 }
 
 export interface RankedWindowEntry {
   rank: number;
+  skillRank: number;
   cik: string;
   returnPct: number;
+  skillScore: number | null;
+}
+
+export interface StockFundamentals {
+  revenueTtmUsd: number | null;
+  revenueGrowthYoYPct: number | null;
+  operatingMarginPct: number | null;
+  fcfMarginPct: number | null;
+  rdIntensityPct: number | null;
+  shareDilutionYoYPct: number | null;
 }
 
 export interface StockHolderDetail {
   cik: string;
   fundName: string;
+  fundTier: FundTier;
   weightPct: number;
   valueUsd: number;
   status: 'NEW' | 'ADDED' | 'UNCHANGED' | 'TRIMMED';
@@ -129,20 +174,79 @@ export interface ConsensusHolding {
   name: string;
   sector: string;
   industry: string;
+  subSector: string;
   isTechTmt: boolean;
   priceUsd: number | null;
   stockYtdPct: number | null;
   stockTtmPct: number | null;
   holderCount: number;
   totalRankedFundsPool: number;
-  equalAggregateWeightPct: number; // Average weight across the ranked funds pool
-  avgHolderWeightPct: number; // Average weight among funds that hold it
-  aumAggregateWeightPct: number; // Dollar held / combined pool AUM
+  equalAggregateWeightPct: number;
+  avgHolderWeightPct: number;
+  aumAggregateWeightPct: number;
   totalValueUsd: number;
-  netBuyers: number; // NEW + ADDED
-  netTrimmers: number; // TRIMMED
+  netBuyers: number;
+  netTrimmers: number;
   holders: StockHolderDetail[];
   summaryText: string;
+  marketCapUsd?: number | null;
+  marketCapTier?: MarketCapTier | null;
+  estQuarterVwap?: number | null;
+  pctVsQuarterVwap?: number | null;
+  entryZoneStatus?: EntryZoneStatus | null;
+  fundamentals?: StockFundamentals | null;
+}
+
+export interface SignalScreenerEntry {
+  ticker: string;
+  name: string;
+  sector: string;
+  subSector: string;
+  isTechTmt: boolean;
+  priceUsd: number | null;
+  stockTtmPct: number | null;
+  holderCount: number;
+  eliteHoldersCount: number;
+  totalValueUsd: number;
+  avgWeightPct: number;
+  maxWeightPct: number;
+  newCount: number;
+  eliteNewCount: number;
+  addedCount: number;
+  trimmedCount: number;
+  exitedCount: number;
+  netDeltaUsd: number;
+  movers: Array<{
+    cik: string;
+    fundName: string;
+    fundTier: FundTier;
+    action: 'NEW' | 'ADDED' | 'TRIMMED' | 'EXITED';
+    currBookPct: number;
+    prevBookPct: number;
+    valueDeltaUsd: number;
+    sharesDeltaPct: number | null;
+  }>;
+  topBackers: Array<{
+    cik: string;
+    fundName: string;
+    fundTier: FundTier;
+    weightPct: number;
+    status: 'NEW' | 'ADDED' | 'UNCHANGED' | 'TRIMMED';
+  }>;
+  marketCapUsd?: number | null;
+  marketCapTier?: MarketCapTier | null;
+  estQuarterVwap?: number | null;
+  pctVsQuarterVwap?: number | null;
+  entryZoneStatus?: EntryZoneStatus | null;
+  fundamentals?: StockFundamentals | null;
+}
+
+export interface SignalScreenerData {
+  quarterLabel: string;
+  clusterInitiations: SignalScreenerEntry[];
+  heavyAdds: SignalScreenerEntry[];
+  smartMoneyExits: SignalScreenerEntry[];
+  contrarianBets: SignalScreenerEntry[];
 }
 
 export interface IdealPortfolioPosition {
@@ -151,10 +255,17 @@ export interface IdealPortfolioPosition {
   cusip: string;
   name: string;
   sector: string;
+  subSector: string;
   industry: string;
-  idealWeightPct: number; // Sums to 100.0
-  convictionScore: number; // 0-100
+  isTechTmt: boolean;
+  rawScore: number;
+  inflectionScore: number;
+  idealWeightPct: number;
+  convictionScore: number;
   holderCount: number;
+  netNew: number;
+  netAdd: number;
+  netTrim: number;
   avgFundWeightPct: number;
   maxFundWeightPct: number;
   topHolderName: string;
@@ -171,6 +282,22 @@ export interface IdealPortfolioPosition {
   }>;
   stockTtmPct: number | null;
   priceUsd: number | null;
+  marketCapUsd?: number | null;
+  marketCapTier?: MarketCapTier | null;
+  estQuarterVwap?: number | null;
+  pctVsQuarterVwap?: number | null;
+  entryZoneStatus?: EntryZoneStatus | null;
+  fundamentals?: StockFundamentals | null;
+}
+
+export interface IdealPortfolioBacktestMode {
+  returns: WindowReturns;
+  cagrPct: number | null;
+  maxDrawdownPct: number | null;
+  sharpeProxy: number | null;
+  sortinoRatio: number | null;
+  infoRatioVsQqq: number | null;
+  curve: EquityPoint[];
 }
 
 export interface IdealPortfolioData {
@@ -186,21 +313,10 @@ export interface IdealPortfolioData {
     stockCount: number;
   }>;
   positions: IdealPortfolioPosition[];
+  candidatePool: IdealPortfolioPosition[];
   backtest: {
-    quarter_end: {
-      returns: WindowReturns;
-      cagrPct: number | null;
-      maxDrawdownPct: number | null;
-      sharpeProxy: number | null;
-      curve: EquityPoint[];
-    };
-    filing_lag: {
-      returns: WindowReturns;
-      cagrPct: number | null;
-      maxDrawdownPct: number | null;
-      sharpeProxy: number | null;
-      curve: EquityPoint[];
-    };
+    quarter_end: IdealPortfolioBacktestMode;
+    filing_lag: IdealPortfolioBacktestMode;
   };
 }
 
@@ -218,12 +334,12 @@ export interface PositionMoveItem {
   prevShares: number;
   currShares: number;
   sharesDelta: number;
-  sharesDeltaPct: number | null; // null if NEW, -100 if EXITED
+  sharesDeltaPct: number | null;
   prevValueUsd: number;
   currValueUsd: number;
   valueDeltaUsd: number;
-  prevBookPct: number; // % of total reported 13F book in prior quarter
-  currBookPct: number; // % of total reported 13F book in current quarter
+  prevBookPct: number;
+  currBookPct: number;
   bookDeltaPct: number;
   valuationShiftType: 'MARKDOWN' | 'MARKUP' | null;
   tagNote: string | null;
@@ -261,13 +377,17 @@ export interface InstrumentShiftSignal {
   currBookPct: number;
 }
 
-export interface FundUpdateEntry {
+export interface FundUpdateSummary {
   cik: string;
+  shard: string;
   fundName: string;
   legalName: string;
   manager: string;
   styleTag: string;
   source: 'Curated Core' | 'EDGAR Discovered';
+  fundTier: FundTier;
+  form: string;
+  amendmentType: string;
   inRankings: boolean;
   isRankedTop100AnyWindow: boolean;
   rankedWindows: ReturnWindow[];
@@ -277,6 +397,8 @@ export interface FundUpdateEntry {
   prevQuarterLabel: string;
   prevPeriodEnd: string;
   filingDate: string;
+  originalFilingDate: string;
+  latestAmendmentDate: string;
   prevFilingDate: string;
   statutoryDeadline: string;
   daysBeforeDeadline: number;
@@ -330,7 +452,16 @@ export interface FundUpdateEntry {
   topAdded: PositionMoveItem[];
   topTrimmed: PositionMoveItem[];
   topExited: PositionMoveItem[];
+}
+
+export interface UpdateShardDetail {
+  cik: string;
   allMoves: PositionMoveItem[];
+}
+
+export interface FundShardPayload {
+  funds: Record<string, FundShardDetail>;
+  updates: Record<string, UpdateShardDetail>;
 }
 
 export interface ConsensusMoveSummary {
@@ -376,7 +507,83 @@ export interface BenchmarkSeries {
   cagrPct: number | null;
   maxDrawdownPct: number | null;
   sharpeProxy: number | null;
+  sortinoRatio: number | null;
   curve: EquityPoint[];
+}
+
+export interface StockIndexEntry {
+  ticker: string;
+  name: string;
+  sector: string;
+  subSector: string;
+  shard: number;
+  priceUsd: number | null;
+  marketCapTier: MarketCapTier | null;
+  holderCount: number;
+  eliteHoldersCount: number;
+  signalVerdict: string;
+  entryZoneStatus: EntryZoneStatus | null;
+  pctVsQuarterVwap: number | null;
+}
+
+export interface StockDetailHolder {
+  cik: string;
+  fundName: string;
+  fundTier: FundTier;
+  skillScore: number | null;
+  weightPct: number;
+  valueUsd: number;
+  status: 'NEW' | 'ADDED' | 'UNCHANGED' | 'TRIMMED';
+  qoqSharesChangePct: number | null;
+  qoqWeightDeltaPct: number | null;
+}
+
+export interface StockDetailMove {
+  cik: string;
+  fundName: string;
+  fundTier: FundTier;
+  quarterLabel: string;
+  action: MoveAction;
+  sharesDeltaPct: number | null;
+  valueDeltaUsd: number;
+  prevBookPct: number;
+  currBookPct: number;
+}
+
+export interface StockDetail {
+  ticker: string;
+  cusip: string;
+  name: string;
+  sector: string;
+  industry: string;
+  subSector: string;
+  isTechTmt: boolean;
+  priceUsd: number | null;
+  stockYtdPct: number | null;
+  stockTtmPct: number | null;
+  marketCapUsd: number | null;
+  marketCapTier: MarketCapTier | null;
+  estQuarterVwap: number | null;
+  quarterLow: number | null;
+  quarterHigh: number | null;
+  pctVsQuarterVwap: number | null;
+  entryZoneStatus: EntryZoneStatus | null;
+  fundamentals: StockFundamentals | null;
+  signalVerdict: string;
+  idealPortfolioRank: number | null;
+  idealWeightPct: number | null;
+  holderCount: number;
+  eliteHoldersCount: number;
+  totalValueUsd: number;
+  avgWeightPct: number;
+  maxWeightPct: number;
+  newCount: number;
+  addedCount: number;
+  trimmedCount: number;
+  exitedCount: number;
+  holders: StockDetailHolder[];
+  recentMoves: StockDetailMove[];
+  midQuarterAlerts: MidQuarterAlert[];
 }
 
 export interface UniverseFunnel {
@@ -392,27 +599,34 @@ export interface UniverseFunnel {
   strictQualificationCount: number;
   pricedHistoryPassCount: number;
   qualifiedFundsCount: number;
+  leaderboardEligibleCount: number;
+  elite50Count: number;
   curatedQualifiedCount: number;
   discoveredQualifiedCount: number;
   rankedUnionQeCount: number;
   rankedUnionLagCount: number;
   updatesCardsCount: number;
   idealPortfolioCount: number;
+  stocksIndexedCount: number;
+  midQuarterAlertsCount: number;
   bulkDatasetsCount: number;
   bulkMaxFilingDate: string;
   postBulkFilingsCount: number;
 }
 
-export interface PaperTrailDataset {
+export interface PaperTrailSummaryDataset {
   metadata: {
     generatedAt: string;
     asOfDate: string;
     latestQuarterCovered: string;
     fundsEvaluatedCount: number;
     qualifiedFundsCount: number;
+    leaderboardEligibleCount: number;
+    elite50Count: number;
     rankedFundsUnionCount: number;
     total13fFilingsProcessed: number;
     next13fSeasonLabel: string;
+    riskFreeLatestPct: number;
     dataSources: string[];
     universeFunnel?: UniverseFunnel;
   };
@@ -430,7 +644,10 @@ export interface PaperTrailDataset {
     quarter_end: ConsensusHolding[];
     filing_lag: ConsensusHolding[];
   };
+  signalScreener: SignalScreenerData;
   idealPortfolio: IdealPortfolioData;
-  fundUpdates: FundUpdateEntry[];
+  fundUpdates: FundUpdateSummary[];
   updatesOverview: UpdatesOverview;
+  midQuarterAlerts: MidQuarterAlert[];
+  stocksIndex: Record<string, StockIndexEntry>;
 }

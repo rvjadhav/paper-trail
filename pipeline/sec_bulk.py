@@ -15,10 +15,11 @@ import io
 import json
 import re
 import time
+import urllib.parse
 import urllib.request
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ from sec_client import (
     fetch_json,
     format_entity_name,
     get_submissions,
+    parse_13f_filing,
     parse_xml_info_table,
 )
 
@@ -108,14 +110,20 @@ _MONTH_MAP = {
 
 _EXCLUDE_INSTITUTION_RE = re.compile(
     r"\b("
-    r"banks?|bancorp|bancshares|banco|banque|banca|banken|caisse|unibanco|"
-    r"trust|wealth|financial advisor|financial adviser|financial planning|"
+    r"banks?|banking|bancorp|bancshares|banco|banque|banca|banken|caisse|unibanco|"
+    r"trust|wealth|fiduciary|financial advisor|financial adviser|financial planning|"
     r"financial services|financial counsel|private wealth|private bank|family wealth|"
     r"retirement|insurance|reinsurance|assurance|pensions?|tjanstepension|pensioen|"
     r"superannuation|pensionskasse|omsesidig|provident|kranot|"
+    r"emerytalne|powszechne|towarzystwo|funduszy|forsakrings?|livforsakringsbolaget|"
     r"university|endowment|foundation|brokerage|credit union|savings|clearing|"
+    r"massachusetts institute of|california institute of technology|caltech|regents of the university|"
     r"sovereign|leasing|capital markets|proprietary markets|proprietary trading|"
     r"market making|market maker|controlco|"
+    r"ctc|chicago trading|marathon trading|walleye|group one|simplex|belvedere|peak6|"
+    r"wolverine trading|wolverine asset|sumo capital|dash financial|akuna|optiver|"
+    r"imc trading|drw|hudson river|tower research|jump trading|virtu|citadel securities|"
+    r"jane street|susquehanna|cutler group|hap trading|ronin capital|"
     r"bnp|jpmorgan|morgan stanley|goldman sachs|wells fargo|ubs|barclays|"
     r"citigroup|citibank|royal bank|natwest|mufg|scotiabank|sumitomo|"
     r"mitsui|mitsubishi|mizuho|daiwa|jefferies financial|state street|"
@@ -123,11 +131,20 @@ _EXCLUDE_INSTITUTION_RE = re.compile(
     r"ameriprise|raymond james|edward jones|stifel|lpl|merrill|hsbc|nomura|"
     r"credit suisse|deutsche|bochk|norges|temasek|mubadala|korea investment|"
     r"british columbia|calstrs|calpers|teachers retirement|cibc|skandinaviska|"
+    r"swedbank|commerzbank|rabobank|danske bank|handelsbanken|oversea-chinese banking|"
     r"quilter|rakuten|koch,?\s*inc|"
     r"pacific life|prudential|metlife|new york life|nippon life|asahi life|"
-    r"allstate|chubb|travelers|aflac|aviva|aegon|zurich|manulife|allianz|axa|"
+    r"allstate|chubb|travelers|aflac|aviva|aegon|zurich|manulife|allianz|axa|generali|"
     r"tiaa|geode|dimensional|nuveen|macquarie|amundi|natixis|schroder|"
-    r"legal & general|univest|t\.?\s*rowe"
+    r"legal & general|univest|t\.?\s*rowe|"
+    r"fmr llc|clear street|apex clearing|pershing|interactive brokers|"
+    r"profund|proshares|rafferty asset|van\s?eck|krane funds|global x|neos investment|"
+    r"assenagon|dnb asset|kbc group|mirae asset|china universal|"
+    r"(?:e|gf|harvest) fund management|ossiam|grantham,?\s*mayo|xponance|amova asset|"
+    r"loomis sayles|shelton capital|caxton associates|altshuler shaham|cardano risk|"
+    r"skandia|avanza fonder|siemens fonds|e\.?\s*ohman|lombard odier|mondiale|"
+    r"van lanschot|eurizon|triglav|sava infond|lbp am|nlb skladi|ofi invest|"
+    r"capital international\s+(?:ltd|sarl|investors|inc)|ia global asset"
     r")\b",
     re.I,
 )
@@ -159,7 +176,8 @@ def _is_2021_plus_bulk_zip(fname: str) -> bool:
 def _discover_bulk_zip_urls() -> list[tuple[str, str]]:
     """
     Build ordered list of (filename, url) for all SEC Form 13F Bulk Data Sets (2021-present),
-    combining verified historical tags with live discovery from SEC's datasets page.
+    combining verified historical tags with live discovery from SEC's datasets page
+    (live SEC HTML links always take precedence over static path defaults).
     """
     by_name: dict[str, str] = {}
     for tag in KNOWN_BULK_TAGS:
@@ -170,15 +188,15 @@ def _discover_bulk_zip_urls() -> list[tuple[str, str]]:
         html = fetch_bytes(
             "https://www.sec.gov/data-research/sec-markets-data/form-13f-data-sets",
             cache_key="sec_13f_datasets_index.html",
-            max_age_hours=24.0,
+            max_age_hours=12.0,
         ).decode("utf-8", errors="replace")
         for m in re.finditer(r'href="([^"]*?([^/"]+form13f\.zip))"', html, flags=re.I):
             href, fname = m.group(1), m.group(2)
             if not _is_2021_plus_bulk_zip(fname):
                 continue
             url = href if href.startswith("http") else f"https://www.sec.gov{href if href.startswith('/') else '/' + href}"
-            if fname not in by_name:
-                by_name[fname] = url
+            # Always let live SEC HTML links overwrite fallback structureddata URLs
+            by_name[fname] = url
     except Exception:
         pass
 
@@ -206,23 +224,35 @@ def sync_bulk_zips() -> list[Path]:
             paths.append(zpath)
             continue
         tmp = BULK_DIR / f"{fname}.tmp"
-        try:
-            req = urllib.request.Request(url, headers=SEC_HEADERS)
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                raw = resp.read()
-            if len(raw) < 100_000:
-                continue
-            tmp.write_bytes(raw)
-            with zipfile.ZipFile(tmp) as zf:
-                zf.namelist()
-            tmp.replace(zpath)
-            paths.append(zpath)
-            downloaded += 1
-            print(f"[sec-bulk] Downloaded {fname} ({len(raw) / 1e6:.1f} MB)", flush=True)
-        except Exception as e:
-            if tmp.exists():
-                tmp.unlink(missing_ok=True)
-            print(f"[sec-bulk] Warning: unable to fetch {fname}: {e}", flush=True)
+        cand_urls = [url]
+        alt_url = f"https://www.sec.gov/files/datastandardsinnovation/data/form-13f-data-sets/{fname}"
+        if url != alt_url:
+            cand_urls.append(alt_url)
+
+        fetched_ok = False
+        last_err: Exception | None = None
+        for cand_url in cand_urls:
+            try:
+                req = urllib.request.Request(cand_url, headers=SEC_HEADERS)
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    raw = resp.read()
+                if len(raw) < 100_000:
+                    continue
+                tmp.write_bytes(raw)
+                with zipfile.ZipFile(tmp) as zf:
+                    zf.namelist()
+                tmp.replace(zpath)
+                paths.append(zpath)
+                downloaded += 1
+                fetched_ok = True
+                print(f"[sec-bulk] Downloaded {fname} ({len(raw) / 1e6:.1f} MB)", flush=True)
+                break
+            except Exception as e:
+                last_err = e
+                if tmp.exists():
+                    tmp.unlink(missing_ok=True)
+        if not fetched_ok and last_err is not None:
+            print(f"[sec-bulk] Warning: unable to fetch {fname}: {last_err}", flush=True)
     print(f"[sec-bulk] Ready: {len(paths)} SEC Form 13F Bulk Data Set ZIPs ({downloaded} newly downloaded).", flush=True)
     return paths
 
@@ -373,22 +403,117 @@ def fetch_post_bulk_master_idx(
     return by_cik
 
 
+def fetch_post_bulk_efts(
+    max_bulk_filing_date: str,
+    today_date: date,
+    lookback_days: int = 5,
+) -> dict[str, list[dict[str, str]]]:
+    """
+    Query SEC EDGAR EFTS full-text search index over the most recent `lookback_days`
+    so same-day / intra-day 13F-HR and 13F-HR/A filings appear immediately before
+    the overnight master.idx batch index is published.
+    """
+    cutoff = max_bulk_filing_date or "2026-08-31"
+    start_dt = max(
+        (today_date - timedelta(days=lookback_days)).strftime("%Y-%m-%d"),
+        cutoff,
+    )
+    end_dt = today_date.strftime("%Y-%m-%d")
+    if end_dt < start_dt:
+        return {}
+
+    by_cik: dict[str, list[dict[str, str]]] = {}
+    seen_acc: set[tuple[str, str]] = set()
+    page_size = 100
+    offset = 0
+    max_hits = 4000
+    total_reported = 0
+
+    try:
+        while offset < max_hits:
+            qs = urllib.parse.urlencode({
+                "forms": "13F-HR,13F-HR/A",
+                "dateRange": "custom",
+                "startdt": start_dt,
+                "enddt": end_dt,
+                "from": str(offset),
+                "size": str(page_size),
+            })
+            url = f"https://efts.sec.gov/LATEST/search-index?{qs}"
+            raw = fetch_bytes(url, cache_key=None)
+            payload = json.loads(raw.decode("utf-8", errors="replace"))
+            hits_block = payload.get("hits") or {}
+            if offset == 0:
+                total_reported = int((hits_block.get("total") or {}).get("value") or 0)
+            hits = hits_block.get("hits") or []
+            if not hits:
+                break
+            for h in hits:
+                src = h.get("_source") or {}
+                ciks = src.get("ciks") or []
+                adsh = str(src.get("adsh") or "").strip()
+                fdate = str(src.get("file_date") or "").strip()
+                form = str(src.get("form") or "").strip()
+                if not ciks or not adsh or not fdate or form not in ("13F-HR", "13F-HR/A"):
+                    continue
+                if fdate <= cutoff:
+                    continue
+                try:
+                    cik_int = int(ciks[0])
+                    cik10 = f"{cik_int:010d}"
+                except Exception:
+                    continue
+                key = (cik10, adsh)
+                if key in seen_acc:
+                    continue
+                seen_acc.add(key)
+                disp = ""
+                disp_list = src.get("display_names") or []
+                if disp_list:
+                    disp = re.sub(r"\s*\(CIK\s+[\d]+\)\s*$", "", str(disp_list[0]), flags=re.I).strip()
+                by_cik.setdefault(cik10, []).append({
+                    "cik": cik10,
+                    "entityName": disp or f"CIK {cik10}",
+                    "form": form,
+                    "filingDate": fdate,
+                    "reportDate": str(src.get("period_ending") or "")[:10],
+                    "accessionNumber": adsh,
+                    "txtFilename": f"edgar/data/{cik_int}/{adsh}.txt",
+                })
+            offset += len(hits)
+            if len(hits) < page_size or offset >= total_reported:
+                break
+    except Exception as e:
+        print(f"[sec-efts] Warning: EFTS incremental check skipped ({e})", flush=True)
+        return {}
+
+    total_added = sum(len(v) for v in by_cik.values())
+    if total_added:
+        print(
+            f"[sec-efts] Indexed {total_added} recent 13F filings ({start_dt}..{end_dt}) across {len(by_cik)} CIKs.",
+            flush=True,
+        )
+    return by_cik
+
+
 def _zip_tsv_names(zf: zipfile.ZipFile) -> dict[str, str]:
     return {n.rsplit("/", 1)[-1].upper(): n for n in zf.namelist()}
 
 
 def _build_bulk_period_snapshots(
-    acc_metas: list[tuple[str, str, str, str, str]],
+    acc_metas: list[tuple[str, str, str, str, str, str, str]],
     rows_by_acc: dict[str, list[dict[str, Any]]],
     ratios_by_acc: dict[str, tuple[list[float], list[float]]],
-) -> dict[tuple[str, str], dict[str, Any]] | None:
+) -> dict[str, Any] | None:
     """
     Merge multiple 13F-HR / 13F-HR/A filings for the same (cik, reportDate) into
-    one unit-normalized snapshot, identically to build_clean_quarterly_filings.
-    acc_metas items: (filingDate, accessionNumber, form, amendmentType, entityName)
+    one unit-normalized snapshot, identically to build_clean_quarterly_filings,
+    preserving form, amendmentType, disclosedDate, and chronological amendmentEvents.
+    acc_metas items: (filingDate, accessionNumber, form, amendmentType, entityName, reportDate, cik10)
     """
     merged: dict[tuple[str, str], dict[str, Any]] = {}
     meta: dict[str, Any] | None = None
+    amendment_events: list[dict[str, Any]] = []
 
     for fdate, acc, form, amend_type, entity_name, report_date, cik10 in sorted(
         acc_metas, key=lambda x: (x[0], x[1])
@@ -413,31 +538,55 @@ def _build_bulk_period_snapshots(
                     "secType": r["secType"],
                     "valueUsd": val_usd,
                     "shares": r["shares"],
+                    "disclosedDate": fdate,
                 }
             else:
                 sub_agg[key]["valueUsd"] += val_usd
                 sub_agg[key]["shares"] += r["shares"]
 
         if form == "13F-HR" or amend_type == "RESTATEMENT" or meta is None:
-            merged = sub_agg
+            merged = {k: dict(v) for k, v in sub_agg.items()}
             meta = {
                 "cik": cik10,
                 "entityName": entity_name,
+                "form": form,
+                "amendmentType": amend_type,
                 "reportDate": report_date,
                 "filingDate": fdate,
+                "originalFilingDate": fdate,
+                "latestAmendmentDate": fdate,
                 "accessionNumber": acc,
             }
+            amendment_events = [{
+                "filingDate": fdate,
+                "form": form,
+                "amendmentType": amend_type,
+                "isReset": True,
+                "rows": [dict(v) for v in sub_agg.values()],
+            }]
         else:
+            meta["latestAmendmentDate"] = max(meta.get("latestAmendmentDate", fdate), fdate)
+            meta["amendmentType"] = amend_type or "NEW HOLDINGS"
+            inc_rows: list[dict[str, Any]] = []
             for k, row in sub_agg.items():
+                inc_rows.append(dict(row))
                 if k not in merged:
-                    merged[k] = row
+                    merged[k] = dict(row)
                 else:
                     merged[k]["valueUsd"] += row["valueUsd"]
                     merged[k]["shares"] += row["shares"]
+            amendment_events.append({
+                "filingDate": fdate,
+                "form": form,
+                "amendmentType": amend_type or "NEW HOLDINGS",
+                "isReset": False,
+                "rows": inc_rows,
+            })
 
     if not meta or not merged:
         return None
     meta["rows"] = sorted(merged.values(), key=lambda x: x["valueUsd"], reverse=True)
+    meta["amendmentEvents"] = amendment_events
     return meta
 
 
@@ -515,8 +664,17 @@ def discover_universe_via_bulk(
                         cik_latest_rd[cik10] = rd
                         cik_latest_name[cik10] = mgr_name
 
-    # Merge incremental post-bulk master.idx filings (> max_bulk_filing_date)
+    # Merge incremental post-bulk master.idx + same-day EFTS filings (> max_bulk_filing_date)
     post_bulk_by_cik = fetch_post_bulk_master_idx(max_bulk_filing_date, today_date)
+    efts_by_cik = fetch_post_bulk_efts(max_bulk_filing_date, today_date, lookback_days=5)
+    for cik10, efts_list in efts_by_cik.items():
+        existing = post_bulk_by_cik.setdefault(cik10, [])
+        existing_accs = {x["accessionNumber"] for x in existing}
+        for item in efts_list:
+            if item["accessionNumber"] not in existing_accs:
+                existing.append(item)
+                existing_accs.add(item["accessionNumber"])
+
     for cik10, pb_list in post_bulk_by_cik.items():
         all_ciks_seen.add(cik10)
         if cik10 not in cik_latest_name and pb_list:
@@ -673,6 +831,8 @@ def discover_universe_via_bulk(
         rep_aum = sum(r["valueUsd"] for r in latest_filing["rows"])
         eq_rows = [r for r in latest_filing["rows"] if r["secType"] == "EQUITY" and r["valueUsd"] > 0]
         eq_aum = sum(r["valueUsd"] for r in eq_rows)
+        opt_rows = [r for r in latest_filing["rows"] if r["secType"] in ("PUT", "CALL") and r["valueUsd"] > 0]
+        opt_aum = sum(r["valueUsd"] for r in opt_rows)
 
         if is_curated:
             cand = curated_by_cik[cik10]
@@ -691,6 +851,11 @@ def discover_universe_via_bulk(
             }
             continue
 
+        # Structural options market-maker exclusion (>50% options AUM or >300 option lines)
+        if (rep_aum > 0 and opt_aum / rep_aum > 0.50) or len(opt_rows) > 300:
+            excluded_inst_count += 1
+            continue
+
         # Slight 15% Q2->Q3 boundary buffer ($170M rep / $85M eq) at Stage 1 pre-screen; strict $200M/$100M enforced on final latest Q in Stage 3
         if not (rep_aum >= 170_000_000 and eq_aum >= 85_000_000):
             continue
@@ -704,10 +869,15 @@ def discover_universe_via_bulk(
         raw_top10 = (sum(sorted_vals[:10]) / eq_aum * 100.0) if eq_aum > 0 else 0.0
         hhi = sum((v / eq_aum) ** 2 for v in raw_by_c.values()) if eq_aum > 0 else 0.0
         raw_eff_n = (1.0 / hhi) if hhi > 0 else float(raw_pos)
+        sig_pos = sum(1 for v in raw_by_c.values() if eq_aum > 0 and (v / eq_aum) >= 0.0025)
 
         # Exclude <5 stock VC lockups / single-stock SPVs AND bloated multi-hundred-stock generalists
         min_pos_ok = raw_pos >= 5 and raw_eff_n >= 1.4
-        conc_ok = raw_pos <= 130 or (raw_pos <= 265 and raw_top10 >= 48.0)
+        conc_ok = raw_pos <= 280 and (
+            raw_pos <= 130
+            or (sig_pos <= 98 and raw_eff_n <= 58.0 and raw_top10 >= 33.0)
+            or raw_top10 >= 48.0
+        )
         if not (min_pos_ok and conc_ok):
             continue
         conc_pass_count += 1
@@ -749,7 +919,7 @@ def discover_universe_via_bulk(
     )
 
     funnel_counts = {
-        "method": "Full-Universe SEC Form 13F Bulk Data Sets + Post-Bulk Master Index",
+        "method": "Full-Universe SEC Form 13F Bulk Data Sets + Post-Bulk Master Index + EFTS",
         "totalCiksScanned": len(all_ciks_seen),
         "activeRecentCount": len(active_ciks),
         "excludedInstitutionsCount": excluded_inst_count,
@@ -911,11 +1081,23 @@ def _norm_xml_period_date(raw_dt: str) -> str:
     return ""
 
 
+def _infer_quarter_end(filing_date: str) -> str:
+    fd_dt = datetime.strptime(filing_date, "%Y-%m-%d").date()
+    q_ends = [
+        date(yr, m, d)
+        for yr in (fd_dt.year - 1, fd_dt.year)
+        for (m, d) in ((3, 31), (6, 30), (9, 30), (12, 31))
+        if date(yr, m, d) <= fd_dt
+    ]
+    return max(q_ends).strftime("%Y-%m-%d") if q_ends else filing_date
+
+
 def fetch_post_bulk_filing_via_txt(entry: dict[str, str]) -> dict[str, Any] | None:
     """
     Fetch ONE SEC complete submission .txt file per post-bulk filing (eliminating separate
     submissions.json, index.json, primary_doc.xml, and infotable.xml HTTP roundtrips),
     parse embedded <XML> blocks, normalize units via detect_is_thousands, and cache as parsed_v2_.
+    Falls back to index.json-based parse_13f_filing if .txt is unavailable or incomplete.
     """
     cik10 = entry["cik"]
     acc = entry["accessionNumber"]
@@ -930,18 +1112,36 @@ def fetch_post_bulk_filing_via_txt(entry: dict[str, str]) -> dict[str, Any] | No
         except Exception:
             pass
 
+    def _fallback_via_index() -> dict[str, Any] | None:
+        try:
+            fb_filing = {
+                "cik": cik10,
+                "entityName": entry.get("entityName", ""),
+                "form": entry["form"],
+                "accessionNumber": acc,
+                "primaryDocument": "",
+                "reportDate": entry.get("reportDate") or _infer_quarter_end(entry["filingDate"]),
+                "filingDate": entry["filingDate"],
+            }
+            return parse_13f_filing(fb_filing)
+        except Exception:
+            return None
+
     txt_fname = entry.get("txtFilename")
     if not txt_fname:
-        return None
+        return _fallback_via_index()
 
     url = f"https://www.sec.gov/Archives/{txt_fname}"
     try:
         raw_txt = fetch_bytes(url, cache_key=f"subtxt_{cik10}_{acc_nd}.txt").decode("utf-8", errors="replace")
     except Exception:
-        return None
+        return _fallback_via_index()
 
     xml_blocks = re.findall(r"<XML>(.*?)</XML>", raw_txt, flags=re.S | re.I)
     if not xml_blocks:
+        fb = _fallback_via_index()
+        if fb is not None:
+            return fb
         parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
         return None
 
@@ -961,6 +1161,9 @@ def fetch_post_bulk_filing_via_txt(entry: dict[str, str]) -> dict[str, Any] | No
             info_doc = root
 
     if info_doc is None:
+        fb = _fallback_via_index()
+        if fb is not None:
+            return fb
         parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
         return None
 
@@ -983,15 +1186,7 @@ def fetch_post_bulk_filing_via_txt(entry: dict[str, str]) -> dict[str, Any] | No
                     break
 
     if not report_date:
-        # Infer period end date cleanly from filingDate if primary XML omitted header tag
-        fd_dt = datetime.strptime(entry["filingDate"], "%Y-%m-%d").date()
-        q_ends = [
-            date(yr, m, d)
-            for yr in (fd_dt.year - 1, fd_dt.year)
-            for (m, d) in ((3, 31), (6, 30), (9, 30), (12, 31))
-            if date(yr, m, d) <= fd_dt
-        ]
-        report_date = max(q_ends).strftime("%Y-%m-%d") if q_ends else entry["filingDate"]
+        report_date = _infer_quarter_end(entry["filingDate"])
 
     filing_dict = {
         "cik": cik10,
@@ -1022,7 +1217,8 @@ def ingest_target_histories(
 ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
     """
     Assemble complete 2021-present clean quarterly filing sequences for all surviving Stage 2 targets
-    by merging offline Bulk Data Set histories with incremental post-bulk master.idx .txt filings.
+    by merging offline Bulk Data Set histories with incremental post-bulk master.idx / EFTS .txt filings,
+    preserving true amendment metadata, per-row disclosedDate, and chronological amendmentEvents.
     """
     target_set = set(target_ciks)
     bulk_histories, _ = extract_bulk_histories(target_set, bulk_paths, min_report_date=min_report_date)
@@ -1051,7 +1247,7 @@ def ingest_target_histories(
     for cik10 in target_ciks:
         by_period: dict[str, list[dict[str, Any]]] = {}
         for snap in bulk_histories.get(cik10, []):
-            by_period.setdefault(snap["reportDate"], []).append({**snap, "form": "13F-HR", "amendmentType": ""})
+            by_period.setdefault(snap["reportDate"], []).append(snap)
         for parsed in post_parsed.get(cik10, []):
             by_period.setdefault(parsed["reportDate"], []).append(parsed)
 
@@ -1060,29 +1256,90 @@ def ingest_target_histories(
 
         cleaned: list[dict[str, Any]] = []
         for rd in sorted(by_period.keys()):
-            group = sorted(by_period[rd], key=lambda x: (x["filingDate"], x["accessionNumber"]))
+            items = by_period[rd]
+            # Fast-path: single already-normalized snapshot with intact amendmentEvents
+            if len(items) == 1 and "amendmentEvents" in items[0]:
+                cleaned.append(items[0])
+                continue
+
+            # Expand any bulk snapshot into its atomic chronological submission events
+            atomic_events: list[dict[str, Any]] = []
+            for item in items:
+                if "amendmentEvents" in item:
+                    for ev in item["amendmentEvents"]:
+                        atomic_events.append({
+                            "cik": cik10,
+                            "entityName": item.get("entityName", ""),
+                            "form": ev.get("form", item.get("form", "13F-HR")),
+                            "amendmentType": ev.get("amendmentType", item.get("amendmentType", "")),
+                            "filingDate": ev["filingDate"],
+                            "accessionNumber": item.get("accessionNumber", ""),
+                            "rows": ev["rows"],
+                        })
+                else:
+                    atomic_events.append(item)
+
+            group = sorted(atomic_events, key=lambda x: (x["filingDate"], x.get("accessionNumber", "")))
             merged: dict[tuple[str, str], dict[str, Any]] = {}
             meta: dict[str, Any] | None = None
+            amendment_events: list[dict[str, Any]] = []
+
             for item in group:
-                if item.get("form", "13F-HR") == "13F-HR" or item.get("amendmentType") == "RESTATEMENT" or meta is None:
-                    merged = {(r["cusip"], r["secType"]): dict(r) for r in item["rows"]}
+                fdate = item["filingDate"]
+                ftype = item.get("form", "13F-HR")
+                atype = item.get("amendmentType", "")
+                if ftype == "13F-HR" or atype == "RESTATEMENT" or meta is None:
+                    merged = {}
+                    ev_rows: list[dict[str, Any]] = []
+                    for r in item["rows"]:
+                        rc = dict(r)
+                        rc["disclosedDate"] = fdate
+                        ev_rows.append(dict(rc))
+                        merged[(r["cusip"], r["secType"])] = rc
                     meta = {
                         "cik": cik10,
                         "entityName": item.get("entityName", ""),
+                        "form": ftype,
+                        "amendmentType": atype,
                         "reportDate": rd,
-                        "filingDate": item["filingDate"],
-                        "accessionNumber": item["accessionNumber"],
+                        "filingDate": fdate,
+                        "originalFilingDate": fdate,
+                        "latestAmendmentDate": fdate,
+                        "accessionNumber": item.get("accessionNumber", ""),
                     }
+                    amendment_events = [{
+                        "filingDate": fdate,
+                        "form": ftype,
+                        "amendmentType": atype,
+                        "isReset": True,
+                        "rows": ev_rows,
+                    }]
                 else:
+                    meta["latestAmendmentDate"] = max(meta.get("latestAmendmentDate", fdate), fdate)
+                    meta["amendmentType"] = atype or "NEW HOLDINGS"
+                    if not meta.get("accessionNumber"):
+                        meta["accessionNumber"] = item.get("accessionNumber", "")
+                    inc_rows: list[dict[str, Any]] = []
                     for r in item["rows"]:
                         k = (r["cusip"], r["secType"])
+                        rc = dict(r)
+                        rc["disclosedDate"] = fdate
+                        inc_rows.append(dict(rc))
                         if k not in merged:
-                            merged[k] = dict(r)
+                            merged[k] = rc
                         else:
                             merged[k]["valueUsd"] += r["valueUsd"]
                             merged[k]["shares"] += r["shares"]
+                    amendment_events.append({
+                        "filingDate": fdate,
+                        "form": ftype,
+                        "amendmentType": atype or "NEW HOLDINGS",
+                        "isReset": False,
+                        "rows": inc_rows,
+                    })
             if meta and merged:
                 meta["rows"] = sorted(merged.values(), key=lambda x: x["valueUsd"], reverse=True)
+                meta["amendmentEvents"] = amendment_events
                 cleaned.append(meta)
 
         if not cleaned:

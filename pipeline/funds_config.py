@@ -2,6 +2,8 @@
 Curated universe of premier tech-focused / TMT concentrated 13F filers.
 """
 
+import re
+
 CURATED_FUNDS = [
     # === Core Flagship Concentrated Tech / TMT / AI Funds (29) ===
     {
@@ -840,13 +842,77 @@ TECH_TMT_EXTRA_TICKERS = {
     "CSGP", "LYV", "WBD", "TMUS", "V", "MA", "BKNG",
 }
 
-# Broad market, index, sector, and treasury ETFs excluded from single-stock Consensus & Ideal Portfolio
+# Broad market, index, sector, treasury/cash-proxy, commodity, crypto, and umbrella ETFs
+# excluded from single-stock weights, Consensus, and Ideal Portfolio construction
 NON_STOCK_ETFS = {
-    "QQQ", "QQQM", "SPY", "IVV", "VOO", "VTI", "IWM", "DIA", "MDY", "RSP",
-    "XLK", "XLC", "XLY", "XLF", "XLI", "XLV", "XLE", "VGT", "IYW", "SMH",
-    "SOXX", "IGV", "WCLD", "SKYY", "CIBR", "FDN", "MAGS", "AIQ", "CHAT",
-    "BOTZ", "QTUM", "ARKK", "ARKW", "ARKG", "PRNT", "VUG", "MGK", "IWF",
-    "SPMO", "MTUM", "TQQQ", "SQQQ", "QLD", "SOXL", "SOXS", "GLD", "SLV",
-    "TLT", "IEF", "SHY", "BIL", "SGOV", "HYG", "LQD", "EEM", "EFA", "FXI",
-    "KWEB",
+    "QQQ", "QQQM", "SPY", "IVV", "VOO", "VTI", "VT", "IWM", "DIA", "MDY", "RSP",
+    "VXUS", "VEA", "VWO", "VO", "VB", "VV", "VBR", "VBK", "VOT", "VHT", "VNQ", "VDC",
+    "VTEC", "VTEB", "VUSB", "VCIT", "VCSH", "BIV", "BSV", "IJH", "IJR", "IWB", "IWD",
+    "IWN", "IWO", "IVW", "IVE", "IWR", "IEMG", "IEFA", "ITOT", "IWV", "ACWI", "ACWX",
+    "SCHX", "SCHB", "SCHF", "SCHG", "SCHA", "SCHM", "SCHD",
+    "XLK", "XLC", "XLY", "XLF", "XLI", "XLV", "XLE", "XLB", "XLP", "XLU", "XLRE",
+    "XBI", "XHB", "XRT", "XOP", "OIH", "IBB", "GDX", "GDXJ",
+    "VGT", "IYW", "IXN", "IGM", "SMH", "SOXX", "IGV", "WCLD", "SKYY", "CIBR", "FDN", "MAGS",
+    "AIQ", "CHAT", "BOTZ", "QTUM", "ARKK", "ARKW", "ARKG", "ARKQ", "ARKF", "PRNT",
+    "SMHX", "SOXQ", "QTEC", "GARP", "XLYM", "SPCX", "PSQ", "SH", "SDS", "DRAM",
+    "VUG", "MGK", "MGV", "IWF", "VTV", "VIG", "VYM", "DGRO", "DVY", "SDY", "QUAL",
+    "USMV", "SPMO", "MTUM", "JEPI", "JEPQ", "MINT", "JPST", "FLOT", "JAAA", "AMLP",
+    "TQQQ", "SQQQ", "QLD", "SOXL", "SOXS", "UVXY", "VXX", "SVXY", "TSLL", "DXJ", "LUXE",
+    "SPXL", "UPRO", "SPXS", "SPXU", "NATO", "XOVR", "MFUT", "QALT", "TFPN", "NASDAQ",
+    "GLD", "IAU", "SLV", "USO", "UNG", "IBIT", "FBTC", "GBTC", "ETHA", "ETHE", "ETH",
+    "TLT", "IEF", "IEI", "SHY", "BIL", "SGOV", "SHV", "USFR", "TFLO", "VGSH", "BOND",
+    "AGG", "BND", "HYG", "LQD", "KHYB", "MUB", "PFF", "TIP",
+    "EEM", "EFA", "FXI", "KWEB", "MCHI", "ASHR", "EWJ", "EWG", "EWZ", "EWT", "EWY", "INDA",
 }
+
+_STRICT_ETF_SUFFIX_RE = re.compile(
+    r"(?i)\b(?:ETFs?|ETNs?|Exchange-Traded Fund|Vanguard\b.*Tax-Exempt)\b"
+)
+_AUTO_ETF_NAME_RE = re.compile(
+    r"(?i)\b(?:"
+    r"ETFs?|ETNs?|iShares|SPDR|Invesco|ProShares|ProFund|Direxion|VanEck|WisdomTree|"
+    r"First Trust|Global X|KraneShares|Roundhill|Defiance|YieldMax|GraniteShares|"
+    r"Amplify|Simplify|Pacer|Neos|Dimensional|BondBloxx|"
+    r"Schwab\b.*\b(?:Cap|Market|Index|Equity|Dividend|Growth|Value|Bond|ETF)|"
+    r"Vanguard\b.*\b(?:Index|ETF|Fund|Admiral|Tax-Exe|Tax-Exempt)|"
+    r"VNGD\b|IDX\s*FD|INDX\b|MONEY\s*FD\b|T-REX\s+2X|"
+    r"BlackRock\b.*\bETF|Fidelity\b.*\b(?:ETF|Index)|"
+    r"JPMorgan\b.*\bETF|Goldman Sachs\b.*\bETF|Morgan Stanley\b.*\bETF|"
+    r"Franklin\b.*\bETF|State Street\b.*\b(?:SPDR|ETF)|PIMCO\b|"
+    r"Index Fund|Exchange-Traded Fund|Index Tracking|Select Sector|UltraPro|UltraShort|"
+    r"Bull\s+[23]X|Bear\s+[23]X|2X\s+Long|Covered Call|Option Income|Buffer ETF|Target Outcome|"
+    r"Grayscale\b.*\b(?:Trust|ETF)|Bitwise\b.*\b(?:ETF|Trust)|"
+    r"(?:Bitcoin|Ethereum)\s+USD"
+    r")\b"
+)
+_MUTUAL_FUND_TICKER_RE = re.compile(r"^[A-Z]{4}X$")
+
+
+def is_non_stock_etf(
+    ticker: str,
+    name: str = "",
+    sector: str = "",
+    industry: str = "",
+) -> bool:
+    """
+    Detect broad/sector/bond/treasury/leveraged/crypto ETFs, ETNs, and open-end mutual funds.
+    Requires missing/Other GICS metadata before applying issuer-name rules so real operating
+    companies (e.g. AMPY, IVZ, IVR, WT, STRIX) with populated GICS sectors/industries are never stripped.
+    """
+    t = DUAL_CLASS_CANONICAL.get(ticker, ticker).upper().strip()
+    if not t or t.startswith("CUSIP:"):
+        return False
+    if t in NON_STOCK_ETFS:
+        return True
+    nm = (name or "").strip()
+    sec = (sector or "").strip()
+    ind = (industry or "").strip()
+    if nm and _STRICT_ETF_SUFFIX_RE.search(nm):
+        return True
+    if sec in ("", "Other") and not ind:
+        if nm and _AUTO_ETF_NAME_RE.search(nm):
+            return True
+        if _MUTUAL_FUND_TICKER_RE.match(t) and (sec == "Other" or bool(nm)):
+            return True
+    return False
+

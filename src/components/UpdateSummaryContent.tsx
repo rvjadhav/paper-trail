@@ -7,7 +7,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
-import type { FundUpdateEntry, PositionMoveItem } from '../types/data';
+import type { FundUpdateSummary, PositionMoveItem, StockIndexEntry } from '../types/data';
 import { formatUsdCompact } from '../utils/format';
 
 function renderMoveDelta(m: PositionMoveItem): string {
@@ -22,19 +22,41 @@ function renderMoveDelta(m: PositionMoveItem): string {
 }
 
 interface UpdateSummaryContentProps {
-  update: FundUpdateEntry;
+  update: FundUpdateSummary;
+  stocksIndex?: Record<string, StockIndexEntry>;
   onDiveDeeper: (cik: string) => void;
   onOpenFundProfile?: (cik: string) => void;
+  onSelectStock?: (ticker: string) => void;
 }
 
 export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
   update: u,
+  stocksIndex,
   onDiveDeeper,
   onOpenFundProfile,
+  onSelectStock,
 }) => {
   const hasDerivativeBook =
     u.currCallBookPct > 0 || u.currPutBookPct > 0 || u.prevCallBookPct > 0 || u.prevPutBookPct > 0;
   const totalMix = Math.max(0.01, u.currEquityBookPct + u.currCallBookPct + u.currPutBookPct);
+
+  const renderMoveTicker = (m: PositionMoveItem) => {
+    const canOpen = Boolean(onSelectStock && stocksIndex?.[m.ticker]);
+    const label = `${m.ticker}${m.securityType !== 'EQUITY' ? ` ${m.securityType}` : ''}`;
+    if (canOpen) {
+      return (
+        <button
+          type="button"
+          className="ticker-link-inline mono mp-tick"
+          onClick={() => onSelectStock?.(m.ticker)}
+          title={`Open ${m.ticker} Stock Dossier`}
+        >
+          {label}
+        </button>
+      );
+    }
+    return <span className="mono mp-tick">{label}</span>;
+  };
 
   return (
     <>
@@ -91,7 +113,18 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
                     <TrendingUp size={13} />
                   )}
                   <span>
-                    <strong>{vs.ticker}:</strong> {vs.tagNote}
+                    {onSelectStock && stocksIndex?.[vs.ticker] ? (
+                      <button
+                        type="button"
+                        className="ticker-link-inline mono"
+                        onClick={() => onSelectStock(vs.ticker)}
+                      >
+                        <strong>{vs.ticker}</strong>
+                      </button>
+                    ) : (
+                      <strong>{vs.ticker}</strong>
+                    )}
+                    : {vs.tagNote}
                   </span>
                 </div>
               ))}
@@ -102,7 +135,18 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
                 <div key={`isp-${sig.shiftType}-${sig.ticker}`} className="signal-inline-pill shift">
                   <Layers size={12} />
                   <span>
-                    <strong>{sig.label}</strong> — {sig.detail}
+                    {onSelectStock && stocksIndex?.[sig.ticker] ? (
+                      <button
+                        type="button"
+                        className="ticker-link-inline"
+                        onClick={() => onSelectStock(sig.ticker)}
+                      >
+                        <strong>{sig.label}</strong>
+                      </button>
+                    ) : (
+                      <strong>{sig.label}</strong>
+                    )}{' '}
+                    — {sig.detail}
                   </span>
                 </div>
               ))}
@@ -119,10 +163,7 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           <div className="move-bucket-items">
             {u.topNew.slice(0, 4).map((m) => (
               <div key={`n-${m.cusip}-${m.securityType}`} className="move-pill new">
-                <span className="mono mp-tick">
-                  {m.ticker}
-                  {m.securityType !== 'EQUITY' ? ` ${m.securityType}` : ''}
-                </span>
+                {renderMoveTicker(m)}
                 <span className="mono mp-val">
                   {formatUsdCompact(m.currValueUsd)} ({m.currBookPct.toFixed(1)}%)
                 </span>
@@ -139,10 +180,7 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           <div className="move-bucket-items">
             {u.topAdded.slice(0, 4).map((m) => (
               <div key={`a-${m.cusip}-${m.securityType}`} className="move-pill add">
-                <span className="mono mp-tick">
-                  {m.ticker}
-                  {m.securityType !== 'EQUITY' ? ` ${m.securityType}` : ''}
-                </span>
+                {renderMoveTicker(m)}
                 <span className="mono mp-val ret-pos">
                   {renderMoveDelta(m)} · {formatUsdCompact(m.currValueUsd)}
                 </span>
@@ -159,10 +197,7 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           <div className="move-bucket-items">
             {u.topTrimmed.slice(0, 4).map((m) => (
               <div key={`t-${m.cusip}-${m.securityType}`} className="move-pill trim">
-                <span className="mono mp-tick">
-                  {m.ticker}
-                  {m.securityType !== 'EQUITY' ? ` ${m.securityType}` : ''}
-                </span>
+                {renderMoveTicker(m)}
                 <span className="mono mp-val ret-neg">
                   {renderMoveDelta(m)} · {formatUsdCompact(m.currValueUsd)}
                 </span>
@@ -179,10 +214,7 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           <div className="move-bucket-items">
             {u.topExited.slice(0, 4).map((m) => (
               <div key={`e-${m.cusip}-${m.securityType}`} className="move-pill exit">
-                <span className="mono mp-tick">
-                  {m.ticker}
-                  {m.securityType !== 'EQUITY' ? ` ${m.securityType}` : ''}
-                </span>
+                {renderMoveTicker(m)}
                 <span className="mono mp-val ret-neg">
                   was {formatUsdCompact(m.prevValueUsd)}
                 </span>
@@ -200,7 +232,7 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
         </div>
 
         <div className="controls-row">
-          {onOpenFundProfile && u.inRankings && (
+          {onOpenFundProfile && (
             <button
               type="button"
               className="action-btn"

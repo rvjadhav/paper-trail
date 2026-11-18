@@ -1,4 +1,4 @@
-import type { ReturnMode, ReturnWindow } from '../types/data';
+import type { EntryZoneStatus, FundTier, ReturnMode, ReturnWindow } from '../types/data';
 
 export const RETURN_WINDOWS: Array<{ id: ReturnWindow; label: string; fullLabel: string }> = [
   { id: 'YTD', label: 'YTD', fullLabel: 'Year to Date' },
@@ -19,6 +19,12 @@ export const SECTOR_COLORS: Record<string, string> = {
   Utilities: '#30b0c7',
   Energy: '#ff6b22',
   'Consumer Defensive': '#8e8e93',
+  Semiconductors: '#0071e3',
+  'Enterprise Software': '#5856d6',
+  'Platforms & Interactive': '#32ade6',
+  'Platforms & Tech': '#32ade6',
+  'Hardware & IT Services': '#00a388',
+  'Fintech & Payments': '#00c7be',
   Other: '#aeaeb2',
 };
 
@@ -66,13 +72,32 @@ export function returnClass(val: number | null | undefined): string {
   return 'ret-muted';
 }
 
+export function entryZoneChipClass(zone: EntryZoneStatus | null | undefined): string {
+  if (!zone) return '';
+  if (zone === 'Discount to Q-Avg') return 'pos';
+  if (zone === 'Near Q-Avg') return 'tech';
+  if (zone === 'Extended') return 'warn';
+  return 'neg';
+}
+
+export function tierChipClass(tier: FundTier | string | undefined): string {
+  if (tier === 'Elite 50') return 'elite';
+  if (tier === 'Top 100') return 'tech';
+  if (tier === 'Excluded') return 'warn';
+  return '';
+}
+
 export function modeLabel(mode: ReturnMode): string {
   return mode === 'quarter_end'
     ? 'Quarter-End Attribution'
     : '45-Day Filing-Lag Actionable';
 }
 
-export function downloadCsv(filename: string, headers: string[], rows: Array<Array<string | number | null | undefined>>): void {
+export function downloadCsv(
+  filename: string,
+  headers: string[],
+  rows: Array<Array<string | number | null | undefined>>
+): void {
   const esc = (v: string | number | null | undefined) => {
     const s = v == null ? '' : String(v);
     if (s.includes(',') || s.includes('"') || s.includes('\n')) {

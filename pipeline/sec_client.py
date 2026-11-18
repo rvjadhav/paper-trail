@@ -390,28 +390,61 @@ def build_clean_quarterly_filings(cik: str, min_report_date: str = "2020-12-31")
     for period in sorted(by_period.keys()):
         group = sorted(by_period[period], key=lambda x: (x["filingDate"], x["accessionNumber"]))
         merged: dict[tuple[str, str], dict[str, Any]] = {}
-        meta = None
+        meta: dict[str, Any] | None = None
+        amendment_events: list[dict[str, Any]] = []
         for parsed in group:
-            if parsed["form"] == "13F-HR" or parsed["amendmentType"] == "RESTATEMENT" or meta is None:
-                merged = {(r["cusip"], r["secType"]): dict(r) for r in parsed["rows"]}
+            fdate = parsed["filingDate"]
+            ftype = parsed["form"]
+            atype = parsed["amendmentType"]
+            if ftype == "13F-HR" or atype == "RESTATEMENT" or meta is None:
+                merged = {}
+                for r in parsed["rows"]:
+                    row_copy = dict(r)
+                    row_copy["disclosedDate"] = fdate
+                    merged[(r["cusip"], r["secType"])] = row_copy
                 meta = {
                     "cik": parsed["cik"],
                     "entityName": parsed["entityName"],
+                    "form": ftype,
+                    "amendmentType": atype,
                     "reportDate": parsed["reportDate"],
-                    "filingDate": parsed["filingDate"],
+                    "filingDate": fdate,
+                    "originalFilingDate": fdate,
+                    "latestAmendmentDate": fdate,
                     "accessionNumber": parsed["accessionNumber"],
                 }
+                amendment_events = [{
+                    "filingDate": fdate,
+                    "form": ftype,
+                    "amendmentType": atype,
+                    "isReset": True,
+                    "rows": [dict(r, disclosedDate=fdate) for r in parsed["rows"]],
+                }]
             else:
-                # NEW HOLDINGS confidential-treatment amendment adds to original
+                # NEW HOLDINGS confidential-treatment amendment adds chronologically on its own filingDate
+                meta["latestAmendmentDate"] = max(meta.get("latestAmendmentDate", fdate), fdate)
+                meta["amendmentType"] = atype or "NEW HOLDINGS"
+                inc_rows: list[dict[str, Any]] = []
                 for r in parsed["rows"]:
                     k = (r["cusip"], r["secType"])
+                    row_copy = dict(r)
+                    row_copy["disclosedDate"] = fdate
+                    inc_rows.append(row_copy)
                     if k not in merged:
-                        merged[k] = dict(r)
+                        merged[k] = dict(row_copy)
                     else:
                         merged[k]["valueUsd"] += r["valueUsd"]
                         merged[k]["shares"] += r["shares"]
+                amendment_events.append({
+                    "filingDate": fdate,
+                    "form": ftype,
+                    "amendmentType": atype or "NEW HOLDINGS",
+                    "isReset": False,
+                    "rows": inc_rows,
+                })
         if meta and merged:
             meta["rows"] = sorted(merged.values(), key=lambda x: x["valueUsd"], reverse=True)
+            meta["amendmentEvents"] = amendment_events
             cleaned.append(meta)
     return cleaned
 
