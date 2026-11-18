@@ -40,9 +40,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: pipeline/cache
-          key: sec-edgar-cache-v1-${{ github.run_id }}
+          key: sec-edgar-cache-v2-${{ github.run_id }}
           restore-keys: |
-            sec-edgar-cache-v1-
+            sec-edgar-cache-v2-
 
       - name: Run SEC EDGAR 13F pipeline (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -65,43 +65,37 @@ jobs:
           assert len(d.get("funds", [])) >= 25, "Missing funds list"
           assert len(d.get("fundUpdates", [])) >= 15, "Missing fundUpdates list"
           assert len(d.get("idealPortfolio", {}).get("positions", [])) >= 15, "Missing idealPortfolio positions"
-          print(f"Dataset verified: {m['qualifiedFundsCount']} funds, {m['total13fFilingsProcessed']} filings, {len(d['fundUpdates'])} updates")
 
-          wl = m.get("discoveryWatchlist") or {}
-          cands = wl.get("emergingSeedCandidates") or []
-          urgent = [c for c in cands if c.get("alertTier") == "URGENT"]
-          stale = wl.get("staleSeeds") or []
-          if urgent:
-              tickers_csv = ", ".join(f"{c['ticker']} ({c['cusip']})" for c in urgent[:6])
-              print(
-                  f"::warning title=Discovery Seed Radar: Add {len(urgent)} Emerging Must-Hold Stocks to DISCOVERY_SEED_PAIRS"
-                  f"::Top-100 funds surged into unseeded Tech/TMT names: {tickers_csv}. Review pipeline/funds_config.py or open Methodology -> Discovery Seed Radar."
-              )
-          if stale:
-              stale_csv = ", ".join(s["ticker"] for s in stale)
-              print(f"::warning title=Discovery Seed Radar: Stale EFTS Seed Tickers::Low-coverage seeds: {stale_csv}")
+          uf = m.get("universeFunnel") or {}
+          assert uf.get("totalCiksScanned", 0) >= 5000, f"Unexpected low totalCiksScanned in universeFunnel: {uf}"
+          assert uf.get("qualifiedFundsCount") == m["qualifiedFundsCount"], "Funnel qualified count mismatch"
+          print(
+              f"Dataset verified: {uf.get('totalCiksScanned', 0)} SEC CIKs -> {m['qualifiedFundsCount']} qualified funds "
+              f"({uf.get('curatedQualifiedCount', 0)} curated / {uf.get('discoveredQualifiedCount', 0)} discovered), "
+              f"{m['total13fFilingsProcessed']} filings, {len(d['fundUpdates'])} updates"
+          )
 
           summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-          if summary_path:
+          if summary_path and uf:
               lines = [
-                  f"## Paper Trail 13F Pipeline Summary ({m.get('latestQuarterCovered', '')})",
-                  f"- **Qualified Funds:** {m['qualifiedFundsCount']} | **Filings:** {m['total13fFilingsProcessed']} | **EFTS Seed Pairs:** {wl.get('seedPairCount', 38)}",
+                  f"## Paper Trail Full-Universe 13F Funnel ({m.get('latestQuarterCovered', '')})",
+                  "",
+                  f"**Method:** {uf.get('method', '')} ({uf.get('bulkDatasetsCount', 0)} bulk ZIPs through `{uf.get('bulkMaxFilingDate', '')}` + {uf.get('postBulkFilingsCount', 0):,} post-bulk filings)",
+                  "",
+                  "| Stage | Filter Description | Funds / CIKs |",
+                  "|---|---|---:|",
+                  f"| 1. Universe Scanned | All SEC 13F-HR / 13F-HR/A filers (2021–Present) | {uf.get('totalCiksScanned', 0):,} |",
+                  f"| 2. Active Managers | Filed within 210 days / current filing cycle | {uf.get('activeRecentCount', 0):,} |",
+                  f"| 3. Manager Filter | Exclude operating corps, mega-banks, insurers, pensions | {uf.get('nonExcludedManagerCount', 0):,} |",
+                  f"| 4. Filing History | ≥4 quarters since 2024-01-01 (≥2 Curated) | {uf.get('fourPlusQuartersCount', 0):,} |",
+                  f"| 5. Scale Screen | ≥$200M reported / ≥$100M equity AUM (15% bulk buffer) | {uf.get('sizeAndEquityPassCount', 0):,} |",
+                  f"| 6. Concentration | 5+ pos, effN ≥ 1.4, & ≤130 pos (or ≤265 w/ Top-10 ≥48%) | {uf.get('concentrationPassCount', 0):,} |",
+                  f"| 7. Tech/TMT Focus | ≥35% Tech/TMT discovered (≥30% Curated crossover) | {uf.get('techFloorPassCount', 0):,} |",
+                  f"| 8. Strict Q3 Rules | Exact final quarter rules (≤120 pos or ≤250 w/ Top-10 ≥55%) | {uf.get('strictQualificationCount', 0):,} |",
+                  f"| 9. Priced History Qualified | ≥$100M & ≥50% equity w/ live price history | {uf.get('qualifiedFundsCount', 0):,} |",
+                  f"| 10. Top-100 Union | Ranked Top 100 in any window (QE / 45d Lag) | {uf.get('rankedUnionQeCount', 0):,} / {uf.get('rankedUnionLagCount', 0):,} |",
+                  f"| 11. Ideal Portfolio | Synthesized risk-capped portfolio positions | {uf.get('idealPortfolioCount', 0):,} |",
               ]
-              if cands:
-                  lines.extend([
-                      "",
-                      f"### Discovery Seed Radar ({len(cands)} Unseeded Breakout Tech/TMT Stocks, {len(urgent)} Urgent)",
-                      "Consider appending high-conviction disruptors below to `DISCOVERY_SEED_PAIRS` in `pipeline/funds_config.py`:",
-                      "",
-                      "| Tier | Ticker | CUSIP | Holders (Top-100 / All) | QoQ New + Heavy Adds | TTM | Suggested Seed Pair |",
-                      "|---|---|---|---|---|---|---|",
-                  ])
-                  for c in cands:
-                      ttm_s = f"{c['stockTtmPct']:+.1f}%" if c.get("stockTtmPct") is not None else "N/A"
-                      lines.append(
-                          f"| {c['alertTier']} | **{c['ticker']}** | `{c['cusip']}` | {c['holderCount']} / {c['allQualifiedHolders']} | "
-                          f"{c['newInitiationsCount']} new + {c['heavyAddsCount']} adds ({c['surgePct']:.0f}%) | {ttm_s} | `{c['suggestedPair']}` |"
-                      )
               with open(summary_path, "a", encoding="utf-8") as sf:
                   sf.write("\n".join(lines) + "\n")
           PY

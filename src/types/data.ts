@@ -379,46 +379,28 @@ export interface BenchmarkSeries {
   curve: EquityPoint[];
 }
 
-export interface DiscoveryWatchlistCandidate {
-  ticker: string;
-  cusip: string;
-  name: string;
-  sector: string;
-  industry: string;
-  holderCount: number;
-  allQualifiedHolders: number;
-  newInitiationsCount: number;
-  heavyAddsCount: number;
-  highConvictionCount: number;
-  surgePct: number;
-  rankedBookValueUsd: number;
-  stockTtmPct: number | null;
-  idealRank: number | null;
-  consensusRank: number | null;
-  breakoutScore: number;
-  alertTier: 'URGENT' | 'WATCH';
-  suggestedPair: string;
-  anchorTicker: string;
-  anchorCusip: string;
-  copyTuple: string;
-  triggerReason: string;
-}
-
-export interface StaleSeedWarning {
-  ticker: string;
-  rankedHolders: number;
-  allQualifiedHolders: number;
-  note: string;
-}
-
-export interface DiscoveryWatchlist {
-  seedPairCount: number;
-  activeSeedTickers: string[];
-  watchlistRuleSummary: string;
-  urgentCount: number;
-  totalFlaggedCount: number;
-  emergingSeedCandidates: DiscoveryWatchlistCandidate[];
-  staleSeeds: StaleSeedWarning[];
+export interface UniverseFunnel {
+  method: string;
+  totalCiksScanned: number;
+  activeRecentCount: number;
+  excludedInstitutionsCount: number;
+  nonExcludedManagerCount: number;
+  fourPlusQuartersCount: number;
+  sizeAndEquityPassCount: number;
+  concentrationPassCount: number;
+  techFloorPassCount: number;
+  strictQualificationCount: number;
+  pricedHistoryPassCount: number;
+  qualifiedFundsCount: number;
+  curatedQualifiedCount: number;
+  discoveredQualifiedCount: number;
+  rankedUnionQeCount: number;
+  rankedUnionLagCount: number;
+  updatesCardsCount: number;
+  idealPortfolioCount: number;
+  bulkDatasetsCount: number;
+  bulkMaxFilingDate: string;
+  postBulkFilingsCount: number;
 }
 
 export interface PaperTrailDataset {
@@ -432,7 +414,7 @@ export interface PaperTrailDataset {
     total13fFilingsProcessed: number;
     next13fSeasonLabel: string;
     dataSources: string[];
-    discoveryWatchlist?: DiscoveryWatchlist;
+    universeFunnel?: UniverseFunnel;
   };
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
   funds: FundSummary[];

@@ -1,27 +1,21 @@
 """
-SEC EDGAR client for fetching 13F-HR / 13F-HR/A filings
-and quarterly EFTS discovery of emerging concentrated tech funds.
+SEC EDGAR client for fetching and parsing 13F-HR / 13F-HR/A filings.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
-import statistics
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from lxml import etree
-
-from funds_config import DISCOVERY_SEED_PAIRS
 
 _DEFAULT_SEC_UA = "PaperTrail13FResearch contact@papertrail13f.dev"
 _env_sec_ua = os.environ.get("SEC_USER_AGENT", "").strip()
@@ -35,6 +29,48 @@ SEC_HEADERS = {
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache" / "sec"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+WARRANT_TITLE_RE = re.compile(
+    r"(\*W|WARRANT|WT\b|RIGHT|RTS\b|NOTE|DBCV|CONV|DEBT|BOND|PREF|PFD|UNIT)",
+    re.I,
+)
+
+
+def detect_is_thousands(
+    filing_date: str,
+    eq_ratios: list[float],
+    fallback_ratios: list[float] | None = None,
+) -> bool:
+    """
+    Determine whether SEC Form 13F INFOTABLE value rows are reported in $1,000s vs $1.
+    Uses plain common/ADR equity ratios (excluding options, PRN debt, and warrants/rights/units)
+    so SPAC-warrant holders (e.g. $0.20 warrants) or convertible-note filers are not misclassified.
+    """
+    is_thousands = filing_date < "2023-01-03"
+    rs = sorted(r for r in eq_ratios if r > 0)
+    if rs:
+        n = len(rs)
+        med = rs[n // 2]
+        if filing_date < "2023-01-03":
+            if n >= 3 and med >= 3.0:
+                is_thousands = False
+            else:
+                is_thousands = True
+        else:
+            p75 = rs[int(n * 0.75)] if n >= 4 else rs[-1]
+            p90 = rs[min(n - 1, int(n * 0.90))]
+            if n >= 5:
+                is_thousands = med < 0.75 and p75 < 1.50 and p90 < 3.0
+            else:
+                is_thousands = med < 0.60 and rs[-1] < 1.20
+    elif fallback_ratios and filing_date >= "2023-01-03":
+        rs_fb = sorted(r for r in fallback_ratios if r > 0)
+        if rs_fb and len(rs_fb) >= 5:
+            n_fb = len(rs_fb)
+            if rs_fb[n_fb // 2] < 0.15 and rs_fb[int(n_fb * 0.75)] < 0.35 and rs_fb[int(n_fb * 0.90)] < 0.80:
+                is_thousands = True
+    return is_thousands
+
 
 _rate_lock = threading.Lock()
 _last_req_ts = 0.0
@@ -159,61 +195,14 @@ def _find_text(el: etree._Element, local_name: str, default: str = "") -> str:
     return default
 
 
-def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
-    cik_int = int(filing["cik"])
-    acc_nd = filing["accessionNumber"].replace("-", "")
-    parsed_cache_path = CACHE_DIR / f"parsed_v1_{filing['cik']}_{acc_nd}.json"
-    if parsed_cache_path.exists():
-        try:
-            cached = json.loads(parsed_cache_path.read_text(encoding="utf-8"))
-            if cached.get("empty"):
-                return None
-            cached["entityName"] = filing["entityName"]
-            return cached
-        except Exception:
-            pass
-
-    idx_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/index.json"
-    idx = fetch_json(idx_url, cache_key=f"idx_{filing['cik']}_{acc_nd}.json")
-    items = [it["name"] for it in idx.get("directory", {}).get("item", [])]
-
-    xml_files = [fn for fn in items if fn.lower().endswith(".xml") and not fn.lower().startswith("xsl")]
-    if not xml_files:
-        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
-        return None
-
-    primary_doc = None
-    info_doc = None
-    primary_base = (filing.get("primaryDocument") or "").split("/")[-1].lower()
-    if filing["form"] == "13F-HR" and primary_base:
-        candidate_xmls = [fn for fn in xml_files if fn.lower() != primary_base] or xml_files
-    else:
-        candidate_xmls = xml_files
-
-    for fn in candidate_xmls:
-        raw = fetch_bytes(
-            f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/{fn}",
-            cache_key=f"xml_{filing['cik']}_{acc_nd}_{fn}",
-        )
-        root = _parse_xml_root(raw)
-        local_root = root.tag.rsplit("}", 1)[-1].lower()
-        if local_root == "edgarsubmission":
-            primary_doc = root
-        elif local_root == "informationtable":
-            info_doc = root
-            if filing["form"] == "13F-HR":
-                break
-
-    if info_doc is None:
-        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
-        return None
-
-    amendment_type = ""
-    if primary_doc is not None:
-        amendment_type = _find_text(primary_doc, "amendmentType", "").upper()
-
+def parse_xml_info_table(
+    info_doc: etree._Element,
+    filing: dict[str, Any],
+    amendment_type: str = "",
+) -> dict[str, Any] | None:
     raw_rows: list[dict[str, Any]] = []
-    ratios: list[float] = []
+    eq_ratios: list[float] = []
+    fallback_ratios: list[float] = []
 
     for row_el in info_doc:
         if not isinstance(row_el.tag, str) or row_el.tag.rsplit("}", 1)[-1] != "infoTable":
@@ -266,7 +255,10 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
             sec_type = "NOTE"
 
         if sec_type == "EQUITY" and shares > 0:
-            ratios.append(val / shares)
+            ratio = val / shares
+            fallback_ratios.append(ratio)
+            if not WARRANT_TITLE_RE.search(title):
+                eq_ratios.append(ratio)
 
         raw_rows.append({
             "cusip": cusip,
@@ -278,19 +270,9 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
         })
 
     if not raw_rows:
-        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
         return None
 
-    # SEC switched 13F value units from $1,000s to $1 on Jan 3, 2023.
-    # Verify via both filingDate and median(value / shares) for plain equity rows.
-    is_thousands = filing["filingDate"] < "2023-01-03"
-    if ratios:
-        med = statistics.median(ratios)
-        if med < 2.5:
-            is_thousands = True
-        elif med >= 3.0 and filing["filingDate"] >= "2023-01-03":
-            is_thousands = False
-
+    is_thousands = detect_is_thousands(filing["filingDate"], eq_ratios, fallback_ratios)
     mult = 1000.0 if is_thousands else 1.0
 
     # Aggregate multiple sub-manager lines with identical (cusip, secType)
@@ -311,9 +293,9 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
             agg[key]["valueUsd"] += val_usd
             agg[key]["shares"] += r["shares"]
 
-    res = {
+    return {
         "cik": filing["cik"],
-        "entityName": filing["entityName"],
+        "entityName": filing.get("entityName", ""),
         "form": filing["form"],
         "amendmentType": amendment_type,
         "reportDate": filing["reportDate"],
@@ -321,6 +303,66 @@ def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
         "accessionNumber": filing["accessionNumber"],
         "rows": list(agg.values()),
     }
+
+
+def parse_13f_filing(filing: dict[str, Any]) -> dict[str, Any] | None:
+    cik_int = int(filing["cik"])
+    acc_nd = filing["accessionNumber"].replace("-", "")
+    parsed_cache_path = CACHE_DIR / f"parsed_v2_{filing['cik']}_{acc_nd}.json"
+    if parsed_cache_path.exists():
+        try:
+            cached = json.loads(parsed_cache_path.read_text(encoding="utf-8"))
+            if cached.get("empty"):
+                return None
+            cached["entityName"] = filing.get("entityName", "") or cached.get("entityName", "")
+            return cached
+        except Exception:
+            pass
+
+    idx_url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/index.json"
+    idx = fetch_json(idx_url, cache_key=f"idx_{filing['cik']}_{acc_nd}.json")
+    items = [it["name"] for it in idx.get("directory", {}).get("item", [])]
+
+    xml_files = [fn for fn in items if fn.lower().endswith(".xml") and not fn.lower().startswith("xsl")]
+    if not xml_files:
+        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
+        return None
+
+    primary_doc = None
+    info_doc = None
+    primary_base = (filing.get("primaryDocument") or "").split("/")[-1].lower()
+    if filing["form"] == "13F-HR" and primary_base:
+        candidate_xmls = [fn for fn in xml_files if fn.lower() != primary_base] or xml_files
+    else:
+        candidate_xmls = xml_files
+
+    for fn in candidate_xmls:
+        raw = fetch_bytes(
+            f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/{fn}",
+            cache_key=f"xml_{filing['cik']}_{acc_nd}_{fn}",
+        )
+        root = _parse_xml_root(raw)
+        local_root = root.tag.rsplit("}", 1)[-1].lower()
+        if local_root == "edgarsubmission":
+            primary_doc = root
+        elif local_root == "informationtable":
+            info_doc = root
+            if filing["form"] == "13F-HR":
+                break
+
+    if info_doc is None:
+        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
+        return None
+
+    amendment_type = ""
+    if primary_doc is not None:
+        amendment_type = _find_text(primary_doc, "amendmentType", "").upper()
+
+    res = parse_xml_info_table(info_doc, filing, amendment_type=amendment_type)
+    if res is None:
+        parsed_cache_path.write_text('{"empty":true}', encoding="utf-8")
+        return None
+
     try:
         parsed_cache_path.write_text(json.dumps(res, separators=(",", ":")), encoding="utf-8")
     except Exception:
@@ -374,14 +416,7 @@ def build_clean_quarterly_filings(cik: str, min_report_date: str = "2020-12-31")
     return cleaned
 
 
-_ENTITY_TOKEN_RE = re.compile(
-    r"\b(llc|lp|llp|ltd|inc|corp|co|plc|pte|sa|ag|gmbh|sarl|capital|management|mgmt|"
-    r"partners|advisors|advisers|asset|assets|fund|funds|investment|investments|"
-    r"global|equity|equities|holdings|office|group|associates|ventures|strategies)\b"
-)
-
-
-def _format_entity_name(cname: str) -> str:
+def format_entity_name(cname: str) -> str:
     words = cname.split()
     fmt_words = []
     for w in words:
@@ -396,222 +431,3 @@ def _format_entity_name(cname: str) -> str:
             fmt_w = w.title()
         fmt_words.append(fmt_w)
     return re.sub(r"\s+,", ",", " ".join(fmt_words)).strip(" ,")
-
-
-def discover_emerging_tech_funds(known_ciks: set[str], max_candidates: int = 1000) -> list[dict[str, Any]]:
-    """
-    Scan recent SEC EDGAR 13F-HR filings via breadth-first paginated EFTS full-text
-    queries across configured DISCOVERY_SEED_PAIRS CUSIP clusters,
-    returning concentrated ($200M+ reported value) candidates not yet in the curated list.
-    """
-    now = datetime.now(timezone.utc)
-    today_date = now.date()
-    start_dt = (now - timedelta(days=145)).strftime("%Y-%m-%d")
-    end_dt = now.strftime("%Y-%m-%d")
-
-    exclude_keywords = (
-        "bank", "bancorp", "banco ", "banque", "banca ", "caisse", "unibanco", "trust", "wealth",
-        "financial advisor", "financial adviser", "financial planning", "financial services",
-        "financial group", "financial counsel", "private wealth", "private bank", "trust company",
-        "family wealth", "retirement", "insurance", "reinsurance", "assurance", "pension",
-        "provident", "kranot", "university", "endowment", "foundation", "brokerage", "credit union",
-        "savings", "clearing", "sovereign", "leasing", "bnp", "jpmorgan", "morgan stanley",
-        "goldman", "wells fargo", "ubs", "barclays", "citigroup", "royal bank", "natwest", "mufg",
-        "scotiabank", "sumitomo", "mitsui", "mitsubishi", "mizuho", "daiwa", "jefferies financial",
-        "state street", "blackrock", "vanguard", "invesco", "schwab", "fidelity",
-        "northern trust", "bny", "ameriprise", "raymond james", "edward jones",
-        "stifel", "lpl", "merrill", "hsbc", "nomura", "credit suisse", "deutsche",
-        "bochk", "pko ", "norges", "temasek", "mubadala", "korea investment", "british columbia",
-        "harvard management", "gates foundation", "pacific life", "prudential", "metlife",
-        "new york life", "nippon life", "asahi life", "empire life", "life investments",
-        "life insurance", "life asset", "cna financial", "allstate", "chubb", "travelers",
-        "aflac", "aviva", "aegon", "zurich", "manulife", "allianz", "axa", "tiaa",
-        "geode", "dimensional", "nuveen", "macquarie", "amundi", "natixis",
-        "legal & general", "schroder", "univest", "citizens & northern", "south plains financial",
-    )
-
-    # Build deduplicated EFTS CUSIP pair queries from funds_config.DISCOVERY_SEED_PAIRS
-    queries: list[str] = []
-    seen_pairs: set[tuple[str, str]] = set()
-    for _ta, ca, _tb, cb, _theme in DISCOVERY_SEED_PAIRS:
-        ca_u = ca.strip().upper()
-        cb_u = cb.strip().upper()
-        canon = (min(ca_u, cb_u), max(ca_u, cb_u))
-        if not ca_u or not cb_u or ca_u == cb_u or canon in seen_pairs:
-            continue
-        seen_pairs.add(canon)
-        queries.append(f'"{ca_u}" "{cb_u}"')
-
-    discovered_ciks: list[tuple[str, str]] = []
-    seen = set(known_ciks)
-    raw_cap = max(max_candidates * 4, 4500)
-    cluster_hits: dict[str, set[int]] = {}
-    first_page_seen: dict[str, int] = {}
-    exhausted_queries: set[str] = set()
-
-    for page in range(10):
-        offset = page * 100
-        for ci, q_raw in enumerate(queries):
-            if q_raw in exhausted_queries or len(discovered_ciks) >= raw_cap:
-                continue
-            q = urllib.parse.quote(q_raw)
-            url = (
-                f"https://efts.sec.gov/LATEST/search-index?forms=13F-HR&q={q}"
-                f"&dateRange=custom&startdt={start_dt}&enddt={end_dt}&from={offset}&size=100"
-            )
-            q_hash = hashlib.md5(f"{q_raw}_p{page}".encode("utf-8")).hexdigest()[:12]
-            try:
-                data = fetch_json(url, cache_key=f"efts_{q_hash}_{end_dt}.json", max_age_hours=12)
-            except Exception:
-                continue
-
-            hits = data.get("hits", {}).get("hits", [])
-            if len(hits) < 100:
-                exhausted_queries.add(q_raw)
-
-            for hit in hits:
-                src = hit.get("_source", {})
-                ciks = src.get("ciks", [])
-                names = src.get("display_names", [])
-                for cik, dname in zip(ciks, names):
-                    cik10 = f"{int(cik):010d}"
-                    cluster_hits.setdefault(cik10, set()).add(ci)
-                    if cik10 in seen:
-                        continue
-                    clean_name = dname.split("(CIK")[0].strip()
-                    low = clean_name.lower()
-                    if any(kw in low for kw in exclude_keywords):
-                        seen.add(cik10)
-                        continue
-                    if not _ENTITY_TOKEN_RE.search(low.replace(".", "")):
-                        seen.add(cik10)
-                        continue
-                    seen.add(cik10)
-                    first_page_seen[cik10] = page
-                    discovered_ciks.append((cik10, clean_name))
-                    if len(discovered_ciks) >= raw_cap:
-                        break
-                if len(discovered_ciks) >= raw_cap:
-                    break
-        if len(discovered_ciks) >= raw_cap or len(exhausted_queries) == len(queries):
-            break
-
-    print(f"[discovery] Collected {len(discovered_ciks)} filtered candidate CIKs from {len(queries)} subsector clusters; pre-screening...", flush=True)
-
-    # Concurrent pre-screen via submissions + latest primary_doc tableEntryTotal / tableValueTotal
-    def _prescreen_one(item: tuple[int, str, str]) -> tuple[tuple[float, int], dict[str, Any]] | None:
-        order_idx, cik10, cname = item
-        try:
-            sub = get_submissions(cik10)
-            ent_name = sub.get("name") or cname
-            ent_low = ent_name.lower()
-            if any(kw in ent_low for kw in exclude_keywords):
-                return None
-
-            recent = sub.get("filings", {}).get("recent", {})
-            forms = recent.get("form", [])
-            accs = recent.get("accessionNumber", [])
-            docs = recent.get("primaryDocument", [])
-            rds = recent.get("reportDate", [])
-            fds = recent.get("filingDate", [])
-
-            recent_13f: list[dict[str, Any]] = []
-            for form, acc, doc, rd, fd in zip(forms, accs, docs, rds, fds):
-                if form in ("13F-HR", "13F-HR/A") and rd:
-                    recent_13f.append({
-                        "form": form,
-                        "accessionNumber": acc,
-                        "primaryDocument": doc,
-                        "reportDate": rd,
-                        "filingDate": fd,
-                    })
-
-            if not recent_13f:
-                return None
-
-            recent_13f.sort(key=lambda x: (x["reportDate"], x["filingDate"], x["accessionNumber"]))
-            latest = recent_13f[-1]
-            latest_rd = latest["reportDate"]
-            age_days = (today_date - datetime.strptime(latest_rd, "%Y-%m-%d").date()).days
-            if age_days > 210:
-                return None
-
-            acc_nd = latest["accessionNumber"].replace("-", "")
-            cik_int = int(cik10)
-            pdoc_base = (latest.get("primaryDocument") or "").split("/")[-1]
-            raw = None
-            if pdoc_base and pdoc_base.lower().endswith(".xml"):
-                try:
-                    raw = fetch_bytes(
-                        f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/{pdoc_base}",
-                        cache_key=f"xml_{cik10}_{acc_nd}_{pdoc_base}",
-                    )
-                except Exception:
-                    raw = None
-            if raw is None:
-                idx = fetch_json(
-                    f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/index.json",
-                    cache_key=f"idx_{cik10}_{acc_nd}.json",
-                )
-                items = [it["name"] for it in idx.get("directory", {}).get("item", [])]
-                pdoc = next((fn for fn in items if fn.lower() == "primary_doc.xml"), None)
-                if pdoc:
-                    raw = fetch_bytes(
-                        f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc_nd}/{pdoc}",
-                        cache_key=f"xml_{cik10}_{acc_nd}_{pdoc}",
-                    )
-            if not raw:
-                return None
-
-            root = _parse_xml_root(raw)
-            cnt = int(float(_find_text(root, "tableEntryTotal", "0") or 0))
-            val = float(_find_text(root, "tableValueTotal", "0") or 0)
-            # Pre-screen for $200M+ reported value and manageable entry count (allow puts/calls + up to ~650 lines)
-            if not (1 <= cnt <= 650 and val >= 200_000_000):
-                return None
-
-            # Verify >= 4 distinct quarters of 13F history since 2024-01-01 (only after structure check passes)
-            distinct_qtrs = {r["reportDate"] for r in recent_13f if r["reportDate"] >= "2024-01-01"}
-            if len(distinct_qtrs) < 4:
-                recent_fds = [d for d in fds if d]
-                oldest_recent = min(recent_fds) if recent_fds else "9999-12-31"
-                if oldest_recent > "2024-01-01":
-                    filings_full = list_13f_filings(cik10, min_report_date="2024-01-01")
-                    distinct_qtrs = {f["reportDate"] for f in filings_full}
-                if len(distinct_qtrs) < 4:
-                    return None
-
-            # Prioritize multi-cluster tech/AI matches & focused books over single-pair sprawling RIAs when trimming to max_candidates
-            ch = len(cluster_hits.get(cik10, ()))
-            fp = first_page_seen.get(cik10, 9)
-            conc_bonus = 2.0 if cnt <= 100 else (1.0 if cnt <= 200 else 0.0)
-            page_bonus = max(0.0, 1.5 - 0.15 * fp)
-            rank_score = min(10, ch) * 1.4 + conc_bonus + page_bonus
-
-            fmt_name = _format_entity_name(cname)
-            return (-rank_score, order_idx), {
-                "cik": cik10,
-                "name": fmt_name,
-                "manager": "SEC EDGAR Discovered",
-                "hq": "United States",
-                "styleTag": "Discovered Tech Concentrated",
-                "strategySummary": f"Automatically surfaced from SEC EDGAR quarterly 13F scan ({cnt} filing entries, {ch} seed clusters, AI/tech exposure).",
-                "source": "EDGAR Discovered",
-            }
-        except Exception:
-            return None
-
-    matched: list[tuple[tuple[float, int], dict[str, Any]]] = []
-    work_items = [(i, cik10, cname) for i, (cik10, cname) in enumerate(discovered_ciks)]
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futs = [ex.submit(_prescreen_one, w) for w in work_items]
-        for done_cnt, fut in enumerate(as_completed(futs), 1):
-            res = fut.result()
-            if res is not None:
-                matched.append(res)
-            if done_cnt % 250 == 0 or done_cnt == len(work_items):
-                print(f"[discovery] Pre-screened {done_cnt}/{len(work_items)} CIKs ({len(matched)} passed $200M+ & structure gate)", flush=True)
-
-    matched.sort(key=lambda x: x[0])
-    return [item for _, item in matched[:max_candidates]]
-

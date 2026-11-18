@@ -1380,22 +1380,22 @@
   margin-top: 0.18rem;
 }
 
-/* Discovery Seed Radar (Hardcoded Seed Drift Monitor) */
-.seed-radar-pill {
+/* Full-Universe SEC 13F Screening Funnel */
+.funnel-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-left: 0.25rem;
-  padding: 0.08rem 0.45rem;
+  gap: 0.28rem;
+  margin-left: 0.3rem;
+  padding: 0.09rem 0.48rem;
   border-radius: 999px;
   font-size: 0.67rem;
   font-weight: 700;
-  background: rgba(255, 159, 10, 0.24);
-  color: #ffd479;
-  border: 1px solid rgba(255, 159, 10, 0.42);
+  background: rgba(10, 132, 255, 0.2);
+  color: #8cc8ff;
+  border: 1px solid rgba(10, 132, 255, 0.38);
 }
 
-.seed-radar-panel {
+.universe-funnel-panel {
   margin-top: 0.85rem;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -1404,57 +1404,15 @@
   box-shadow: var(--shadow-xs);
 }
 
-.seed-radar-banner {
+.universe-funnel-banner {
   padding: 0.78rem 0.95rem;
-  background: rgba(255, 149, 0, 0.09);
-  border-bottom: 1px solid rgba(255, 149, 0, 0.18);
+  background: rgba(0, 113, 227, 0.07);
+  border-bottom: 1px solid rgba(0, 113, 227, 0.16);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
-}
-
-.seed-radar-banner.calm {
-  background: rgba(52, 199, 89, 0.09);
-  border-bottom-color: rgba(52, 199, 89, 0.18);
-}
-
-.seed-radar-tickers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  margin: 0.55rem 0 0.75rem;
-}
-
-.seed-mini-chip {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 0.14rem 0.42rem;
-  border-radius: 5px;
-  background: var(--bg-surface-subtle);
-  color: var(--text-secondary);
-}
-
-.seed-copy-btn {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  color: var(--text-primary);
-  border-radius: 999px;
-  padding: 0.28rem 0.7rem;
-  font-size: 0.74rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.32rem;
-  transition: all 0.15s ease;
-}
-
-.seed-copy-btn:hover {
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
 }
 
 /* Footer */

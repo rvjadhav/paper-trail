@@ -807,53 +807,26 @@ CURATED_FUNDS = [
     },
 ]
 
-# SEC EDGAR EFTS full-text discovery seed pairs: (tickerA, cusipA, tickerB, cusipB, theme).
-# Audited automatically each quarter by build_data.py -> metadata.discoveryWatchlist ("Discovery Seed Radar").
-# When emerging disruptive "must-hold" stocks surge across Top-100 funds without being listed here,
-# CI warnings, build logs, and the UI Methodology Radar flag their ticker + CUSIP so you can append them.
-DISCOVERY_SEED_PAIRS: list[tuple[str, str, str, str, str]] = [
-    # --- Core AI Silicon, Cloud, Foundry, Cyber, Power & Growth Platforms (16) ---
-    ("NVDA",  "67066G104", "CRWD", "22788C105", "AI Compute & Cybersecurity"),
-    ("NVDA",  "67066G104", "PLTR", "69608A108", "AI Compute & Enterprise AI"),
-    ("NVDA",  "67066G104", "AVGO", "11135F101", "AI Silicon & Custom ASICs"),
-    ("TSM",   "874039100", "ASML", "N07059210", "Foundry & EUV Lithography"),
-    ("MSFT",  "594918104", "NOW",  "81762P102", "Enterprise Cloud & Agentic SaaS"),
-    ("META",  "30303M102", "AMZN", "023135106", "Hyperscale Platforms & AI Cloud/Ads"),
-    ("GOOGL", "02079K305", "NFLX", "64110L106", "Search/AI & Streaming Platforms"),
-    ("SNOW",  "833445109", "DDOG", "23804L103", "Cloud Data & Observability"),
-    ("CRWD",  "22788C105", "PANW", "697435105", "Cybersecurity Platforms"),
-    ("VRT",   "92537N108", "CEG",  "21037T109", "AI Data Center Thermal & Power"),
-    ("AMD",   "007903107", "ANET", "040413205", "Merchant GPUs & AI Switching"),
-    ("MU",    "595112103", "KLAC", "482480100", "HBM Memory & Fab Process Control"),
-    ("APP",   "03831W108", "PLTR", "69608A108", "Applied AI Software & AdTech"),
-    ("SHOP",  "82509L107", "NU",   "G66721104", "E-Commerce & Digital Fintech"),
-    ("AMAT",  "038222105", "LRCX", "512807306", "Wafer Fab Equipment"),
-    ("NET",   "18915M107", "ZS",   "98980G102", "Edge Cloud & Zero-Trust Security"),
-    # --- AI Neocloud, GPU Cloud & Digital Compute Infrastructure Clusters (12) ---
-    ("NBIS",  "N97284108", "NVDA", "67066G104", "AI Neocloud & GPU Compute"),
-    ("HUT",   "44812J104", "NVDA", "67066G104", "AI Data Center Compute & NVDA"),
-    ("CRWV",  "21873S108", "NVDA", "67066G104", "CoreWeave AI Cloud & NVDA"),
-    ("IREN",  "Q4982L109", "NVDA", "67066G104", "IREN AI Cloud & Power + NVDA"),
-    ("GLXY",  "36317J209", "NVDA", "67066G104", "Galaxy HPC/AI Campus & NVDA"),
-    ("CIFR",  "17253J106", "NVDA", "67066G104", "Cipher HPC Compute & NVDA"),
-    ("NBIS",  "N97284108", "AMD",  "007903107", "AI Neocloud & Merchant Silicon"),
-    ("HUT",   "44812J104", "AMD",  "007903107", "AI Data Center Compute & AMD"),
-    ("CRWV",  "21873S108", "AMD",  "007903107", "CoreWeave AI Cloud & AMD"),
-    ("IREN",  "Q4982L109", "AMD",  "007903107", "IREN AI Cloud & Power + AMD"),
-    ("GLXY",  "36317J209", "AMD",  "007903107", "Galaxy HPC/AI Campus & AMD"),
-    ("CIFR",  "17253J106", "AMD",  "007903107", "Cipher HPC Compute & AMD"),
-    # --- Emerging Memory, Optical, Connectivity, Power & Identity Breakouts (10) ---
-    ("INTC",  "458140100", "NVDA", "67066G104", "Emerging Semiconductors & NVDA"),
-    ("LITE",  "55024U109", "NVDA", "67066G104", "Emerging Communication Equipment & NVDA"),
-    ("STX",   "G7997R103", "NVDA", "67066G104", "Emerging Computer Hardware & NVDA"),
-    ("MRVL",  "573874104", "NVDA", "67066G104", "Emerging Semiconductors & NVDA"),
-    ("APH",   "032095101", "NVDA", "67066G104", "Emerging Electronic Components & NVDA"),
-    ("SNDK",  "80004C200", "NVDA", "67066G104", "Emerging Computer Hardware & NVDA"),
-    ("BE",    "093712107", "NVDA", "67066G104", "Emerging Electrical Equipment & Parts & NVDA"),
-    ("SKHY",  "78392B206", "NVDA", "67066G104", "Emerging Semiconductors & NVDA"),
-    ("OKTA",  "679295105", "NVDA", "67066G104", "Emerging Software—Infrastructure & NVDA"),
-    ("ADI",   "032654105", "NVDA", "67066G104", "Emerging Semiconductors & NVDA"),
-]
+# Canonicalize dual share classes to their primary liquid voting/common ticker when
+# measuring issuer-level concentration, Consensus Top-30, and Ideal Portfolio sizing.
+DUAL_CLASS_CANONICAL: dict[str, str] = {
+    "GOOG": "GOOGL",
+    "BRK-A": "BRK-B",
+    "BRK.A": "BRK-B",
+    "FOX": "FOXA",
+    "NWS": "NWSA",
+    "ZG": "Z",
+    "LBRDA": "LBRDK",
+    "FWONA": "FWONK",
+    "LSXMA": "LSXMK",
+    "LSXMB": "LSXMK",
+    "BATRA": "BATRK",
+    "PARAA": "PARA",
+    "HEI-A": "HEI",
+    "LEN-B": "LEN",
+    "BF-A": "BF-B",
+    "UHAL": "UHAL-B",
+}
 
 # Tech-enabled digital/AI tickers in non-Technology GICS sectors
 TECH_TMT_EXTRA_TICKERS = {

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
-import { Activity, AlertTriangle, Calendar, Check, Copy, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
+import { Activity, Calendar, Database, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
 import datasetUrl from './data/portfolio_data.json?url';
 import type { PaperTrailDataset, ReturnMode, ReturnWindow } from './types/data';
-import { formatPct, formatSignedPct, formatUsdCompact, returnClass } from './utils/format';
+import { formatUsdCompact } from './utils/format';
 import { RankingTab } from './components/RankingTab';
 import { HoldingsTab } from './components/HoldingsTab';
 import { IdealPortfolioTab } from './components/IdealPortfolioTab';
@@ -32,7 +32,6 @@ export function App() {
   const [selectedUpdateCik, setSelectedUpdateCik] = useState<string | null>(null);
   const [updateReturnToFund, setUpdateReturnToFund] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
-  const [copiedSeeds, setCopiedSeeds] = useState(false);
   const [homeResetKey, setHomeResetKey] = useState(0);
 
   useEffect(() => {
@@ -209,19 +208,7 @@ export function App() {
     );
   }
 
-  const watchlist = dataset.metadata.discoveryWatchlist;
-  const flaggedSeeds = watchlist?.emergingSeedCandidates ?? [];
-  const urgentSeedCount = watchlist?.urgentCount ?? 0;
-
-  const copySeedTuples = () => {
-    const snippet = flaggedSeeds.map((c) => `    ${c.copyTuple}`).join('\n');
-    if (snippet && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(snippet).then(() => {
-        setCopiedSeeds(true);
-        window.setTimeout(() => setCopiedSeeds(false), 2000);
-      }).catch(() => {});
-    }
-  };
+  const funnel = dataset.metadata.universeFunnel;
 
   return (
     <div className="app-shell">
@@ -254,11 +241,11 @@ export function App() {
             className="status-link-btn"
             onClick={() => setShowMethodology(true)}
           >
-            <Info size={12} /> Methodology &amp; Quarterly Sync
-            {flaggedSeeds.length > 0 && (
-              <span className="seed-radar-pill" title="Emerging unseeded Tech/TMT stocks flagged for DISCOVERY_SEED_PAIRS review">
-                <AlertTriangle size={10} />
-                {urgentSeedCount > 0 ? `${urgentSeedCount} Seed Alert${urgentSeedCount > 1 ? 's' : ''}` : `${flaggedSeeds.length} Seed Watch`}
+            <Info size={12} /> Methodology &amp; Universe Funnel
+            {funnel && (
+              <span className="funnel-pill" title="Full-universe SEC Form 13F Bulk Data Sets screening funnel">
+                <Database size={10} />
+                {funnel.totalCiksScanned.toLocaleString()} CIKs → {funnel.qualifiedFundsCount} Funds
               </span>
             )}
           </button>
@@ -462,122 +449,117 @@ export function App() {
               </button>
             </div>
             <div className="drawer-body" style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-              <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>1. Tech-Focused Concentrated Screening</h3>
+              <h3 style={{ color: 'var(--text-primary)', marginTop: 0 }}>1. Full-Universe SEC 13F Screening (Zero Seed Bias)</h3>
               <p>
-                Every quarter, our pipeline combines 100 curated AI/TMT &amp; crossover funds with an automated SEC EDGAR full-text scan across {watchlist?.seedPairCount ?? 38} configured sub-sector CUSIP seed pairs (up to 1,000 candidates with $200M+ reported value across up to 10 EFTS pages &amp; ≤650 filing entries). Qualified funds maintain ≥20% Tech/TMT equity exposure, ≥$100M in 13F equity AUM, and concentrated sizing (Top 10 ≥35% or ≤100 equity positions).
+                Every quarter, our pipeline scans <strong>100% of SEC Form 13F institutional managers</strong> ({funnel ? funnel.totalCiksScanned.toLocaleString() : '11,400+'} CIKs) directly from quarterly SEC Form 13F Bulk Data Sets plus incremental post-bulk <code>master.idx</code> submissions—with zero hardcoded CUSIP seed pairs or EFTS caps. Operating companies, commercial banks, insurers, brokerages, endowments, prop trading desks, and single-stock VC unlock SPVs are filtered out deterministically. Qualified funds must pass strict thresholds on their latest quarter: ≥4 quarters of recent filings (since 2024), ≥$200M total reported value &amp; ≥$100M US equity AUM, verified post-price active equity history (≥$100M &amp; ≥50% equity weight), concentration (≥5 equity positions, effective N ≥ 1.5 for discovered managers, and ≤120 positions or ≤250 w/ Top 10 ≥ 55%), and <strong>≥35% Tech/TMT allocation</strong> (≥30% for Curated Core crossover funds).
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>2. Performance Reconstruction (Quarter-End vs. 45-Day Lag)</h3>
               <p>
-                Because SEC Form 13F discloses quarter-end U.S. long equities (with a ~45-day filing lag) and omits cash and short books, Paper Trail reconstructs true buy-and-hold equity returns using split/dividend-adjusted daily prices across two transparent lenses:
+                Because SEC Form 13F discloses quarter-end U.S. long equities (with a ~45-day filing lag) and omits cash and short books, Paper Trail normalizes dual share classes (e.g., GOOG/GOOGL) and reconstructs true buy-and-hold equity returns using split/dividend-adjusted daily prices across two independent lenses:
               </p>
               <ul>
                 <li><strong>Quarter-End Attribution:</strong> Rebalances into quarter-end equity weights at each quarter close to measure manager stock-selection skill.</li>
-                <li><strong>45-Day Filing-Lag Actionable:</strong> Rebalances only on the actual SEC filing date when the 13F became public.</li>
+                <li><strong>45-Day Filing-Lag Actionable:</strong> Rebalances only on the actual SEC filing date when each 13F became public.</li>
               </ul>
 
               <h3 style={{ color: 'var(--text-primary)' }}>3. Ideal Portfolio &amp; Quarterly Updates</h3>
               <p>
-                The Ideal Portfolio selects up to 50 names (default 40) from the union of Top-100 ranked funds across all six windows, scoring each stock by manager rank × √(portfolio weight) × consensus multiplier, water-filled under an 8% position cap. The Updates tab diffs consecutive Form 13F-HR quarters across common shares, calls, and puts to highlight initiations, heavy adds, exits, put-hedge shifts, common-to-call rotations, and valuation markdowns on flat share counts.
+                The Ideal Portfolio selects up to 50 active US-listed names (default 40) from the union of Top-100 ranked funds across all six windows, scoring each stock by manager percentile rank<sup>1.5</sup> × √(portfolio weight) × Tech/TMT specialist relevance × consensus multiplier × QoQ accumulation factor, water-filled under an 8% cap and backtested independently for Quarter-End and 45-Day Lag execution. The Updates tab diffs consecutive Form 13F-HR quarters across common shares, calls, and puts to highlight initiations, heavy adds, exits, put-hedge shifts, common-to-call rotations, and valuation markdowns on flat share counts.
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>4. Automated Quarterly Updates</h3>
               <p>
-                GitHub Actions runs automatically during every 13F filing season (February, May, August, November — plus weekly refresh checks) to pull new 13F-HR / 13F-HR/A filings, update market prices, rebuild the static site, and redeploy to GitHub Pages.
+                GitHub Actions runs automatically during every 13F filing season (February, May, August, November — plus weekly refresh checks) to sync SEC Form 13F Bulk Data Sets and incremental <code>master.idx</code> filings, update market prices, rebuild the static site, and redeploy to GitHub Pages.
               </p>
 
-              <h3 style={{ color: 'var(--text-primary)' }}>5. Discovery Seed Radar (Hardcoded Seed Drift Monitor)</h3>
+              <h3 style={{ color: 'var(--text-primary)' }}>5. Live Universe Screening Funnel</h3>
               <p style={{ marginBottom: '0.45rem' }}>
-                SEC EDGAR EFTS queries depend on seeded CUSIP pairs in <code>DISCOVERY_SEED_PAIRS</code> (<code>pipeline/funds_config.py</code>). Every pipeline run audits all unseeded public Tech/TMT stocks held across Top-100 funds and automatically raises an alert here and in GitHub Actions logs when newly emerging &ldquo;must-hold&rdquo; stocks show surging institutional adoption.
+                Deterministic audit trail tracing every SEC Form 13F CIK evaluated from raw EDGAR filings down to the Top-100 leaderboards, Ideal Portfolio, and Quarterly Updates feed.
               </p>
 
-              {watchlist && (
-                <div className="seed-radar-panel">
-                  <div className={`seed-radar-banner ${flaggedSeeds.length === 0 ? 'calm' : ''}`}>
+              {funnel && (
+                <div className="universe-funnel-panel">
+                  <div className="universe-funnel-banner">
                     <div>
                       <div style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <AlertTriangle size={15} color={flaggedSeeds.length > 0 ? '#b25000' : '#00823b'} />
-                        {flaggedSeeds.length > 0
-                          ? `${flaggedSeeds.length} Unseeded Breakout Stocks Flagged (${urgentSeedCount} Urgent)`
-                          : 'Seed List Aligned — No Urgent Unseeded Breakouts'}
+                        <Database size={15} color="#0071e3" />
+                        {funnel.totalCiksScanned.toLocaleString()} SEC 13F CIKs Scanned → {funnel.qualifiedFundsCount} Qualified Specialist Funds
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
-                        Monitoring {watchlist.seedPairCount} EFTS seed pairs across {watchlist.activeSeedTickers.length} tickers
+                        {funnel.bulkDatasetsCount} SEC Bulk ZIPs (through {funnel.bulkMaxFilingDate}) + {funnel.postBulkFilingsCount.toLocaleString()} post-bulk .txt filings · {funnel.curatedQualifiedCount} Curated Core + {funnel.discoveredQualifiedCount} EDGAR Discovered
                       </div>
                     </div>
-
-                    {flaggedSeeds.length > 0 && (
-                      <button type="button" className="seed-copy-btn" onClick={copySeedTuples}>
-                        {copiedSeeds ? <Check size={13} /> : <Copy size={13} />}
-                        {copiedSeeds ? 'Copied tuples!' : 'Copy DISCOVERY_SEED_PAIRS'}
-                      </button>
-                    )}
                   </div>
 
-                  <div style={{ padding: '0.7rem 0.95rem 0.35rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
-                      Active Seed Tickers ({watchlist.activeSeedTickers.length})
-                    </div>
-                    <div className="seed-radar-tickers">
-                      {watchlist.activeSeedTickers.map((t) => (
-                        <span key={t} className="seed-mini-chip">{t}</span>
-                      ))}
-                    </div>
+                  <div className="table-scroll">
+                    <table className="data-table compact" aria-label="Full-universe screening funnel">
+                      <thead>
+                        <tr>
+                          <th>Pipeline Stage</th>
+                          <th>Filter Criteria</th>
+                          <th className="num">Remaining</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><strong>1. Total 13F Universe</strong></td>
+                          <td>Unique CIKs filing Form 13F-HR / 13F-HR/A (2021–present)</td>
+                          <td className="num mono">{funnel.totalCiksScanned.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>2. Active Recent Filers</strong></td>
+                          <td>Filed within past 210 days</td>
+                          <td className="num mono">{funnel.activeRecentCount.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>3. Focused Managers</strong></td>
+                          <td>Exclude {funnel.excludedInstitutionsCount.toLocaleString()} operating corps, banks, insurers, pensions &amp; wirehouses</td>
+                          <td className="num mono">{funnel.nonExcludedManagerCount.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>4. Multi-Quarter History</strong></td>
+                          <td>≥4 recent quarters since 2024 (≥2 for Curated Core)</td>
+                          <td className="num mono">{funnel.fourPlusQuartersCount.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>5. Institutional Scale</strong></td>
+                          <td>Reported AUM ≥$200M &amp; US Equity AUM ≥$100M (15% buffer before Q3 merge)</td>
+                          <td className="num mono">{funnel.sizeAndEquityPassCount.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>6. Concentration &amp; Anti-SPV</strong></td>
+                          <td>≥5 pos, Eff-N ≥ 1.4, and ≤130 pos (or ≤265 w/ Top 10 ≥ 48%) pre-screen</td>
+                          <td className="num mono">{funnel.concentrationPassCount.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>7. Tech/TMT Focus Floor</strong></td>
+                          <td>≥35% Tech/TMT equity weight (Curated Core exempt into full audit)</td>
+                          <td className="num mono">{funnel.techFloorPassCount.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>8. Latest Qtr Strict Audit</strong></td>
+                          <td>Latest filing ≥35% Tech (≥30% Curated), ≤120 pos (or ≤250 w/ Top 10 ≥ 55%), ≥$200M/$100M, ≥4Q</td>
+                          <td className="num mono">{funnel.strictQualificationCount.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>9. Priced History Verified</strong></td>
+                          <td>≥$100M &amp; ≥50% of latest equity book actively priced (&gt;15 trading days)</td>
+                          <td className="num mono">{funnel.pricedHistoryPassCount.toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>10. Ranked Top-100 Union</strong></td>
+                          <td>Unique funds reaching Top 100 in any window (QE / 45-Day Lag)</td>
+                          <td className="num mono">{funnel.rankedUnionQeCount} / {funnel.rankedUnionLagCount}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>11. Live UI Output</strong></td>
+                          <td>Updates Feed cards · Ideal Portfolio active holdings</td>
+                          <td className="num mono">{funnel.updatesCardsCount} · {funnel.idealPortfolioCount}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-
-                  {flaggedSeeds.length > 0 && (
-                    <div className="table-scroll">
-                      <table className="data-table compact" aria-label="Emerging unseeded stocks">
-                        <thead>
-                          <tr>
-                            <th>Stock</th>
-                            <th>CUSIP</th>
-                            <th className="num">Top-100 / All</th>
-                            <th className="num">New + Surge</th>
-                            <th className="num">TTM</th>
-                            <th>Suggested Pair</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {flaggedSeeds.map((c) => (
-                            <tr key={c.ticker}>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                  <span className="ticker-badge">{c.ticker}</span>
-                                  <span className={`chip ${c.alertTier === 'URGENT' ? 'warn' : ''}`} style={{ fontSize: '0.67rem' }}>
-                                    {c.alertTier}
-                                  </span>
-                                </div>
-                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                                  {c.name}
-                                  {c.idealRank ? ` · Ideal #${c.idealRank}` : ''}
-                                  {c.consensusRank ? ` · Top-30 #${c.consensusRank}` : ''}
-                                </div>
-                              </td>
-                              <td className="mono" style={{ fontSize: '0.75rem' }}>{c.cusip}</td>
-                              <td className="num mono">{c.holderCount} / {c.allQualifiedHolders}</td>
-                              <td className="num mono">
-                                {c.newInitiationsCount}+{c.heavyAddsCount} ({formatPct(c.surgePct, 0)})
-                              </td>
-                              <td className={`num mono ${returnClass(c.stockTtmPct)}`}>
-                                {formatSignedPct(c.stockTtmPct, 0)}
-                              </td>
-                              <td className="mono" style={{ fontSize: '0.76rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
-                                {c.suggestedPair}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {watchlist.staleSeeds.length > 0 && (
-                    <div style={{ padding: '0.65rem 0.95rem', borderTop: '1px solid var(--border-hairline)', fontSize: '0.76rem', color: 'var(--warn-text)' }}>
-                      <strong>Low-coverage seeds:</strong>{' '}
-                      {watchlist.staleSeeds.map((s) => `${s.ticker} (${s.rankedHolders}/${s.allQualifiedHolders})`).join(', ')}
-                    </div>
-                  )}
                 </div>
               )}
 
