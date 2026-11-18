@@ -24,6 +24,7 @@ import numpy as np
 
 from enrichment import (
     compute_quarter_vwap_metrics,
+    fetch_form4_insider_signals,
     fetch_midquarter_alerts,
     fetch_risk_free_daily_rates,
     fetch_xbrl_fundamentals_batch,
@@ -2799,6 +2800,299 @@ def compute_actionability_matrix(
     }
 
 
+_CONVERGENCE_TIER_ORDER = {
+    "DUAL_CONVICTION_PRIME": 5,
+    "ACTIVIST_13F_CONVERGENCE": 4,
+    "DUAL_CONVICTION_EXTENDED": 3,
+    "INSIDER_CLUSTER_WATCH": 2,
+    "ACTIVIST_13D_CATALYST": 1,
+}
+
+
+def compute_dual_conviction_signal(
+    *,
+    ticker: str,
+    name: str,
+    sector: str = "Other",
+    sub_sector: str = "Other",
+    form4_summary: dict[str, Any] | None = None,
+    alerts: list[dict[str, Any]] | None = None,
+    price_usd: float | None = None,
+    est_quarter_vwap: float | None = None,
+    pct_vs_quarter_vwap: float | None = None,
+    alpha_decay_status: str | None = None,
+    actionability_score: float | None = None,
+    action_verdict: str | None = None,
+    new_count: int = 0,
+    added_count: int = 0,
+    trimmed_count: int = 0,
+    exited_count: int = 0,
+    elite_buyers_count: int = 0,
+    elite_sellers_count: int = 0,
+    elite_holders_count: int = 0,
+    net_est_flow_usd: float | None = None,
+) -> dict[str, Any] | None:
+    """
+    Cross-reference SEC Form 4 open-market ('P') insider buys, Schedule 13D/13G Item 4 activist
+    catalysts, Elite 13F institutional accumulation, and Est. Quarter-VWAP valuation proximity
+    to surface rare Dual-Conviction Convergence signals.
+    """
+    f4 = form4_summary or {}
+    open_buy_cnt = int(f4.get("openMarketBuyCount") or 0)
+    insider_buy_val = float(f4.get("totalBuyValueUsd") or 0.0)
+    buyers_cnt = int(f4.get("distinctBuyersCount") or 0)
+    csuite_cnt = int(f4.get("cSuiteBuyersCount") or 0)
+    non10b5_cnt = int(f4.get("non10b5Count") or 0)
+    insider_label = str(f4.get("insiderSignalLabel") or "NONE")
+    is_sell_heavy = insider_label == "MIXED_SELL_HEAVY"
+    has_insider_buy = open_buy_cnt > 0 and not is_sell_heavy
+    has_form4_cluster = bool(
+        f4
+        and not is_sell_heavy
+        and (
+            f4.get("clusterDetected")
+            or insider_label == "CLUSTER_BUY"
+            or (csuite_cnt >= 1 and insider_buy_val >= 100_000.0)
+        )
+    )
+    latest_insider_date = f4.get("latestBuyDate") or f4.get("latestFilingDate") or None
+
+    top_insiders: list[str] = []
+    seen_ins: set[str] = set()
+    for tx in f4.get("recentTransactions") or []:
+        iname = str(tx.get("insiderName") or "").strip()
+        irole = str(tx.get("insiderRole") or "").strip()
+        lbl = f"{iname} ({irole})" if (iname and irole) else (iname or irole)
+        if lbl and lbl not in seen_ins:
+            seen_ins.add(lbl)
+            top_insiders.append(lbl)
+        if len(top_insiders) >= 3:
+            break
+
+    active_alerts = [
+        al for al in (alerts or [])
+        if not str(al.get("stakeStatus") or "").startswith("Exited")
+    ]
+    activist_alerts = [al for al in active_alerts if al.get("isActivist")]
+    passive_13g_alerts = [
+        al for al in active_alerts
+        if not al.get("isActivist")
+        and (
+            al.get("percentOfClass") is None
+            or float(al.get("percentOfClass") or 0.0) >= 5.0
+            or str(al.get("stakeStatus") or "").startswith("Active")
+        )
+    ]
+
+    has_13d = len(activist_alerts) > 0
+    has_13g = (not has_13d) and len(passive_13g_alerts) > 0
+
+    activist_funds: list[str] = []
+    seen_af: set[str] = set()
+    for al in activist_alerts:
+        fn = str(al.get("fundName") or "").strip()
+        if fn and fn not in seen_af:
+            seen_af.add(fn)
+            activist_funds.append(fn)
+        if len(activist_funds) >= 3:
+            break
+
+    top_13d = activist_alerts[0] if activist_alerts else None
+    activist_cat = (
+        str(top_13d.get("item4Category") or "Active 13D")
+        if top_13d
+        else None
+    )
+    activist_intent = (str(top_13d.get("item4Intent") or "").strip() or None) if top_13d else None
+    activist_date = (str(top_13d.get("filingDate") or "").strip() or None) if top_13d else None
+
+    total_buyers = max(0, int(new_count + added_count))
+    total_sellers = max(0, int(trimmed_count + exited_count))
+    flow_val = float(net_est_flow_usd or 0.0)
+    is_fomo = alpha_decay_status == "FOMO_TRAP"
+    has_13f_accum = (not is_fomo) and (
+        action_verdict in ("STRONG ACCUMULATE", "ACCUMULATE ON DIP")
+        or (total_buyers > total_sellers and (elite_buyers_count >= 1 or flow_val > 0.0 or new_count >= 2))
+        or (elite_buyers_count > elite_sellers_count and total_buyers >= total_sellers and flow_val > 0.0)
+    )
+
+    near_q_vwap = pct_vs_quarter_vwap is not None and float(pct_vs_quarter_vwap) <= 12.0
+    extended_or_fomo = bool(is_fomo or (pct_vs_quarter_vwap is not None and float(pct_vs_quarter_vwap) > 12.0))
+
+    if not (has_form4_cluster or has_13d or (has_insider_buy and (has_13f_accum or has_13g))):
+        return None
+
+    # Tier classification
+    if has_form4_cluster and (has_13f_accum or has_13d):
+        tier = "DUAL_CONVICTION_PRIME" if (near_q_vwap and not is_fomo) else "DUAL_CONVICTION_EXTENDED"
+    elif has_13d and (has_13f_accum or elite_holders_count >= 1 or has_insider_buy):
+        tier = "ACTIVIST_13F_CONVERGENCE"
+    elif has_insider_buy and (has_13f_accum or has_13d or has_13g):
+        if extended_or_fomo:
+            tier = "DUAL_CONVICTION_EXTENDED"
+        else:
+            tier = "INSIDER_CLUSTER_WATCH"
+    elif has_form4_cluster:
+        tier = "INSIDER_CLUSTER_WATCH"
+    else:
+        tier = "ACTIVIST_13D_CATALYST"
+
+    # Sub-scores (sum up to 100)
+    s_insider = 0.0
+    if has_insider_buy:
+        if insider_label == "CLUSTER_BUY":
+            s_insider = (
+                24.0
+                + min(5.0, max(0, buyers_cnt - 2) * 2.5)
+                + (3.0 if csuite_cnt >= 1 else 0.0)
+                + (3.0 if insider_buy_val >= 1_000_000.0 else (1.5 if insider_buy_val >= 250_000.0 else 0.0))
+                + (1.0 if non10b5_cnt > 0 else 0.0)
+            )
+            s_insider = min(36.0, s_insider)
+        elif insider_label == "C_SUITE_BUY":
+            s_insider = (
+                19.0
+                + (6.0 if insider_buy_val >= 1_000_000.0 else (3.0 if insider_buy_val >= 250_000.0 else 1.0))
+                + (2.0 if non10b5_cnt > 0 else 0.0)
+            )
+            s_insider = min(28.0, s_insider)
+        elif insider_label == "DIRECTOR_BUY":
+            s_insider = min(16.0, 12.0 + (3.0 if insider_buy_val >= 250_000.0 else 1.0))
+        else:
+            s_insider = min(11.0, 8.0 + (2.0 if insider_buy_val >= 100_000.0 else 0.0))
+
+    s_13d = 0.0
+    if has_13d:
+        max_pct = max((float(al.get("percentOfClass") or 0.0) for al in activist_alerts), default=0.0)
+        cat_bonus = 0.0
+        if activist_cat in ("Strategic Review / M&A", "Board / Governance"):
+            cat_bonus = 4.0
+        elif activist_cat in ("Capital Return / Value", "Management Engagement"):
+            cat_bonus = 2.5
+        pct_bonus = 3.0 if max_pct >= 9.0 else (1.5 if max_pct >= 5.0 else 0.0)
+        s_13d = min(24.0, 17.0 + cat_bonus + pct_bonus)
+    elif has_13g:
+        s_13d = 7.0
+
+    if actionability_score is not None:
+        base_13f = min(18.0, max(0.0, (float(actionability_score) / 100.0) * 18.0))
+    else:
+        net_b = total_buyers - total_sellers
+        base_13f = min(18.0, max(0.0, 8.0 + max(-6.0, min(8.0, net_b * 2.0)) + (2.0 if flow_val > 0 else 0.0)))
+    elite_bonus = (
+        min(6.0, elite_buyers_count * 2.0 + (2.0 if elite_holders_count >= 5 else 0.0))
+        if has_13f_accum
+        else min(3.0, elite_holders_count * 0.8)
+    )
+    s_13f = min(24.0, max(0.0, base_13f + elite_bonus - (8.0 if is_fomo else 0.0)))
+
+    if pct_vs_quarter_vwap is None:
+        s_vwap = 7.0
+    else:
+        pv = float(pct_vs_quarter_vwap)
+        if pv <= -5.0:
+            s_vwap = 16.0
+        elif pv <= 0.0:
+            s_vwap = 14.5
+        elif pv <= 12.0:
+            s_vwap = 14.5 - (pv / 12.0) * 4.0
+        elif pv <= 20.0:
+            s_vwap = 10.5 - ((pv - 12.0) / 8.0) * 5.0
+        else:
+            s_vwap = max(1.5, 5.5 - ((pv - 20.0) / 15.0) * 4.0)
+
+    conv_score = round(min(100.0, max(0.0, s_insider + s_13d + s_13f + s_vwap)), 1)
+
+    reasons: list[str] = []
+    if has_insider_buy:
+        ins_kind = (
+            f"{buyers_cnt} insiders"
+            if buyers_cnt >= 2
+            else (top_insiders[0] if top_insiders else ("C-Suite insider" if csuite_cnt >= 1 else "Insider"))
+        )
+        reasons.append(f"Form 4 open-market buy: {ins_kind} bought {_fmt_usd_brief(insider_buy_val)}")
+    elif is_sell_heavy:
+        reasons.append("Form 4 buy activity offset by heavier discretionary insider sales")
+
+    if has_13d:
+        pct_top = top_13d.get("percentOfClass") if top_13d else None
+        pct_txt = f" ({float(pct_top):.1f}%)" if pct_top is not None else ""
+        reasons.append(f"Schedule 13D{pct_txt} by {', '.join(activist_funds) or 'Activist'}: {activist_cat}")
+    elif has_13g:
+        reasons.append("Active ≥5% Schedule 13G stake alongside tracked filings")
+
+    if has_13f_accum:
+        reasons.append(
+            f"13F accumulation: +{total_buyers} buyers / -{total_sellers} sellers"
+            + (f" ({elite_buyers_count} Elite buyers)" if elite_buyers_count > 0 else "")
+        )
+    elif elite_holders_count > 0:
+        reasons.append(f"Held by {elite_holders_count} Elite-50 13F fund(s)")
+
+    if pct_vs_quarter_vwap is not None:
+        reasons.append(f"{float(pct_vs_quarter_vwap):+.1f}% vs. Est. Q-VWAP")
+    else:
+        reasons.append("Est. Q-VWAP pricing pending")
+
+    if tier == "DUAL_CONVICTION_PRIME":
+        headline = "Rare Dual-Conviction: Form 4 insider buying + Elite 13F accumulation near Q-VWAP."
+    elif tier == "ACTIVIST_13F_CONVERGENCE":
+        headline = "Activist Schedule 13D catalyst aligned with Elite-50 institutional backing."
+    elif tier == "DUAL_CONVICTION_EXTENDED":
+        headline = (
+            "Insider + 13F co-buying on an extended rally (>12% above Q-VWAP) — monitor pullbacks."
+            if extended_or_fomo
+            else "Insider + 13F co-buying detected; verify Q-VWAP entry pricing."
+        )
+    elif tier == "INSIDER_CLUSTER_WATCH":
+        headline = (
+            "Insider + 13F co-buying watch (non-cluster insider buy alongside 13F accumulation)."
+            if (has_insider_buy and has_13f_accum)
+            else "Open-market Form 4 insider cluster/C-suite buy on a 13F-tracked stock."
+        )
+    else:
+        headline = "Live mid-quarter Schedule 13D activist campaign filed ahead of 13F reporting."
+
+    sig_dates = [d for d in (latest_insider_date, activist_date) if d]
+    latest_sig_date = max(sig_dates) if sig_dates else None
+
+    return {
+        "ticker": ticker,
+        "name": name,
+        "sector": sector,
+        "subSector": sub_sector,
+        "tier": tier,
+        "convergenceScore": conv_score,
+        "hasForm4Cluster": has_form4_cluster,
+        "hasInsiderBuy": has_insider_buy,
+        "has13DActivist": has_13d,
+        "has13GStake": has_13g,
+        "has13FAccumulation": has_13f_accum,
+        "nearQuarterVwap": near_q_vwap,
+        "priceUsd": price_usd,
+        "estQuarterVwap": est_quarter_vwap,
+        "pctVsQuarterVwap": pct_vs_quarter_vwap,
+        "actionabilityScore": actionability_score,
+        "actionVerdict": action_verdict,
+        "eliteBuyersCount": elite_buyers_count,
+        "eliteHoldersCount": elite_holders_count,
+        "netEstFlowUsd": round(flow_val, 2) if net_est_flow_usd is not None else None,
+        "insiderBuyValueUsd": round(insider_buy_val, 2) if insider_buy_val > 0 else 0.0,
+        "insiderBuyersCount": buyers_cnt,
+        "cSuiteBuyersCount": csuite_cnt,
+        "insiderSignalLabel": insider_label,
+        "topInsiders": top_insiders,
+        "latestInsiderDate": latest_insider_date,
+        "activistFunds": activist_funds,
+        "activistCategory": activist_cat,
+        "activistIntent": activist_intent,
+        "activistFilingDate": activist_date,
+        "latestSignalDate": latest_sig_date,
+        "reasons": reasons,
+        "headline": headline,
+    }
+
+
 
 def build_signal_screener(
     funds_out: list[dict[str, Any]],
@@ -4482,6 +4776,31 @@ def main() -> None:
             alerts_by_ticker.setdefault(canon_al_t, []).append(al)
         alerts_by_cik.setdefault(al["filerCik"], []).append(al)
 
+    form4_cik_map = dict(ticker_to_cik)
+    for al in midquarter_alerts:
+        al_t = DUAL_CLASS_CANONICAL.get(al.get("ticker", ""), al.get("ticker", ""))
+        al_scik = str(al.get("subjectCik") or "")
+        if al_t and al_scik.isdigit() and len(al_scik) == 10 and al_t not in form4_cik_map:
+            form4_cik_map[al_t] = al_scik
+
+    form4_priority_set: set[str] = set()
+    for t_cand in (xbrl_priority_set | set(alerts_by_ticker.keys())):
+        canon_cand = DUAL_CLASS_CANONICAL.get(t_cand, t_cand)
+        if (
+            canon_cand
+            and not canon_cand.startswith("CUSIP:")
+            and canon_cand not in excluded_etf_tickers
+            and canon_cand in form4_cik_map
+        ):
+            form4_priority_set.add(canon_cand)
+
+    form4_map = fetch_form4_insider_signals(
+        sorted(form4_priority_set),
+        form4_cik_map,
+        today_date=today_date,
+        lookback_days=90,
+    )
+
     # Latest quarter period end for Quarter-VWAP microstructure calculation
     latest_pe_mode = updates_overview.get("latestQuarterPeriodEnd") or max((f["latestPeriod"] for f in funds_out), default="2026-09-30")
 
@@ -4572,6 +4891,8 @@ def main() -> None:
         for f in funds_out
     }
 
+    dual_conviction_signals: list[dict[str, Any]] = []
+
     for t in all_dossier_tickers:
         rec_b = all_dossier_builders[t]
         enr = enrichment_by_ticker[t]
@@ -4617,6 +4938,80 @@ def main() -> None:
         enr["actionability"] = act_m
         enr["actionabilityScore"] = act_m["score"]
         enr["actionVerdict"] = act_m["verdict"]
+
+        f4_t = form4_map.get(t)
+        if f4_t and f4_t.get("avgBuyPriceUsd") and f4_t["avgBuyPriceUsd"] > 0 and enr.get("estQuarterVwap") and enr["estQuarterVwap"] > 0:
+            f4_t["buyPriceVsQuarterVwapPct"] = round(
+                ((float(f4_t["avgBuyPriceUsd"]) / float(enr["estQuarterVwap"])) - 1.0) * 100.0,
+                1,
+            )
+
+        conv_sig = compute_dual_conviction_signal(
+            ticker=t,
+            name=rec_b["name"],
+            sector=rec_b["sector"] or "Other",
+            sub_sector=classify_sub_sector(rec_b["sector"] or "Other", rec_b["industry"], rec_b["isTechTmt"]),
+            form4_summary=f4_t,
+            alerts=alerts_by_ticker.get(t, []),
+            price_usd=enr.get("priceUsd"),
+            est_quarter_vwap=enr.get("estQuarterVwap"),
+            pct_vs_quarter_vwap=enr.get("pctVsQuarterVwap"),
+            alpha_decay_status=enr.get("alphaDecayStatus"),
+            actionability_score=act_m["score"],
+            action_verdict=act_m["verdict"],
+            new_count=rec_b["newCount"],
+            added_count=rec_b["addedCount"],
+            trimmed_count=rec_b["trimmedCount"],
+            exited_count=rec_b["exitedCount"],
+            elite_buyers_count=rec_b["eliteBuyersCount"],
+            elite_sellers_count=rec_b["eliteSellersCount"],
+            elite_holders_count=rec_b["eliteHoldersCount"],
+            net_est_flow_usd=rec_b["netEstFlowUsd"],
+        )
+        enr["insiderActivity"] = f4_t
+        enr["insiderSignalLabel"] = f4_t.get("insiderSignalLabel") if f4_t else None
+        enr["convergenceSignal"] = conv_sig
+        enr["convergenceScore"] = conv_sig["convergenceScore"] if conv_sig else None
+        enr["convergenceTier"] = conv_sig["tier"] if conv_sig else None
+        if conv_sig is not None:
+            dual_conviction_signals.append(conv_sig)
+
+    # Also capture standalone 13D / Form 4 convergence candidates outside current 13F dossier keys
+    extra_conv_tickers = sorted((set(alerts_by_ticker.keys()) | set(form4_map.keys())) - set(all_dossier_tickers))
+    for et in extra_conv_tickers:
+        als_et = alerts_by_ticker.get(et, [])
+        f4_et = form4_map.get(et)
+        px_et = None
+        if et in aligned_prices:
+            arr_e, _, li_e = aligned_prices[et]
+            px_et = clean_num(float(arr_e[li_e]), 2)
+        name_et = (als_et[0].get("issuerName") if als_et else None) or et
+        conv_et = compute_dual_conviction_signal(
+            ticker=et,
+            name=name_et,
+            form4_summary=f4_et,
+            alerts=als_et,
+            price_usd=px_et,
+        )
+        if conv_et is not None:
+            dual_conviction_signals.append(conv_et)
+
+    dual_conviction_signals.sort(
+        key=lambda c: (
+            _CONVERGENCE_TIER_ORDER.get(c["tier"], 0),
+            float(c.get("convergenceScore") or 0.0),
+            float(c.get("insiderBuyValueUsd") or 0.0),
+            str(c.get("latestSignalDate") or ""),
+        ),
+        reverse=True,
+    )
+
+    form4_summary_out: dict[str, dict[str, Any]] = {}
+    for tk, f4 in form4_map.items():
+        if f4.get("openMarketBuyCount", 0) > 0 or f4.get("discretionarySellValueUsd", 0) > 0:
+            trimmed_f4 = dict(f4)
+            trimmed_f4["recentTransactions"] = (f4.get("recentTransactions") or [])[:6]
+            form4_summary_out[tk] = trimmed_f4
 
     _ALPHA_DECAY_KEYS = (
         "consensusFilingDate",
@@ -4839,6 +5234,7 @@ def main() -> None:
 
         enr = enrichment_by_ticker.get(t) or _compute_stock_enrichment(t)
         tp_t = thesis_persistence_map.get(t)
+        f4_t = form4_map.get(t)
         sec = rec["sector"] or "Other"
         sub_sec = classify_sub_sector(sec, rec["industry"], rec["isTechTmt"])
         sh_id = stock_shard_id(t)
@@ -4868,6 +5264,11 @@ def main() -> None:
             "actionVerdict": enr.get("actionVerdict"),
             "consecutiveNetBuyQuarters": tp_t["consecutiveNetBuyQuarters"] if tp_t else None,
             "consecutiveNetSellQuarters": tp_t["consecutiveNetSellQuarters"] if tp_t else None,
+            "insiderSignalLabel": enr.get("insiderSignalLabel"),
+            "insiderBuyValueUsd": f4_t["totalBuyValueUsd"] if f4_t and f4_t["totalBuyValueUsd"] > 0 else None,
+            "insiderBuyersCount": f4_t["distinctBuyersCount"] if f4_t and f4_t["distinctBuyersCount"] > 0 else None,
+            "convergenceScore": enr.get("convergenceScore"),
+            "convergenceTier": enr.get("convergenceTier"),
         }
 
         stock_shards[sh_id][t] = {
@@ -4905,6 +5306,8 @@ def main() -> None:
             "holders": holders_s,
             "recentMoves": moves_s,
             "midQuarterAlerts": alerts_by_ticker.get(t, []),
+            "insiderActivity": enr.get("insiderActivity"),
+            "convergenceSignal": enr.get("convergenceSignal"),
             **{ak: enr.get(ak) for ak in _ALPHA_DECAY_KEYS},
         }
 
@@ -4961,6 +5364,10 @@ def main() -> None:
     disc_qual_cnt = len(funds_out) - curated_qual_cnt
     ranked_any_ciks = set(ranked_union_ciks["filing_lag"]) | set(ranked_union_ciks["quarter_end"])
 
+    form4_cluster_cnt = sum(1 for f4 in form4_map.values() if f4.get("clusterDetected"))
+    updates_overview["dualConvictionCount"] = len(dual_conviction_signals)
+    updates_overview["form4ClusterCount"] = form4_cluster_cnt
+
     funnel_counts.update({
         "qualifiedFundsCount": len(funds_out),
         "leaderboardEligibleCount": len(lb_funds),
@@ -4973,6 +5380,8 @@ def main() -> None:
         "idealPortfolioCount": len(ideal_positions),
         "stocksIndexedCount": len(stocks_index),
         "midQuarterAlertsCount": len(midquarter_alerts),
+        "form4ClusterBuysCount": form4_cluster_cnt,
+        "dualConvictionCount": len(dual_conviction_signals),
     })
 
     now_dt = datetime.now(timezone.utc)
@@ -5000,7 +5409,8 @@ def main() -> None:
             "riskFreeLatestPct": round(float(rf_ann_arr[-1]), 2),
             "dataSources": [
                 "SEC EDGAR Form 13F Bulk Data Sets (2021-Present), EFTS & 13F-HR / 13F-HR/A Filings",
-                "SEC EDGAR XBRL CompanyFacts & Schedule 13D/13G Submissions",
+                "SEC EDGAR Form 4 / 4/A Open-Market ('P') Insider Filings & Schedule 13D/13G Item 4 Submissions",
+                "SEC EDGAR XBRL CompanyFacts & SEC Submissions Ownership Metadata",
                 "OpenFIGI CUSIP Security Master",
                 "Nasdaq Stock Screener Market Caps (~7,200 US Equities & ADRs)",
                 "Yahoo Finance Adjusted OHLCV & ^IRX 13W T-Bill + US Treasury Fiscal Data",
@@ -5017,6 +5427,8 @@ def main() -> None:
         "fundUpdates": updates_summary_out,
         "updatesOverview": updates_overview,
         "midQuarterAlerts": midquarter_alerts[:40],
+        "dualConvictionSignals": dual_conviction_signals[:40],
+        "form4Signals": form4_summary_out,
         "stocksIndex": stocks_index,
     }
 
@@ -5065,7 +5477,11 @@ def main() -> None:
         f"{funnel_counts['techFloorPassCount']} tech floor -> {funnel_counts['strictQualificationCount']} strict -> "
         f"{funnel_counts['qualifiedFundsCount']} verified ({len(lb_funds)} Leaderboard Eligible, {len(elite50_ciks)} Elite 50)"
     )
-    print(f"Indexed Stocks: {len(stocks_index)} | Mid-Quarter 13D/13G Alerts: {len(midquarter_alerts)} | Fund Updates: {len(fund_updates_out)}")
+    print(
+        f"Indexed Stocks: {len(stocks_index)} | Mid-Quarter 13D/13G Alerts: {len(midquarter_alerts)} | "
+        f"Form 4 Active: {len(form4_summary_out)} ({form4_cluster_cnt} clusters) | "
+        f"Dual-Conviction Signals: {len(dual_conviction_signals)} | Fund Updates: {len(fund_updates_out)}"
+    )
     print(
         f"Ideal Portfolio: {len(ideal_positions)} names (+{len(ideal_candidate_pool)} pool) | "
         f"TTM QE Return: {ideal_rets_qe['TTM']}% | TTM 45d-Lag Return: {ideal_rets_lag['TTM']}% | "

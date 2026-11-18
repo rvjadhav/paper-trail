@@ -27,6 +27,7 @@ import {
   formatSignedPct,
   formatSignedUsd,
   formatUsdCompact,
+  item4CategoryChipClass,
   returnClass,
   stakeStatusChipClass,
   tierChipClass,
@@ -410,47 +411,63 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
               </div>
               <div className="alerts-strip-list" style={{ padding: '0.85rem 1.25rem' }}>
                 {midQuarterAlerts.map((al) => (
-                  <div key={al.id} className="alert-row-card">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                      <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
-                      {al.stakeStatus && (
-                        <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>{al.stakeStatus}</span>
-                      )}
-                      {al.ticker && stocksIndex[al.ticker] ? (
-                        <button
-                          type="button"
-                          className="ticker-badge ticker-link-btn"
-                          onClick={() => onSelectStock(al.ticker)}
-                        >
-                          {al.ticker}
-                        </button>
-                      ) : al.ticker ? (
-                        <span className="ticker-badge">{al.ticker}</span>
-                      ) : null}
-                      {al.percentOfClass != null && (
-                        <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
-                      )}
-                      {al.sharesOwned != null && al.sharesOwned > 0 && (
-                        <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                          {compactShares(al.sharesOwned)} sh
+                  <div
+                    key={al.id}
+                    className="alert-row-card"
+                    style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.45rem' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                        <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
+                        {al.stakeStatus && (
+                          <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>{al.stakeStatus}</span>
+                        )}
+                        {al.isActivist && al.item4Category && (
+                          <span className={`chip ${item4CategoryChipClass(al.item4Category)}`}>
+                            {al.item4Category}
+                          </span>
+                        )}
+                        {al.ticker && stocksIndex[al.ticker] ? (
+                          <button
+                            type="button"
+                            className="ticker-badge ticker-link-btn"
+                            onClick={() => onSelectStock(al.ticker)}
+                          >
+                            {al.ticker}
+                          </button>
+                        ) : al.ticker ? (
+                          <span className="ticker-badge">{al.ticker}</span>
+                        ) : null}
+                        {al.percentOfClass != null && (
+                          <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
+                        )}
+                        {al.sharesOwned != null && al.sharesOwned > 0 && (
+                          <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                            {compactShares(al.sharesOwned)} sh
+                          </span>
+                        )}
+                        <span style={{ fontWeight: 600, fontSize: '0.86rem' }}>{al.issuerName}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                          {al.eventDate ? `Event ${al.eventDate} · ` : ''}Filed {al.filingDate}
                         </span>
-                      )}
-                      <span style={{ fontWeight: 600, fontSize: '0.86rem' }}>{al.issuerName}</span>
+                        <a
+                          href={al.filingDocUrl || al.edgarUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-ext-link mono"
+                          style={{ fontSize: '0.76rem' }}
+                        >
+                          {al.accessionNumber} <ExternalLink size={11} />
+                        </a>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                        {al.eventDate ? `Event ${al.eventDate} · ` : ''}Filed {al.filingDate}
-                      </span>
-                      <a
-                        href={al.edgarUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-ext-link mono"
-                        style={{ fontSize: '0.76rem' }}
-                      >
-                        {al.accessionNumber} <ExternalLink size={11} />
-                      </a>
-                    </div>
+                    {al.item4Intent && (
+                      <div className="item4-intent-box">
+                        <strong>Item 4 Intent:</strong> &ldquo;{al.item4Intent}&rdquo;
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

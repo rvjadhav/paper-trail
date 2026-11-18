@@ -1,8 +1,10 @@
 import type {
   ActionVerdict,
   AlphaDecayStatus,
+  ConvergenceTier,
   EntryZoneStatus,
   FundTier,
+  InsiderSignalLabel,
   ReturnMode,
   ReturnWindow,
 } from '../types/data';
@@ -136,6 +138,53 @@ export function stakeStatusChipClass(status: string | null | undefined): string 
   if (status.startsWith('Exited')) return 'neg';
   if (status.startsWith('Reduced')) return 'warn';
   if (status.startsWith('Active')) return 'pos';
+  return '';
+}
+
+export function convergenceTierLabel(tier: ConvergenceTier | string | null | undefined): string {
+  if (tier === 'DUAL_CONVICTION_PRIME') return 'Prime Dual-Conviction';
+  if (tier === 'ACTIVIST_13F_CONVERGENCE') return '13D Activist + 13F';
+  if (tier === 'DUAL_CONVICTION_EXTENDED') return 'Dual-Conviction (Extended)';
+  if (tier === 'INSIDER_CLUSTER_WATCH') return 'Insider Cluster Watch';
+  if (tier === 'ACTIVIST_13D_CATALYST') return 'Activist 13D Catalyst';
+  return 'Convergence Signal';
+}
+
+export function convergenceTierChipClass(tier: ConvergenceTier | string | null | undefined): string {
+  if (tier === 'DUAL_CONVICTION_PRIME') return 'pos';
+  if (tier === 'ACTIVIST_13F_CONVERGENCE') return 'tech';
+  if (tier === 'DUAL_CONVICTION_EXTENDED') return 'warn';
+  if (tier === 'INSIDER_CLUSTER_WATCH') return 'elite';
+  if (tier === 'ACTIVIST_13D_CATALYST') return 'warn';
+  return '';
+}
+
+export function insiderSignalLabelText(label: InsiderSignalLabel | string | null | undefined): string {
+  if (label === 'CLUSTER_BUY') return 'Form 4 Cluster Buy';
+  if (label === 'C_SUITE_BUY') return 'C-Suite Buy';
+  if (label === 'DIRECTOR_BUY') return 'Director Buy';
+  if (label === 'SINGLE_BUY') return 'Open-Market Buy';
+  if (label === 'MIXED_SELL_HEAVY') return 'Mixed (Sell-Heavy)';
+  return 'No Open-Market Buys';
+}
+
+export function insiderSignalChipClass(label: InsiderSignalLabel | string | null | undefined): string {
+  if (label === 'CLUSTER_BUY' || label === 'C_SUITE_BUY') return 'pos';
+  if (label === 'DIRECTOR_BUY' || label === 'SINGLE_BUY') return 'tech';
+  if (label === 'MIXED_SELL_HEAVY') return 'warn';
+  return '';
+}
+
+export function item4CategoryChipClass(category: string | null | undefined): string {
+  if (!category) return '';
+  if (category === 'Strategic Review / M&A' || category === 'Board / Governance') return 'neg';
+  if (
+    category === 'Capital Return / Value' ||
+    category === 'Management Engagement' ||
+    category === 'Active 13D'
+  ) {
+    return 'warn';
+  }
   return '';
 }
 

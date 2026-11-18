@@ -105,6 +105,99 @@ export interface FundMetrics {
   skillRank: number | null;
 }
 
+export type InsiderSignalLabel =
+  | 'CLUSTER_BUY'
+  | 'C_SUITE_BUY'
+  | 'DIRECTOR_BUY'
+  | 'SINGLE_BUY'
+  | 'MIXED_SELL_HEAVY'
+  | 'NONE';
+
+export interface Form4Transaction {
+  accessionNumber: string;
+  filingDate: string;
+  transactionDate: string;
+  insiderName: string;
+  insiderRole: string;
+  isOfficer: boolean;
+  isDirector: boolean;
+  isCsuite: boolean;
+  isTenPercentOwner: boolean;
+  shares: number;
+  pricePerShare: number;
+  valueUsd: number;
+  is10b5Plan: boolean;
+  edgarUrl: string;
+}
+
+export interface Form4InsiderSummary {
+  ticker: string;
+  issuerCik: string;
+  lookbackDays: number;
+  openMarketBuyCount: number;
+  distinctBuyersCount: number;
+  officerBuyersCount: number;
+  cSuiteBuyersCount: number;
+  directorBuyersCount: number;
+  tenPctOwnerBuyersCount: number;
+  totalBuyValueUsd: number;
+  totalBuyShares: number;
+  avgBuyPriceUsd: number | null;
+  buyPriceVsQuarterVwapPct: number | null;
+  latestBuyDate: string | null;
+  latestFilingDate: string | null;
+  non10b5Count: number;
+  non10b5BuyValueUsd: number;
+  discretionarySellValueUsd: number;
+  totalSellValueUsd: number;
+  insiderSignalLabel: InsiderSignalLabel;
+  clusterDetected: boolean;
+  recentTransactions: Form4Transaction[];
+}
+
+export type ConvergenceTier =
+  | 'DUAL_CONVICTION_PRIME'
+  | 'ACTIVIST_13F_CONVERGENCE'
+  | 'DUAL_CONVICTION_EXTENDED'
+  | 'INSIDER_CLUSTER_WATCH'
+  | 'ACTIVIST_13D_CATALYST';
+
+export interface DualConvictionSignal {
+  ticker: string;
+  name: string;
+  sector: string;
+  subSector: string;
+  tier: ConvergenceTier;
+  convergenceScore: number;
+  hasForm4Cluster: boolean;
+  hasInsiderBuy: boolean;
+  has13DActivist: boolean;
+  has13GStake: boolean;
+  has13FAccumulation: boolean;
+  nearQuarterVwap: boolean;
+  priceUsd: number | null;
+  estQuarterVwap: number | null;
+  pctVsQuarterVwap: number | null;
+  actionabilityScore: number | null;
+  actionVerdict: ActionVerdict | null;
+  eliteBuyersCount: number;
+  eliteHoldersCount: number;
+  netEstFlowUsd: number | null;
+  insiderBuyValueUsd: number;
+  insiderBuyersCount: number;
+  cSuiteBuyersCount: number;
+  insiderSignalLabel: InsiderSignalLabel;
+  topInsiders: string[];
+  latestInsiderDate: string | null;
+  activistFunds: string[];
+  activistCategory: string | null;
+  activistIntent: string | null;
+  activistFilingDate: string | null;
+  latestSignalDate: string | null;
+  reasons: string[];
+  headline: string;
+}
+
 export interface MidQuarterAlert {
   id: string;
   filerCik: string;
@@ -117,10 +210,13 @@ export interface MidQuarterAlert {
   ticker: string;
   issuerName: string;
   edgarUrl: string;
+  filingDocUrl?: string | null;
   percentOfClass?: number | null;
   sharesOwned?: number | null;
   stakeStatus?: string | null;
   eventDate?: string | null;
+  item4Category?: string | null;
+  item4Intent?: string | null;
 }
 
 export interface FundSummary {
@@ -577,6 +673,8 @@ export interface UpdatesOverview {
   totalPutNotionalUsd: number;
   totalCallNotionalUsd: number;
   totalLatestBookUsd: number;
+  dualConvictionCount?: number;
+  form4ClusterCount?: number;
   consensusNewInitiations: ConsensusMoveSummary[];
   consensusHeavyAdds: ConsensusMoveSummary[];
   consensusExitsAndTrims: ConsensusMoveSummary[];
@@ -619,6 +717,11 @@ export interface StockIndexEntry {
   actionVerdict?: ActionVerdict | null;
   consecutiveNetBuyQuarters?: number | null;
   consecutiveNetSellQuarters?: number | null;
+  insiderSignalLabel?: InsiderSignalLabel | null;
+  insiderBuyValueUsd?: number | null;
+  insiderBuyersCount?: number | null;
+  convergenceScore?: number | null;
+  convergenceTier?: ConvergenceTier | null;
 }
 
 export interface StockDetailHolder {
@@ -681,6 +784,8 @@ export interface StockDetail {
   holders: StockDetailHolder[];
   recentMoves: StockDetailMove[];
   midQuarterAlerts: MidQuarterAlert[];
+  insiderActivity?: Form4InsiderSummary | null;
+  convergenceSignal?: DualConvictionSignal | null;
   consensusFilingDate?: string | null;
   filingDatePriceUsd?: number | null;
   qVwapToFilingPct?: number | null;
@@ -719,6 +824,8 @@ export interface UniverseFunnel {
   idealPortfolioCount: number;
   stocksIndexedCount: number;
   midQuarterAlertsCount: number;
+  form4ClusterBuysCount?: number;
+  dualConvictionCount?: number;
   bulkDatasetsCount: number;
   bulkMaxFilingDate: string;
   postBulkFilingsCount: number;
@@ -759,5 +866,7 @@ export interface PaperTrailSummaryDataset {
   fundUpdates: FundUpdateSummary[];
   updatesOverview: UpdatesOverview;
   midQuarterAlerts: MidQuarterAlert[];
+  dualConvictionSignals?: DualConvictionSignal[];
+  form4Signals?: Record<string, Form4InsiderSummary>;
   stocksIndex: Record<string, StockIndexEntry>;
 }

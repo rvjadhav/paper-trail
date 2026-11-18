@@ -2214,10 +2214,13 @@ html.theme-fallback-transition .site-footer {
 @media (max-width: 720px) {
   .vwap-kpis,
   .xbrl-grid,
-  .pillar-grid {
+  .pillar-grid,
+  .insider-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .midq-alerts-grid {
+  .midq-alerts-grid,
+  .convergence-feed-grid,
+  .convergence-lanes {
     grid-template-columns: 1fr;
   }
   .rebalance-panel > div:last-child {
@@ -2230,7 +2233,8 @@ html.theme-fallback-transition .site-footer {
     flex-direction: row;
     justify-content: center;
   }
-  .conviction-hero-top {
+  .conviction-hero-top,
+  .convergence-card-top {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -2322,6 +2326,12 @@ html.theme-fallback-transition .site-footer {
 .alpha-decay-banner.warn {
   background: var(--warn-bg);
   border-color: rgba(255, 179, 64, 0.34);
+  color: var(--text-primary);
+}
+
+.alpha-decay-banner.tech {
+  background: var(--accent-primary-soft);
+  border-color: var(--accent-border-soft);
   color: var(--text-primary);
 }
 
@@ -2497,4 +2507,132 @@ html.theme-fallback-transition .site-footer {
 .pillar-mini-chip.neg {
   color: var(--neg-text);
   border-color: rgba(255, 105, 97, 0.28);
+}
+
+/* Form 4 Insider + Schedule 13D/13G Activist Convergence Feed */
+.convergence-feed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+  gap: 0.8rem;
+  padding: 0.95rem 1.25rem;
+}
+
+.convergence-card {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 0.85rem 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.convergence-card.tier-prime {
+  border-color: rgba(52, 211, 153, 0.42);
+  background: linear-gradient(180deg, var(--pos-bg), var(--bg-surface-subtle));
+}
+
+.convergence-card.tier-activist {
+  border-color: rgba(255, 179, 64, 0.38);
+  background: linear-gradient(180deg, var(--warn-bg), var(--bg-surface-subtle));
+}
+
+.convergence-card.tier-extended {
+  border-color: var(--accent-border-soft);
+}
+
+.convergence-card.tier-watch {
+  border-color: var(--border-subtle);
+}
+
+.convergence-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.convergence-headline {
+  margin: 0;
+  font-size: 0.81rem;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.convergence-lanes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.convergence-lane {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  border-radius: 9px;
+  padding: 0.52rem 0.62rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.convergence-lane-lbl {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.convergence-lane-val {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.24rem;
+  font-size: 0.77rem;
+  color: var(--text-primary);
+}
+
+.item4-intent-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--warn-text);
+  border-radius: 8px;
+  padding: 0.48rem 0.68rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.convergence-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.convergence-reason-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.48rem;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-secondary);
+}
+
+.insider-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.insider-kpi-cell {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 0.58rem 0.72rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
 }

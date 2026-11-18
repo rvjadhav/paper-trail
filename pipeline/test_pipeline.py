@@ -1288,8 +1288,321 @@ class TestConvictionMatrixAndPersistence(unittest.TestCase):
         self.assertNotIn("outflows", no_sell_drag["summary"].lower())
 
 
+class TestForm4And13DConvergence(unittest.TestCase):
+    def test_parse_13dg_primary_xml_extracts_stakes_and_item4_intent(self) -> None:
+        xml_bytes = b"""<?xml version="1.0" encoding="UTF-8"?>
+        <edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13D">
+          <formData>
+            <submissionType>SCHEDULE 13D</submissionType>
+            <issuerInfo>
+              <issuerCusipNumber>67066G104</issuerCusipNumber>
+            </issuerInfo>
+            <eventDateRequiresFilingThisStatement>2026-11-04</eventDateRequiresFilingThisStatement>
+            <reportingPersonsInfo>
+              <reportingPersonInfo>
+                <reportingPersonBeneficiallyOwnedAggregateNumberOfShares>2,450,000</reportingPersonBeneficiallyOwnedAggregateNumberOfShares>
+                <classPercent>7.4</classPercent>
+              </reportingPersonInfo>
+            </reportingPersonsInfo>
+            <item4>
+              <transactionPurpose>
+                Item 4. Purpose of Transaction - Reporting person intends to engage management regarding strategic alternatives, potential sale process, and board representation to unlock shareholder value.
+              </transactionPurpose>
+            </item4>
+          </formData>
+        </edgarSubmission>
+        """
+        parsed = enrichment._parse_13dg_primary_xml(xml_bytes, is_activist=True)
+        self.assertEqual(parsed["percentOfClass"], 7.4)
+        self.assertEqual(parsed["sharesOwned"], 2450000)
+        self.assertEqual(parsed["subjectCusip"], "67066G104")
+        self.assertEqual(parsed["eventDate"], "2026-11-04")
+        self.assertEqual(parsed["item4Category"], "Strategic Review / M&A")
+        self.assertIn("strategic alternatives", parsed["item4Intent"].lower())
+        self.assertFalse(parsed["item4Intent"].upper().startswith("ITEM 4"))
+
+    def test_parse_13dg_html_skips_toc_and_extracts_cover_and_item4(self) -> None:
+        html_bytes = """
+        <html><body>
+          <div>CUSIP No. 037833100</div>
+          <div>Date of Event Which Requires Filing of this Statement: November 2, 2026</div>
+          <table>
+            <tr><td>(9) AGGREGATE AMOUNT BENEFICIALLY OWNED BY EACH REPORTING PERSON</td><td>1,825,000</td></tr>
+            <tr><td>(11) PERCENT OF CLASS REPRESENTED BY AMOUNT IN ROW (9)</td><td>6.8%</td></tr>
+          </table>
+          <p>Table of Contents: Item 4. Purpose of Transaction ... 6</p>
+          <p>Item 4. Purpose of Transaction.</p>
+          <p>The Reporting Persons plan to seek board seats and advocate for improved corporate governance and nomination of two independent directors ahead of the annual meeting.</p>
+          <p>Item 5. Interest in Securities of the Issuer.</p>
+        </body></html>
+        """.encode("utf-8")
+        parsed = enrichment._parse_13dg_html(html_bytes, is_activist=True)
+        self.assertEqual(parsed["subjectCusip"], "037833100")
+        self.assertEqual(parsed["eventDate"], "2026-11-02")
+        self.assertEqual(parsed["sharesOwned"], 1825000)
+        self.assertEqual(parsed["percentOfClass"], 6.8)
+        self.assertEqual(parsed["item4Category"], "Board / Governance")
+        self.assertIn("board seats", parsed["item4Intent"].lower())
+        self.assertNotIn("Table of Contents", parsed["item4Intent"])
+
+    def test_form4_xml_parsing_and_cluster_dedup_rules(self) -> None:
+        self.assertTrue(enrichment._is_csuite_title("Chief Executive Officer"))
+        self.assertTrue(enrichment._is_csuite_title("Senior Vice President & CFO"))
+        self.assertFalse(enrichment._is_csuite_title("Vice President, Sales"))
+        self.assertTrue(enrichment._footnote_confirms_10b5("Transaction executed pursuant to a Rule 10b5-1 trading plan."))
+        self.assertFalse(enrichment._footnote_confirms_10b5("Purchase not made pursuant to Rule 10b5-1 trading plan."))
+
+        ceo_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>0</aff10b5One>
+          <issuer><issuerCik>0001045810</issuerCik><issuerTradingSymbol>NVDA</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000001</rptOwnerCik><rptOwnerName>DOE JANE</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>Chief Executive Officer</officerTitle></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-01</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>5000</value></transactionShares>
+                <transactionPricePerShare><value>100.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+              <footnoteId id="F1"/>
+            </nonDerivativeTransaction>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-02</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>3000</value></transactionShares>
+                <transactionPricePerShare><value>102.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-02</value></transactionDate>
+              <transactionCoding><transactionCode>M</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>25000</value></transactionShares>
+                <transactionPricePerShare><value>15.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-02</value></transactionDate>
+              <transactionCoding><transactionCode>F</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>9000</value></transactionShares>
+                <transactionPricePerShare><value>102.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+          <footnotes>
+            <footnote id="F1">Open market purchase not made pursuant to Rule 10b5-1 plan.</footnote>
+          </footnotes>
+        </ownershipDocument>
+        """
+        ceo_amend_xml = ceo_xml.replace(b"<documentType>4</documentType>", b"<documentType>4/A</documentType>")
+        cfo_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>1</aff10b5One>
+          <issuer><issuerCik>0001045810</issuerCik><issuerTradingSymbol>NVDA</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000002</rptOwnerCik><rptOwnerName>SMITH JOHN</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>Chief Financial Officer</officerTitle></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-05</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>2000</value></transactionShares>
+                <transactionPricePerShare><value>98.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+
+        d1 = enrichment._parse_form4_xml(ceo_xml, "0001045810", "0001-26-0001", "2026-11-02", "doc1.xml", "4")
+        d1_amend = enrichment._parse_form4_xml(ceo_amend_xml, "0001045810", "0001-26-0002", "2026-11-03", "doc1a.xml", "4/A")
+        d2 = enrichment._parse_form4_xml(cfo_xml, "0001045810", "0001-26-0003", "2026-11-06", "doc2.xml", "4")
+        self.assertIsNotNone(d1)
+        assert d1 is not None and d1_amend is not None and d2 is not None
+        # Only 'P' rows kept; 'M' and 'F' excluded; negation 10b5 footnote stays Discretionary
+        self.assertEqual(len(d1["buys"]), 2)
+        self.assertFalse(d1["buys"][0]["is10b5Plan"])
+        self.assertTrue(d2["buys"][0]["is10b5Plan"])
+
+        summary = enrichment.summarize_form4_transactions_for_ticker("NVDA", "0001045810", [d1, d1_amend, d2])
+        # 4/A deduplicates CEO's original 2 lots, preserving CFO's 1 lot -> 3 buys total
+        self.assertEqual(summary["openMarketBuyCount"], 3)
+        self.assertEqual(summary["distinctBuyersCount"], 2)
+        self.assertEqual(summary["cSuiteBuyersCount"], 2)
+        self.assertEqual(summary["insiderSignalLabel"], "CLUSTER_BUY")
+        self.assertTrue(summary["clusterDetected"])
+        self.assertEqual(summary["non10b5Count"], 2)
+
+        # Heavy offsetting discretionary sell overrides small single buy
+        heavy_sell_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>0</aff10b5One>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000003</rptOwnerCik><rptOwnerName>SELLER ALEX</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isDirector>1</isDirector></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-04</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>1000</value></transactionShares>
+                <transactionPricePerShare><value>50.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-05</value></transactionDate>
+              <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>10000</value></transactionShares>
+                <transactionPricePerShare><value>52.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+        ds = enrichment._parse_form4_xml(heavy_sell_xml, "0001045810", "0001-26-0004", "2026-11-05", "ds.xml", "4")
+        assert ds is not None
+        sell_sum = enrichment.summarize_form4_transactions_for_ticker("TEST", "0001045810", [ds])
+        self.assertEqual(sell_sum["insiderSignalLabel"], "MIXED_SELL_HEAVY")
+        self.assertFalse(sell_sum["clusterDetected"])
+        self.assertGreater(sell_sum["discretionarySellValueUsd"], 500000.0)
+
+    def test_compute_dual_conviction_signal_tiers(self) -> None:
+        cluster_f4 = {
+            "openMarketBuyCount": 3,
+            "totalBuyValueUsd": 1_250_000.0,
+            "distinctBuyersCount": 2,
+            "cSuiteBuyersCount": 2,
+            "non10b5Count": 2,
+            "insiderSignalLabel": "CLUSTER_BUY",
+            "clusterDetected": True,
+            "latestBuyDate": "2026-11-10",
+            "recentTransactions": [
+                {"insiderName": "Jane Doe", "insiderRole": "CEO"},
+                {"insiderName": "John Smith", "insiderRole": "CFO"},
+            ],
+        }
+
+        prime = build_data.compute_dual_conviction_signal(
+            ticker="CLD",
+            name="Cloud Dip Corp",
+            form4_summary=cluster_f4,
+            pct_vs_quarter_vwap=-4.5,
+            actionability_score=84.0,
+            action_verdict="STRONG ACCUMULATE",
+            new_count=2,
+            added_count=2,
+            elite_buyers_count=3,
+            elite_holders_count=5,
+            net_est_flow_usd=180_000_000.0,
+        )
+        self.assertIsNotNone(prime)
+        assert prime is not None
+        self.assertEqual(prime["tier"], "DUAL_CONVICTION_PRIME")
+        self.assertGreater(prime["convergenceScore"], 65.0)
+        self.assertTrue(prime["nearQuarterVwap"])
+
+        extended = build_data.compute_dual_conviction_signal(
+            ticker="CLD",
+            name="Cloud Dip Corp",
+            form4_summary=cluster_f4,
+            pct_vs_quarter_vwap=19.0,
+            actionability_score=65.0,
+            action_verdict="ACCUMULATE ON DIP",
+            new_count=2,
+            added_count=1,
+            elite_buyers_count=2,
+            elite_holders_count=4,
+            net_est_flow_usd=90_000_000.0,
+        )
+        assert extended is not None
+        self.assertEqual(extended["tier"], "DUAL_CONVICTION_EXTENDED")
+
+        act_conv = build_data.compute_dual_conviction_signal(
+            ticker="ACTV",
+            name="Activist Target Inc",
+            alerts=[
+                {
+                    "isActivist": True,
+                    "fundName": "Starboard Value",
+                    "percentOfClass": 8.2,
+                    "stakeStatus": "Active (≥5%)",
+                    "item4Category": "Strategic Review / M&A",
+                    "item4Intent": "Seeking strategic alternatives and board refresh.",
+                    "filingDate": "2026-11-12",
+                }
+            ],
+            elite_holders_count=3,
+            new_count=1,
+            added_count=1,
+            elite_buyers_count=2,
+            net_est_flow_usd=60_000_000.0,
+        )
+        assert act_conv is not None
+        self.assertEqual(act_conv["tier"], "ACTIVIST_13F_CONVERGENCE")
+        self.assertEqual(act_conv["activistCategory"], "Strategic Review / M&A")
+
+        standalone_13d = build_data.compute_dual_conviction_signal(
+            ticker="SOLO",
+            name="Solo Catalyst Co",
+            alerts=[
+                {
+                    "isActivist": True,
+                    "fundName": "Activist Partners",
+                    "percentOfClass": 5.5,
+                    "stakeStatus": "Active (≥5%)",
+                    "item4Category": "Board / Governance",
+                    "filingDate": "2026-11-12",
+                }
+            ],
+            elite_holders_count=0,
+        )
+        assert standalone_13d is not None
+        self.assertEqual(standalone_13d["tier"], "ACTIVIST_13D_CATALYST")
+
+        watch = build_data.compute_dual_conviction_signal(
+            ticker="WTCH",
+            name="Watch Corp",
+            form4_summary=cluster_f4,
+            new_count=0,
+            added_count=0,
+        )
+        assert watch is not None
+        self.assertEqual(watch["tier"], "INSIDER_CLUSTER_WATCH")
+
+        suppressed = build_data.compute_dual_conviction_signal(
+            ticker="SELL",
+            name="Sell Heavy Co",
+            form4_summary={"openMarketBuyCount": 1, "insiderSignalLabel": "MIXED_SELL_HEAVY"},
+            new_count=1,
+            added_count=1,
+            elite_buyers_count=1,
+        )
+        self.assertIsNone(suppressed)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 
 
 

@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState, type FC } from 'react';
 import {
   ArrowUpRight,
   ExternalLink,
+  Flame,
   Radio,
   Search,
   Sparkles,
   X,
 } from 'lucide-react';
 import type {
+  DualConvictionSignal,
+  Form4InsiderSummary,
   FundUpdateSummary,
   MidQuarterAlert,
   PositionMoveItem,
@@ -16,12 +19,20 @@ import type {
   StockIndexEntry,
   UpdatesOverview,
 } from '../types/data';
+import { buildConvergenceFeed } from '../utils/convergence';
+import type { UnifiedConvictionRow } from '../utils/convictionMatrix';
 import { fetchStockDetail } from '../utils/dataLoader';
 import {
+  actionVerdictChipClass,
   compactShares,
+  convergenceTierChipClass,
+  convergenceTierLabel,
   formatSignedPct,
   formatSignedUsd,
   formatUsdCompact,
+  insiderSignalChipClass,
+  insiderSignalLabelText,
+  item4CategoryChipClass,
   returnClass,
   stakeStatusChipClass,
   tierChipClass,
@@ -34,6 +45,9 @@ interface UpdatesTabProps {
   midQuarterAlerts: MidQuarterAlert[];
   stocksIndex: Record<string, StockIndexEntry>;
   searchableTickersByCik: Map<string, string[]>;
+  form4Signals?: Record<string, Form4InsiderSummary>;
+  dualConvictionSignals?: DualConvictionSignal[];
+  convictionByTicker?: Record<string, UnifiedConvictionRow>;
   onSelectFund: (cik: string) => void;
   onDiveDeeper: (cik: string) => void;
   onSelectStock: (ticker: string) => void;
@@ -41,6 +55,8 @@ interface UpdatesTabProps {
 
 type UpdateFilter = 'ALL' | 'ELITE50' | 'HEDGED' | 'OPTIONS_SHIFTS' | 'TOP100';
 type UpdateSort = 'latest' | 'activity' | 'hedge' | 'aum';
+type ConvergenceFilter = 'ALL' | 'PRIME' | 'FORM4' | 'ACTIVIST';
+type AlertFilter = 'ALL' | '13D' | 'ACTIVE';
 
 interface SpotlightMatchItem {
   key: string;
@@ -69,12 +85,19 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
   midQuarterAlerts,
   stocksIndex,
   searchableTickersByCik,
+  form4Signals,
+  dualConvictionSignals,
+  convictionByTicker,
   onSelectFund,
   onDiveDeeper,
   onSelectStock,
 }) => {
   const [filter, setFilter] = useState<UpdateFilter>('ALL');
   const [sortBy, setSortBy] = useState<UpdateSort>('latest');
+  const [convFilter, setConvFilter] = useState<ConvergenceFilter>('ALL');
+  const [alertFilter, setAlertFilter] = useState<AlertFilter>('ALL');
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
+  const [showAllConvergence, setShowAllConvergence] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -161,6 +184,58 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
     }),
     [updates]
   );
+
+  const resolvedConvergenceSignals = useMemo(
+    () =>
+      buildConvergenceFeed({
+        dualConvictionSignals,
+        form4Signals,
+        midQuarterAlerts,
+        stocksIndex,
+        convictionByTicker,
+      }),
+    [dualConvictionSignals, form4Signals, midQuarterAlerts, stocksIndex, convictionByTicker]
+  );
+
+  const convCounts = useMemo(
+    () => ({
+      all: resolvedConvergenceSignals.length,
+      prime: resolvedConvergenceSignals.filter((s) => s.tier === 'DUAL_CONVICTION_PRIME').length,
+      form4: resolvedConvergenceSignals.filter((s) => s.hasForm4Cluster || s.hasInsiderBuy).length,
+      activist: resolvedConvergenceSignals.filter((s) => s.has13DActivist).length,
+    }),
+    [resolvedConvergenceSignals]
+  );
+
+  const filteredConvergenceSignals = useMemo(() => {
+    if (convFilter === 'PRIME') {
+      return resolvedConvergenceSignals.filter((s) => s.tier === 'DUAL_CONVICTION_PRIME');
+    }
+    if (convFilter === 'FORM4') {
+      return resolvedConvergenceSignals.filter((s) => s.hasForm4Cluster || s.hasInsiderBuy);
+    }
+    if (convFilter === 'ACTIVIST') {
+      return resolvedConvergenceSignals.filter((s) => s.has13DActivist);
+    }
+    return resolvedConvergenceSignals;
+  }, [resolvedConvergenceSignals, convFilter]);
+
+  const alertCounts = useMemo(
+    () => ({
+      all: midQuarterAlerts.length,
+      activist: midQuarterAlerts.filter((a) => a.isActivist).length,
+      active: midQuarterAlerts.filter((a) => (a.stakeStatus ?? '').startsWith('Active')).length,
+    }),
+    [midQuarterAlerts]
+  );
+
+  const filteredAlerts = useMemo(() => {
+    if (alertFilter === '13D') return midQuarterAlerts.filter((a) => a.isActivist);
+    if (alertFilter === 'ACTIVE') {
+      return midQuarterAlerts.filter((a) => (a.stakeStatus ?? '').startsWith('Active'));
+    }
+    return midQuarterAlerts;
+  }, [midQuarterAlerts, alertFilter]);
 
   const filteredUpdates = useMemo(() => {
     const q = trimmedQuery.toLowerCase();
@@ -328,7 +403,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
         <div className="section-title-group">
           <h2>Quarterly 13F Paper Trail — {overview.latestQuarterLabel} Updates</h2>
           <p>
-            Quarter-over-quarter portfolio changes across {overview.totalUpdateCards} tracked funds — capturing initiations, heavy adds, exits, put hedges, common-to-call shifts, and mid-quarter 13D/13G filings.
+            Quarter-over-quarter portfolio changes across {overview.totalUpdateCards} tracked funds — capturing initiations, heavy adds, exits, put hedges, Form 4 insider clusters, and mid-quarter 13D/13G filings.
           </p>
         </div>
       </div>
@@ -375,6 +450,237 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
         </div>
       </div>
 
+      {/* Dual-Conviction Form 4 Insider + Schedule 13D/13G Convergence Feed */}
+      <div className="panel" aria-label="Form 4 Insider and Schedule 13D Convergence Feed">
+        <div className="panel-header">
+          <div>
+            <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <Flame size={15} color="var(--pos-text)" /> Dual-Conviction Convergence Feed ({resolvedConvergenceSignals.length})
+            </h3>
+            <p className="panel-subtitle">
+              Cross-references SEC Form 4 open-market insider buys (&apos;P&apos;, 90d lookback), Schedule 13D Item 4 activist campaigns, Elite-50 13F accumulation &amp; Est. Q-VWAP pricing
+            </p>
+          </div>
+          {resolvedConvergenceSignals.length > 0 && (
+            <div className="segmented-group" role="group" aria-label="Filter convergence signals">
+              <button
+                type="button"
+                className={`seg-btn ${convFilter === 'ALL' ? 'active' : ''}`}
+                onClick={() => setConvFilter('ALL')}
+              >
+                All Signals ({convCounts.all})
+              </button>
+              <button
+                type="button"
+                className={`seg-btn ${convFilter === 'PRIME' ? 'active' : ''}`}
+                onClick={() => setConvFilter('PRIME')}
+              >
+                Prime Dual-Conviction ({convCounts.prime})
+              </button>
+              <button
+                type="button"
+                className={`seg-btn ${convFilter === 'FORM4' ? 'active' : ''}`}
+                onClick={() => setConvFilter('FORM4')}
+              >
+                Form 4 Insiders ({convCounts.form4})
+              </button>
+              <button
+                type="button"
+                className={`seg-btn ${convFilter === 'ACTIVIST' ? 'active' : ''}`}
+                onClick={() => setConvFilter('ACTIVIST')}
+              >
+                13D Activists ({convCounts.activist})
+              </button>
+            </div>
+          )}
+        </div>
+
+        {filteredConvergenceSignals.length > 0 ? (
+          <>
+            <div className="convergence-feed-grid">
+              {(showAllConvergence
+                ? filteredConvergenceSignals
+                : filteredConvergenceSignals.slice(0, 8)
+              ).map((sig) => {
+                const canOpenStock = Boolean(stocksIndex[sig.ticker]);
+                const tierTone = convergenceTierChipClass(sig.tier);
+                return (
+                  <article
+                    key={`conv-${sig.ticker}`}
+                    className={`convergence-card tier-${
+                      sig.tier === 'DUAL_CONVICTION_PRIME'
+                        ? 'prime'
+                        : sig.tier === 'ACTIVIST_13F_CONVERGENCE'
+                          ? 'activist'
+                          : sig.tier === 'DUAL_CONVICTION_EXTENDED'
+                            ? 'extended'
+                            : 'watch'
+                    }`}
+                  >
+                    <div className="convergence-card-top">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                        <span className={`chip ${tierTone}`}>
+                          {convergenceTierLabel(sig.tier)}
+                        </span>
+                        {canOpenStock ? (
+                          <button
+                            type="button"
+                            className="ticker-badge ticker-link-btn"
+                            onClick={() => onSelectStock(sig.ticker)}
+                            title={`Open ${sig.ticker} Stock Dossier`}
+                          >
+                            {sig.ticker}
+                          </button>
+                        ) : (
+                          <span className="ticker-badge">{sig.ticker}</span>
+                        )}
+                        <strong style={{ fontSize: '0.88rem' }}>{sig.name}</strong>
+                        {sig.actionVerdict && (
+                          <span className={`chip ${actionVerdictChipClass(sig.actionVerdict)}`}>
+                            {sig.actionVerdict}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        {sig.pctVsQuarterVwap != null && (
+                          <span
+                            className={`chip mono ${
+                              sig.pctVsQuarterVwap <= 0
+                                ? 'pos'
+                                : sig.pctVsQuarterVwap <= 12
+                                  ? 'tech'
+                                  : 'warn'
+                            }`}
+                          >
+                            {formatSignedPct(sig.pctVsQuarterVwap, 1)} vs Q-VWAP
+                          </span>
+                        )}
+                        <span className={`chip mono ${tierTone}`} style={{ fontWeight: 700 }}>
+                          Conv {sig.convergenceScore.toFixed(0)}/100
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="convergence-headline">{sig.headline}</p>
+
+                    <div className="convergence-lanes">
+                      <div className="convergence-lane">
+                        <div className="convergence-lane-lbl">Form 4 Open-Market (&apos;P&apos;)</div>
+                        {sig.hasInsiderBuy ? (
+                          <div className="convergence-lane-val">
+                            <span className={`chip ${insiderSignalChipClass(sig.insiderSignalLabel)}`}>
+                              {insiderSignalLabelText(sig.insiderSignalLabel)}
+                            </span>
+                            <span className="mono" style={{ fontWeight: 700 }}>
+                              {formatUsdCompact(sig.insiderBuyValueUsd)}
+                            </span>
+                            <span className="mono" style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+                              {sig.insiderBuyersCount} buyer{sig.insiderBuyersCount === 1 ? '' : 's'}
+                              {sig.cSuiteBuyersCount > 0 ? ` (${sig.cSuiteBuyersCount} C-suite)` : ''}
+                            </span>
+                            {sig.topInsiders.length > 0 && (
+                              <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', width: '100%' }}>
+                                {sig.topInsiders.slice(0, 2).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        ) : sig.insiderSignalLabel === 'MIXED_SELL_HEAVY' ? (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--warn-text)' }}>
+                            Buy activity offset by heavier discretionary Form 4 sales
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            No open-market Form 4 buy cluster in 90d window
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="convergence-lane">
+                        <div className="convergence-lane-lbl">Schedule 13D / 13G Catalyst</div>
+                        {sig.has13DActivist ? (
+                          <div className="convergence-lane-val">
+                            <span className={`chip ${item4CategoryChipClass(sig.activistCategory)}`}>
+                              {sig.activistCategory || 'Active 13D'}
+                            </span>
+                            <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                              {sig.activistFunds.join(', ') || 'Activist Filer'}
+                            </span>
+                            {sig.activistFilingDate && (
+                              <span className="mono" style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
+                                {sig.activistFilingDate}
+                              </span>
+                            )}
+                          </div>
+                        ) : sig.has13GStake ? (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            Active &ge;5% passive Schedule 13G stake alongside tracked positions
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            No mid-quarter 13D activist campaign filed
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="convergence-lane">
+                        <div className="convergence-lane-lbl">Elite 13F Co-Positioning</div>
+                        <div className="convergence-lane-val mono">
+                          <span>
+                            <strong>{sig.eliteHoldersCount}</strong> Elite-50 hold
+                          </span>
+                          {sig.eliteBuyersCount > 0 && (
+                            <span className="ret-pos">+{sig.eliteBuyersCount} Elite buying</span>
+                          )}
+                          {sig.netEstFlowUsd != null && sig.netEstFlowUsd !== 0 && (
+                            <span className={returnClass(sig.netEstFlowUsd)}>
+                              Flow {formatSignedUsd(sig.netEstFlowUsd)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {sig.activistIntent && (
+                      <div className="item4-intent-box">
+                        <strong>Item 4 Intent:</strong> &ldquo;{sig.activistIntent}&rdquo;
+                      </div>
+                    )}
+
+                    <div className="convergence-reasons">
+                      {sig.reasons.map((r, ri) => (
+                        <span key={`${sig.ticker}-r-${ri}`} className="convergence-reason-pill">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            {filteredConvergenceSignals.length > 8 && (
+              <div style={{ padding: '0 1.25rem 0.9rem', display: 'flex', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="action-btn"
+                  onClick={() => setShowAllConvergence((v) => !v)}
+                >
+                  {showAllConvergence
+                    ? 'Show Top 8 Convergence Signals'
+                    : `Show All ${filteredConvergenceSignals.length} Convergence Signals`}
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ padding: '0.95rem 1.25rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            {resolvedConvergenceSignals.length === 0
+              ? 'No simultaneous Form 4 open-market cluster buys or mid-quarter Schedule 13D activist catalysts currently qualify across tracked tickers (or Form 4 data awaits next EDGAR build).'
+              : 'No Dual-Conviction signals match the selected filter.'}
+          </div>
+        )}
+      </div>
+
       {/* Live Mid-Quarter Schedule 13D/13G Strip */}
       <div className="panel">
         <div className="panel-header">
@@ -383,70 +689,122 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
               <Radio size={15} color="var(--warn-text)" /> Live Mid-Quarter Schedule 13D / 13G Filings ({midQuarterAlerts.length})
             </h3>
             <p className="panel-subtitle">
-              Real-time activist (13D) &amp; passive &ge;5% (13G) beneficial ownership filings by Elite-50 managers between 13F quarters (95-day window)
+              Real-time activist (13D Item 4 intent) &amp; passive &ge;5% (13G) beneficial ownership filings by Elite-50 managers between 13F quarters (95-day window)
             </p>
           </div>
+          {midQuarterAlerts.length > 0 && (
+            <div className="segmented-group" role="group" aria-label="Filter mid-quarter 13D/13G filings">
+              <button
+                type="button"
+                className={`seg-btn ${alertFilter === 'ALL' ? 'active' : ''}`}
+                onClick={() => setAlertFilter('ALL')}
+              >
+                All Filings ({alertCounts.all})
+              </button>
+              <button
+                type="button"
+                className={`seg-btn ${alertFilter === '13D' ? 'active' : ''}`}
+                onClick={() => setAlertFilter('13D')}
+              >
+                13D Activists ({alertCounts.activist})
+              </button>
+              <button
+                type="button"
+                className={`seg-btn ${alertFilter === 'ACTIVE' ? 'active' : ''}`}
+                onClick={() => setAlertFilter('ACTIVE')}
+              >
+                Active &ge;5% ({alertCounts.active})
+              </button>
+            </div>
+          )}
         </div>
 
-        {midQuarterAlerts.length > 0 ? (
-          <div className="midq-alerts-grid">
-            {midQuarterAlerts.slice(0, 12).map((al) => (
-              <div key={al.id} className="alert-row-card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                  <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
-                  {al.stakeStatus && (
-                    <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>{al.stakeStatus}</span>
+        {filteredAlerts.length > 0 ? (
+          <>
+            <div className="midq-alerts-grid">
+              {(showAllAlerts ? filteredAlerts : filteredAlerts.slice(0, 12)).map((al) => (
+                <div key={al.id} className="alert-row-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.45rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                      <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
+                      {al.stakeStatus && (
+                        <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>{al.stakeStatus}</span>
+                      )}
+                      {al.isActivist && al.item4Category && (
+                        <span className={`chip ${item4CategoryChipClass(al.item4Category)}`}>
+                          {al.item4Category}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        className="fund-link-btn"
+                        style={{ fontSize: '0.84rem' }}
+                        onClick={() => onSelectFund(al.filerCik)}
+                      >
+                        {al.fundName} <ArrowUpRight size={12} />
+                      </button>
+                      {al.ticker && stocksIndex[al.ticker] ? (
+                        <button
+                          type="button"
+                          className="ticker-badge ticker-link-btn"
+                          onClick={() => onSelectStock(al.ticker)}
+                          title={`Open ${al.ticker} Stock Dossier`}
+                        >
+                          {al.ticker}
+                        </button>
+                      ) : al.ticker ? (
+                        <span className="ticker-badge">{al.ticker}</span>
+                      ) : null}
+                      {al.percentOfClass != null && (
+                        <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
+                      )}
+                      {al.sharesOwned != null && al.sharesOwned > 0 && (
+                        <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {compactShares(al.sharesOwned)} sh
+                        </span>
+                      )}
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{al.issuerName}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {al.eventDate ? `Event ${al.eventDate} · ` : ''}{al.filingDate}
+                      </span>
+                      <a
+                        href={al.filingDocUrl || al.edgarUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-ext-link mono"
+                        style={{ fontSize: '0.74rem' }}
+                      >
+                        EDGAR <ExternalLink size={11} />
+                      </a>
+                    </div>
+                  </div>
+                  {al.item4Intent && (
+                    <div className="item4-intent-box">
+                      <strong>Item 4 Intent:</strong> &ldquo;{al.item4Intent}&rdquo;
+                    </div>
                   )}
-                  <button
-                    type="button"
-                    className="fund-link-btn"
-                    style={{ fontSize: '0.84rem' }}
-                    onClick={() => onSelectFund(al.filerCik)}
-                  >
-                    {al.fundName} <ArrowUpRight size={12} />
-                  </button>
-                  {al.ticker && stocksIndex[al.ticker] ? (
-                    <button
-                      type="button"
-                      className="ticker-badge ticker-link-btn"
-                      onClick={() => onSelectStock(al.ticker)}
-                      title={`Open ${al.ticker} Stock Dossier`}
-                    >
-                      {al.ticker}
-                    </button>
-                  ) : al.ticker ? (
-                    <span className="ticker-badge">{al.ticker}</span>
-                  ) : null}
-                  {al.percentOfClass != null && (
-                    <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
-                  )}
-                  {al.sharesOwned != null && al.sharesOwned > 0 && (
-                    <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                      {compactShares(al.sharesOwned)} sh
-                    </span>
-                  )}
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{al.issuerName}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {al.eventDate ? `Event ${al.eventDate} · ` : ''}{al.filingDate}
-                  </span>
-                  <a
-                    href={al.edgarUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-ext-link mono"
-                    style={{ fontSize: '0.74rem' }}
-                  >
-                    EDGAR <ExternalLink size={11} />
-                  </a>
-                </div>
+              ))}
+            </div>
+            {filteredAlerts.length > 12 && (
+              <div style={{ padding: '0 1.25rem 0.9rem', display: 'flex', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="action-btn"
+                  onClick={() => setShowAllAlerts((v) => !v)}
+                >
+                  {showAllAlerts ? 'Show Latest 12 Filings' : `Show All ${filteredAlerts.length} Filings`}
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         ) : (
           <div style={{ padding: '0.9rem 1.25rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            No new Elite-50 Schedule 13D/13G beneficial ownership filings recorded in the past 95 days.
+            {midQuarterAlerts.length === 0
+              ? 'No new Elite-50 Schedule 13D/13G beneficial ownership filings recorded in the past 95 days.'
+              : 'No Schedule 13D/13G filings match the selected filter.'}
           </div>
         )}
       </div>

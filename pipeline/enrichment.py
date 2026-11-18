@@ -4,11 +4,13 @@ Free public API & price microstructure enrichment layer:
 2. Quarter-End OHLCV Est. Quarter VWAP, Q-Low, Q-High, and Entry Zone status
 3. SEC EDGAR XBRL CompanyFacts fundamentals (Market Cap via Shares Outstanding, Revenue YoY Growth,
    Operating Margin, FCF Margin, R&D Intensity, YoY Share Dilution)
-4. Live mid-quarter Schedule 13D / 13G / 13D/A / 13G/A activist & >=5% stake alerts for Elite 50 funds
+4. Live mid-quarter Schedule 13D / 13G / 13D/A / 13G/A activist & >=5% stake alerts (XML + HTML Item 4)
+5. SEC EDGAR Form 4 open-market ('P') insider cluster buy ingestion
 """
 
 from __future__ import annotations
 
+import html as html_lib
 import json
 import math
 import re
@@ -32,7 +34,44 @@ from security_resolver import (
 FUNDAMENTALS_CACHE_PATH = Path(__file__).resolve().parent / "fundamentals_cache.json"
 XBRL_PARSER_VERSION = 2
 MIDQUARTER_HDR_CACHE_PATH = SEC_CACHE_DIR / "hdr_13dg_cache.json"
+ITEM4_PARSER_VERSION = 2
+FORM4_PARSED_CACHE_PATH = SEC_CACHE_DIR / "form4_parsed_v1.json"
+FORM4_TICKER_CACHE_PATH = SEC_CACHE_DIR / "form4_ticker_v1.json"
+FORM4_PARSER_VERSION = 1
 _13DG_FORM_RE = re.compile(r"^(?:SCHEDULE|SC)\s*13([DG])(?:/A)?$", re.I)
+_13DG_ITEM4_MNA_RE = re.compile(
+    r"\b(strategic\s+alternatives?|sale\s+of\s+(?:the\s+)?(?:issuer|company)|mergers?|business\s+combinations?|"
+    r"take[-\s]?private|going[-\s]?private|go[-\s]?private|spin[-\s]?offs?|divest(?:iture)?s?|tender\s+offers?|acquisition\s+proposals?)\b",
+    re.I,
+)
+_13DG_ITEM4_BOARD_RE = re.compile(
+    r"\b(board\s+of\s+directors|board\s+seats?|board\s+representation|director\s+nominees?|proxy\s+(?:contests?|solicitations?)|"
+    r"nominat(?:e|ed|es|ing|ions?)|governance|slates?\s+of\s+directors|board\s+observers?|declassify)\b",
+    re.I,
+)
+_13DG_ITEM4_CAP_RE = re.compile(
+    r"\b(share\s+repurchases?|stock\s+buybacks?|repurchase\s+programs?|special\s+dividends?|dividends?|"
+    r"capital\s+allocation|capital\s+structure|recapitalizations?|undervalued|unlock(?:ing)?\s+(?:shareholder\s+)?value)\b",
+    re.I,
+)
+_13DG_ITEM4_OPS_RE = re.compile(
+    r"\b(discussions?\s+with\s+(?:management|the\s+board)|operational|cost\s+reductions?|margin\s+improvements?|"
+    r"management\s+teams?|chief\s+executives?|ceos?|leadership|strategic\s+plans?)\b",
+    re.I,
+)
+_NON_CSUITE_VP_RE = re.compile(
+    r"\b(?:(?:ASSISTANT|ASSOC(?:IATE)?|REGIONAL|DIVISION(?:AL)?)\s+)?(?:VICE\s+PRESIDENT|VP)\b",
+    re.I,
+)
+_CSUITE_TITLE_RE = re.compile(
+    r"\b(CEO|CFO|COO|CTO|CRO|CMO|CIO|CHIEF\b|PRESIDENT|PRES\.?|EXECUTIVE\s+CHAIR|CHAIRMAN|FOUNDER|EVP|SVP|"
+    r"PRINCIPAL\s+(?:EXECUTIVE|FINANCIAL|ACCOUNTING)\s+OFFICER)\b",
+    re.I,
+)
+_NOT_10B5_RE = re.compile(
+    r"\b(?:not|no)\s+(?:made\s+|effected\s+|executed\s+)?(?:pursuant\s+to|under)\s+(?:a\s+)?(?:Rule\s+)?10b5-1\b",
+    re.I,
+)
 
 
 def fetch_risk_free_daily_rates(cal_dates: list[str]) -> dict[str, float]:
@@ -643,16 +682,70 @@ def fetch_xbrl_fundamentals_batch(
     }
 
 
-def _parse_13dg_primary_xml(raw_xml: bytes) -> dict[str, Any]:
+def _clean_text_excerpt(raw_txt: str, max_len: int = 340) -> str:
+    """Clean and bound narrative SEC filing text (such as Schedule 13D Item 4)."""
+    if not raw_txt:
+        return ""
+    txt = html_lib.unescape(str(raw_txt))
+    txt = re.sub(r"<[^>]+>", " ", txt)
+    txt = re.sub(r"\s+", " ", txt).strip()
+    txt = re.sub(
+        r"^(?:ITEM\s*4\.?\s*(?:PURPOSE\s+OF\s+(?:THE\s+)?TRANSACTION\.?\s*)?[-–—:\s]*)+",
+        "",
+        txt,
+        flags=re.I,
+    ).strip()
+    if len(txt) <= max_len:
+        return txt
+    cut = txt[:max_len].rsplit(" ", 1)[0].rstrip(" ,;:-")
+    return f"{cut}..." if cut else txt[:max_len]
+
+
+def _classify_item4_intent(item4_text: str, is_activist: bool) -> str:
+    """Categorize Schedule 13D Item 4 activist purpose or 13G passive filing."""
+    if not is_activist:
+        return "Passive (13G)"
+    txt = item4_text or ""
+    if _13DG_ITEM4_MNA_RE.search(txt):
+        return "Strategic Review / M&A"
+    if _13DG_ITEM4_BOARD_RE.search(txt):
+        return "Board / Governance"
+    if _13DG_ITEM4_CAP_RE.search(txt):
+        return "Capital Return / Value"
+    if _13DG_ITEM4_OPS_RE.search(txt):
+        return "Management Engagement"
+    return "Active 13D Intent" if txt.strip() else "Active 13D"
+
+
+def _normalize_sec_date_str(raw_dt: str) -> str:
+    txt = re.sub(r"\s+", " ", (raw_dt or "").strip())
+    if not txt:
+        return ""
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", txt):
+        return txt
+    m_mdy = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", txt)
+    if m_mdy:
+        return f"{m_mdy.group(3)}-{int(m_mdy.group(1)):02d}-{int(m_mdy.group(2)):02d}"
+    for fmt in ("%B %d, %Y", "%b %d, %Y", "%B %d %Y", "%b %d %Y"):
+        try:
+            return datetime.strptime(txt, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return ""
+
+
+def _parse_13dg_primary_xml(raw_xml: bytes, is_activist: bool = False) -> dict[str, Any]:
     """
     Parse SEC Schedule 13D/13G XML filing to extract ownership % (classPercent),
-    beneficial shares owned, subject CUSIP, and event date.
+    beneficial shares owned, subject CUSIP, event date, and Item 4 activist intent.
     """
     out: dict[str, Any] = {
         "percentOfClass": None,
         "sharesOwned": None,
         "subjectCusip": "",
         "eventDate": "",
+        "item4Intent": "",
+        "item4Category": "Passive (13G)" if not is_activist else "Active 13D",
     }
     try:
         root = _parse_xml_root(raw_xml)
@@ -663,14 +756,38 @@ def _parse_13dg_primary_xml(raw_xml: bytes) -> dict[str, Any]:
 
     pct_vals: list[float] = []
     sh_vals: list[float] = []
+    purpose_candidates: list[str] = []
+    item4_wrapper_candidates: list[str] = []
+    detected_activist = is_activist
+
     for el in root.iter():
         if not isinstance(el.tag, str):
             continue
         lname = el.tag.rsplit("}", 1)[-1]
+        lname_low = lname.lower()
         txt = el.text.strip() if el.text else ""
+
+        if lname_low in ("submissiontype", "formtype") and "13D" in txt.upper():
+            detected_activist = True
+
+        if lname_low in ("transactionpurpose", "purposeoftransaction", "item4purpose", "item4text"):
+            full_t = " ".join(s.strip() for s in el.itertext() if s and s.strip())
+            cleaned_t = _clean_text_excerpt(full_t, max_len=340)
+            if len(cleaned_t) >= 8:
+                purpose_candidates.append(cleaned_t)
+            continue
+
+        if lname_low == "item4":
+            full_t = " ".join(s.strip() for s in el.itertext() if s and s.strip())
+            cleaned_t = _clean_text_excerpt(full_t, max_len=340)
+            if len(cleaned_t) >= 8:
+                item4_wrapper_candidates.append(cleaned_t)
+            continue
+
         if not txt:
             continue
-        if lname in ("classPercent", "percentOfClass"):
+
+        if lname in ("classPercent", "percentOfClass", "aggregatePercentOfClass", "percentOwned"):
             cleaned = re.sub(r"[^0-9.-]", "", txt)
             try:
                 pv = float(cleaned)
@@ -678,7 +795,13 @@ def _parse_13dg_primary_xml(raw_xml: bytes) -> dict[str, Any]:
                     pct_vals.append(round(pv, 2))
             except ValueError:
                 pass
-        elif lname in ("reportingPersonBeneficiallyOwnedAggregateNumberOfShares", "aggregateAmountOwned"):
+        elif lname in (
+            "reportingPersonBeneficiallyOwnedAggregateNumberOfShares",
+            "aggregateAmountOwned",
+            "aggregateNumberOfShares",
+            "aggregateAmountBeneficiallyOwnedByEachReportingPerson",
+            "sharesOwned",
+        ):
             cleaned = re.sub(r"[^0-9.]", "", txt.replace(",", ""))
             try:
                 sv = float(cleaned)
@@ -686,21 +809,138 @@ def _parse_13dg_primary_xml(raw_xml: bytes) -> dict[str, Any]:
                     sh_vals.append(round(sv))
             except ValueError:
                 pass
-        elif lname in ("issuerCusipNumber", "cusipNo") and not out["subjectCusip"]:
+        elif lname in ("issuerCusipNumber", "cusipNo", "cusipNumber") and not out["subjectCusip"]:
             c_clean = re.sub(r"[^A-Za-z0-9]", "", txt).upper()[:9]
             if len(c_clean) >= 6:
                 out["subjectCusip"] = c_clean.zfill(9)
-        elif lname in ("eventDateRequiresFilingThisStatement", "dateOfEvent") and not out["eventDate"]:
-            m_mdy = re.fullmatch(r"(\d{2})/(\d{2})/(\d{4})", txt)
-            if m_mdy:
-                out["eventDate"] = f"{m_mdy.group(3)}-{m_mdy.group(1)}-{m_mdy.group(2)}"
-            elif re.fullmatch(r"\d{4}-\d{2}-\d{2}", txt):
-                out["eventDate"] = txt
+        elif lname in ("eventDateRequiresFilingThisStatement", "dateOfEvent", "eventDate") and not out["eventDate"]:
+            nd = _normalize_sec_date_str(txt)
+            if nd:
+                out["eventDate"] = nd
 
     if pct_vals:
         out["percentOfClass"] = max(pct_vals)
     if sh_vals:
         out["sharesOwned"] = max(sh_vals)
+
+    best_item4 = (
+        max(purpose_candidates, key=len)
+        if purpose_candidates
+        else (max(item4_wrapper_candidates, key=len) if item4_wrapper_candidates else "")
+    )
+    out["item4Intent"] = best_item4
+    out["item4Category"] = _classify_item4_intent(best_item4, detected_activist)
+    return out
+
+
+def _parse_13dg_html(raw_html: bytes, is_activist: bool = False) -> dict[str, Any]:
+    """
+    Parse HTML/text Schedule 13D / 13G primary documents as fallback for cover-page
+    share counts, ownership %, CUSIP, event date, and Schedule 13D Item 4 purpose text.
+    """
+    out: dict[str, Any] = {
+        "percentOfClass": None,
+        "sharesOwned": None,
+        "subjectCusip": "",
+        "eventDate": "",
+        "item4Intent": "",
+        "item4Category": "Passive (13G)" if not is_activist else "Active 13D",
+    }
+    try:
+        raw_txt = raw_html.decode("utf-8", errors="replace")
+    except Exception:
+        return out
+    if not raw_txt:
+        return out
+
+    stripped = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", raw_txt, flags=re.S | re.I)
+    stripped = re.sub(r"<(?:/?(?:p|div|tr|li|h[1-6]|section)|br\s*/?)[^>]*>", "\n", stripped, flags=re.I)
+    stripped = re.sub(r"<[^>]+>", " ", stripped)
+    plain = html_lib.unescape(stripped)
+    lines = [re.sub(r"[ \t]+", " ", ln).strip() for ln in plain.splitlines()]
+    text_body = "\n".join(ln for ln in lines if ln)
+    if not text_body:
+        return out
+
+    # Cover-page CUSIP
+    m_cusip = re.search(r"\bCUSIP\s*(?:No\.?|Number|#)?[:\s]*([A-Z0-9]{6,9})\b", text_body, flags=re.I)
+    if m_cusip:
+        c_raw = re.sub(r"[^A-Za-z0-9]", "", m_cusip.group(1)).upper()[:9]
+        if len(c_raw) >= 6 and any(ch.isdigit() for ch in c_raw):
+            out["subjectCusip"] = c_raw.zfill(9)
+
+    # Event Date
+    m_ev = re.search(
+        r"Date\s+of\s+Event[\s\S]{0,80}?"
+        r"((?:January|February|March|April|May|June|July|August|September|October|November|December|"
+        r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z.]*\s+\d{1,2},?\s+\d{4}|\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})",
+        text_body[:8000],
+        flags=re.I,
+    )
+    if m_ev:
+        nd = _normalize_sec_date_str(m_ev.group(1).replace(",", ", ").replace("  ", " ").replace(".", ""))
+        if not nd:
+            nd = _normalize_sec_date_str(m_ev.group(1))
+        if nd:
+            out["eventDate"] = nd
+
+    # Shares & ownership % from cover page rows (9)/(11)
+    sh_matches = re.findall(
+        r"AGGREGATE\s+AMOUNT\s+BENEFICIALLY\s+OWNED\s+BY\s+EACH\s+REPORTING\s+PERSON"
+        r"[^0-9A-Za-z\n]{0,80}(?:[A-Z\s]{0,20}\n)?([0-9][0-9,]{2,14})",
+        text_body[:35000],
+        flags=re.I,
+    )
+    sh_vals = []
+    for raw_sh in sh_matches:
+        try:
+            sv = float(raw_sh.replace(",", ""))
+            if sv >= 0:
+                sh_vals.append(round(sv))
+        except ValueError:
+            pass
+    if sh_vals:
+        out["sharesOwned"] = max(sh_vals)
+
+    pct_matches = re.findall(
+        r"PERCENT\s+OF\s+CLASS\s+REPRESENTED\s+BY\s+AMOUNT\s+IN\s+ROW\s*(?:\(\s*(?:9|11)\s*\)|9|11)"
+        r"[^0-9%\n]{0,80}(\d{1,2}(?:\.\d{1,2})?)\s*%",
+        text_body[:35000],
+        flags=re.I,
+    )
+    pct_vals = []
+    for raw_pct in pct_matches:
+        try:
+            pv = float(raw_pct)
+            if 0.0 <= pv <= 100.0:
+                pct_vals.append(round(pv, 2))
+        except ValueError:
+            pass
+    if pct_vals:
+        out["percentOfClass"] = max(pct_vals)
+
+    if is_activist:
+        item4_sections: list[str] = []
+        end_re = re.compile(r"(?:^|\n)\s*(?:Item\s*5\.?\b|SIGNATURE(?:S)?\b)", flags=re.I)
+        for m4 in re.finditer(
+            r"(?:^|\n)\s*Item\s*4\.?\s*(?:[-–—:\s]*Purpose\s+of\s+(?:the\s+)?Transaction\.?)?",
+            text_body,
+            flags=re.I,
+        ):
+            start_pos = m4.end()
+            m_end = end_re.search(text_body, start_pos)
+            end_pos = m_end.start() if m_end else min(len(text_body), start_pos + 3200)
+            chunk = text_body[start_pos:end_pos].strip()
+            # Skip short Table-of-Contents lines such as "... 6"
+            if len(chunk) >= 45:
+                item4_sections.append(chunk)
+        if item4_sections:
+            # Prefer substantive narrative block
+            best_raw = max(item4_sections, key=lambda s: len(s[:2000]))
+            excerpt = _clean_text_excerpt(best_raw, max_len=340)
+            out["item4Intent"] = excerpt
+            out["item4Category"] = _classify_item4_intent(excerpt, True)
+
     return out
 
 
@@ -716,7 +956,8 @@ def fetch_midquarter_alerts(
     """
     Scan recent SEC submissions for Elite-50 funds for live mid-quarter Schedule 13D / 13G
     filings reported within 5–10 days vs 45-day 13F lag.
-    Extracts subject company from .hdr.sgml AND beneficial ownership % / shares / CUSIP from primary_doc.xml.
+    Extracts subject company from .hdr.sgml AND beneficial ownership % / shares / CUSIP /
+    Item 4 activist intent from structured XML (with index.json & HTML fallback).
     """
     if not elite_ciks:
         return []
@@ -759,14 +1000,21 @@ def fetch_midquarter_alerts(
         it for it in candidate_filings
         if it["accessionNumber"] not in hdr_cache
         or (it.get("primaryDoc") and not (hdr_cache.get(it["accessionNumber"]) or {}).get("stakeChecked"))
+        or (hdr_cache.get(it["accessionNumber"]) or {}).get("_item4Ver") != ITEM4_PARSER_VERSION
     ]
     if need_fetch:
-        print(f"[alerts-13dg] Resolving subject companies & ownership stakes for {len(need_fetch)} mid-quarter Schedule 13D/13G filings...", flush=True)
+        print(
+            f"[alerts-13dg] Resolving subject companies, stakes & Item 4 activist intent for "
+            f"{len(need_fetch)} mid-quarter Schedule 13D/13G filings...",
+            flush=True,
+        )
+
         def _fetch_hdr_and_xml(item: dict[str, Any]) -> tuple[str, dict[str, Any]]:
             cik10 = item["filerCik"]
             acc = item["accessionNumber"]
             acc_nd = acc.replace("-", "")
             existing = dict(hdr_cache.get(acc) or {})
+            is_act = bool(item.get("isActivist"))
             info: dict[str, Any] = {
                 "subjectName": existing.get("subjectName", ""),
                 "subjectCik": existing.get("subjectCik", ""),
@@ -774,7 +1022,11 @@ def fetch_midquarter_alerts(
                 "sharesOwned": existing.get("sharesOwned"),
                 "subjectCusip": existing.get("subjectCusip", ""),
                 "eventDate": existing.get("eventDate", ""),
+                "item4Intent": existing.get("item4Intent", ""),
+                "item4Category": existing.get("item4Category", "Passive (13G)" if not is_act else "Active 13D"),
+                "primaryDoc": item.get("primaryDoc") or existing.get("primaryDoc", ""),
                 "stakeChecked": True,
+                "_item4Ver": ITEM4_PARSER_VERSION,
             }
             if not info["subjectCik"] and not info["subjectName"]:
                 url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{acc}.hdr.sgml"
@@ -791,12 +1043,38 @@ def fetch_midquarter_alerts(
                 except Exception:
                     pass
 
-            pdoc = str(item.get("primaryDoc") or "").split("/")[-1].strip()
-            if pdoc.lower().endswith(".xml"):
-                xml_url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{pdoc}"
+            # Strip any SEC XSLT path prefix (e.g. xslSCHEDULE_13D_X01/primary_doc.xml -> primary_doc.xml)
+            pdoc_raw = str(item.get("primaryDoc") or "").strip()
+            pdoc = pdoc_raw.split("/")[-1].strip()
+            xml_file: str | None = pdoc if pdoc.lower().endswith(".xml") else None
+
+            if xml_file is None:
+                # Inspect index.json safely to find structured primary_doc.xml alongside .htm filings
+                try:
+                    idx_url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/index.json"
+                    idx_json = json.loads(
+                        fetch_bytes(idx_url, cache_key=f"idx13dg_{cik10}_{acc_nd}.json", max_age_hours=24 * 365).decode("utf-8", errors="replace")
+                    )
+                    items_list = (idx_json.get("directory") or {}).get("item") or []
+                    for f_obj in items_list:
+                        fn = str(f_obj.get("name") or "")
+                        fn_l = fn.lower()
+                        if (
+                            fn_l.endswith(".xml")
+                            and not fn_l.startswith("xsl")
+                            and fn_l != "filingsummary.xml"
+                            and not re.fullmatch(r"r\d+\.xml", fn_l)
+                        ):
+                            xml_file = fn
+                            break
+                except Exception:
+                    pass
+
+            if xml_file:
+                xml_url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{xml_file}"
                 try:
                     raw_xml = fetch_bytes(xml_url, cache_key=f"xml13dg_{cik10}_{acc_nd}.xml", max_age_hours=24 * 365)
-                    parsed_xml = _parse_13dg_primary_xml(raw_xml)
+                    parsed_xml = _parse_13dg_primary_xml(raw_xml, is_activist=is_act)
                     if parsed_xml["percentOfClass"] is not None:
                         info["percentOfClass"] = parsed_xml["percentOfClass"]
                     if parsed_xml["sharesOwned"] is not None:
@@ -805,8 +1083,37 @@ def fetch_midquarter_alerts(
                         info["subjectCusip"] = parsed_xml["subjectCusip"]
                     if parsed_xml["eventDate"]:
                         info["eventDate"] = parsed_xml["eventDate"]
+                    if parsed_xml["item4Intent"]:
+                        info["item4Intent"] = parsed_xml["item4Intent"]
+                    if parsed_xml["item4Category"]:
+                        info["item4Category"] = parsed_xml["item4Category"]
                 except Exception:
                     pass
+
+            # HTML fallback when primary document is .htm/.html and either ownership or Item 4 is missing
+            if pdoc.lower().endswith((".htm", ".html")) and (
+                info["percentOfClass"] is None
+                or info["sharesOwned"] is None
+                or (is_act and not info["item4Intent"])
+            ):
+                html_url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{pdoc}"
+                try:
+                    raw_html = fetch_bytes(html_url, cache_key=f"doc13dg_{cik10}_{acc_nd}.htm", max_age_hours=24 * 365)
+                    parsed_h = _parse_13dg_html(raw_html, is_activist=is_act)
+                    if info["percentOfClass"] is None and parsed_h["percentOfClass"] is not None:
+                        info["percentOfClass"] = parsed_h["percentOfClass"]
+                    if info["sharesOwned"] is None and parsed_h["sharesOwned"] is not None:
+                        info["sharesOwned"] = parsed_h["sharesOwned"]
+                    if not info["subjectCusip"] and parsed_h["subjectCusip"]:
+                        info["subjectCusip"] = parsed_h["subjectCusip"]
+                    if not info["eventDate"] and parsed_h["eventDate"]:
+                        info["eventDate"] = parsed_h["eventDate"]
+                    if is_act and not info["item4Intent"] and parsed_h["item4Intent"]:
+                        info["item4Intent"] = parsed_h["item4Intent"]
+                        info["item4Category"] = parsed_h["item4Category"]
+                except Exception:
+                    pass
+
             return acc, info
 
         with ThreadPoolExecutor(max_workers=6) as ex:
@@ -832,6 +1139,12 @@ def fetch_midquarter_alerts(
         pct_cls = hinfo.get("percentOfClass")
         sh_owned = hinfo.get("sharesOwned")
         ev_date = str(hinfo.get("eventDate") or "")
+        item4_intent = str(hinfo.get("item4Intent") or "")
+        item4_cat = str(
+            hinfo.get("item4Category")
+            or ("Passive (13G)" if not it["isActivist"] else "Active 13D")
+        )
+        raw_pdoc = str(it.get("primaryDoc") or hinfo.get("primaryDoc") or "").strip()
 
         ticker = (
             cik_to_ticker_map.get(sub_cik)
@@ -867,6 +1180,7 @@ def fetch_midquarter_alerts(
             stake_status = "Filed"
 
         acc_nd = acc.replace("-", "")
+        base_url = f"https://www.sec.gov/Archives/edgar/data/{int(it['filerCik'])}/{acc_nd}/"
         alerts.append({
             "id": f"{it['filerCik']}_{acc}",
             "filerCik": it["filerCik"],
@@ -882,8 +1196,562 @@ def fetch_midquarter_alerts(
             "sharesOwned": sh_owned,
             "stakeStatus": stake_status,
             "eventDate": ev_date or None,
-            "edgarUrl": f"https://www.sec.gov/Archives/edgar/data/{int(it['filerCik'])}/{acc_nd}/",
+            "item4Category": item4_cat,
+            "item4Intent": item4_intent or None,
+            "filingDocUrl": f"{base_url}{raw_pdoc.lstrip('/')}" if raw_pdoc else None,
+            "edgarUrl": base_url,
         })
 
     alerts.sort(key=lambda a: (a["filingDate"], a["isActivist"], a["fundName"]), reverse=True)
     return alerts
+
+
+def _xml_flag_true(val: str | None) -> bool:
+    return (val or "").strip().lower() in ("1", "true", "yes", "y")
+
+
+def _format_insider_name(raw_name: str) -> str:
+    txt = re.sub(r"\s+", " ", (raw_name or "").strip())
+    if not txt:
+        return "Insider"
+    if "," in txt:
+        parts = [p.strip() for p in txt.split(",") if p.strip()]
+        if len(parts) >= 2:
+            txt = f"{parts[1]} {parts[0]}" + (f" {' '.join(parts[2:])}" if len(parts) > 2 else "")
+    if txt.isupper() or txt.islower():
+        words = txt.split()
+        out_w = []
+        for w in words:
+            uw = w.upper().rstrip(".")
+            if uw in ("II", "III", "IV", "MD", "PHD", "LP", "LLC"):
+                out_w.append(uw)
+            elif uw in ("JR", "SR"):
+                out_w.append(f"{uw.title()}.")
+            else:
+                out_w.append(w.title())
+        return " ".join(out_w)
+    return txt
+
+
+def _is_csuite_title(title: str) -> bool:
+    if not title:
+        return False
+    # Strip plain/assistant Vice President before checking PRESIDENT unless Senior/Executive VP
+    cleaned = re.sub(
+        r"\b(?:SENIOR|EXEC(?:UTIVE)?)\s+(?:VICE\s+PRESIDENT|VP)\b",
+        "SVP",
+        title,
+        flags=re.I,
+    )
+    cleaned = _NON_CSUITE_VP_RE.sub("", cleaned)
+    return bool(_CSUITE_TITLE_RE.search(cleaned))
+
+
+def _footnote_confirms_10b5(fn_text: str) -> bool:
+    if not fn_text or "10b5-1" not in fn_text.lower():
+        return False
+    return not bool(_NOT_10B5_RE.search(fn_text))
+
+
+def _parse_form4_xml(
+    raw_xml: bytes,
+    cik10: str,
+    acc: str,
+    filing_date: str,
+    pdoc: str = "",
+    form_type: str = "4",
+) -> dict[str, Any] | None:
+    """
+    Parse SEC Form 4 / 4/A ownershipDocument XML.
+    Strictly retains open-market purchases (`transactionCode == 'P'` with `acquiredDisposedCode != 'D'`)
+    and separately tracks open-market sales (`'S'`) to guard against sell-heavy false positives.
+    Excludes `'M'` (option exercises), `'A'` (grants), `'F'` (tax withholding), `'G'` (gifts), etc.
+    """
+    try:
+        root = _parse_xml_root(raw_xml)
+    except Exception:
+        return None
+    if root is None:
+        return None
+
+    def _local_text(el: Any, tag: str) -> str:
+        found = el.xpath(f"./*[local-name()='{tag}']")
+        if found and found[0].text:
+            return found[0].text.strip()
+        return ""
+
+    def _deep_text(el: Any, path_tags: tuple[str, ...]) -> str:
+        cur = el
+        for tg in path_tags:
+            nxt = cur.xpath(f"./*[local-name()='{tg}']")
+            if not nxt:
+                return ""
+            cur = nxt[0]
+        if cur.text and cur.text.strip():
+            return cur.text.strip()
+        v = cur.xpath("./*[local-name()='value']")
+        if v and v[0].text:
+            return v[0].text.strip()
+        return ""
+
+    doc_type = (_local_text(root, "documentType") or form_type or "4").strip().upper()
+    if not doc_type.startswith("4"):
+        return None
+
+    is_amendment = doc_type.endswith("/A") or form_type.strip().upper().endswith("/A")
+    doc_10b5 = _xml_flag_true(_local_text(root, "aff10b5One"))
+
+    issuer_el_l = root.xpath("./*[local-name()='issuer']")
+    issuer_cik = _local_text(issuer_el_l[0], "issuerCik") if issuer_el_l else ""
+    issuer_sym = _local_text(issuer_el_l[0], "issuerTradingSymbol") if issuer_el_l else ""
+
+    footnotes: dict[str, str] = {}
+    for fn in root.xpath(".//*[local-name()='footnote']"):
+        fid = (fn.attrib.get("id") or "").strip()
+        ftxt = " ".join(s.strip() for s in fn.itertext() if s and s.strip())
+        if fid and ftxt:
+            footnotes[fid] = ftxt
+
+    any_fn_10b5 = any(_footnote_confirms_10b5(ftxt) for ftxt in footnotes.values())
+
+    # Parse reportingOwner(s) prioritizing Officer/C-Suite > Director > 10% Owner
+    owners: list[dict[str, Any]] = []
+    for ro in root.xpath("./*[local-name()='reportingOwner']"):
+        rid_l = ro.xpath("./*[local-name()='reportingOwnerId']")
+        rrel_l = ro.xpath("./*[local-name()='reportingOwnerRelationship']")
+        r_cik = _local_text(rid_l[0], "rptOwnerCik") if rid_l else ""
+        r_name_raw = _local_text(rid_l[0], "rptOwnerName") if rid_l else ""
+        is_dir = _xml_flag_true(_local_text(rrel_l[0], "isDirector")) if rrel_l else False
+        is_off = _xml_flag_true(_local_text(rrel_l[0], "isOfficer")) if rrel_l else False
+        is_ten = _xml_flag_true(_local_text(rrel_l[0], "isTenPercentOwner")) if rrel_l else False
+        off_title = _local_text(rrel_l[0], "officerTitle") if rrel_l else ""
+        is_cs = is_off and _is_csuite_title(off_title)
+
+        if is_cs and off_title:
+            role_lbl = off_title.strip()
+        elif is_off:
+            role_lbl = off_title.strip() or "Officer"
+        elif is_dir:
+            role_lbl = "Director"
+        elif is_ten:
+            role_lbl = "10% Owner"
+        else:
+            other_t = _local_text(rrel_l[0], "otherText") if rrel_l else ""
+            role_lbl = other_t.strip() or "Insider"
+
+        owners.append({
+            "cik": f"{int(r_cik):010d}" if r_cik.isdigit() else "",
+            "name": _format_insider_name(r_name_raw),
+            "role": role_lbl[:60],
+            "isOfficer": is_off,
+            "isDirector": is_dir,
+            "isTenPercentOwner": is_ten,
+            "isCsuite": is_cs,
+        })
+
+    if owners:
+        owners.sort(key=lambda o: (o["isCsuite"], o["isOfficer"], o["isDirector"], o["isTenPercentOwner"]), reverse=True)
+        primary_owner = owners[0]
+        any_officer = any(o["isOfficer"] for o in owners)
+        any_director = any(o["isDirector"] for o in owners)
+        any_ten = any(o["isTenPercentOwner"] for o in owners)
+        any_csuite = any(o["isCsuite"] for o in owners)
+        rep_key = primary_owner["cik"] or primary_owner["name"].upper()
+        rep_name = primary_owner["name"]
+        rep_role = primary_owner["role"]
+    else:
+        any_officer = False
+        any_director = False
+        any_ten = False
+        any_csuite = False
+        rep_key = "UNKNOWN"
+        rep_name = "Insider"
+        rep_role = "Insider"
+
+    acc_nd = acc.replace("-", "")
+    clean_pdoc = (pdoc or "").strip().lstrip("/")
+    edgar_url = (
+        f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{clean_pdoc}"
+        if clean_pdoc
+        else f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/"
+    )
+
+    buys: list[dict[str, Any]] = []
+    disc_sell_usd = 0.0
+    sched_sell_usd = 0.0
+
+    for tx in root.xpath(".//*[local-name()='nonDerivativeTable']/*[local-name()='nonDerivativeTransaction']"):
+        code = _deep_text(tx, ("transactionCoding", "transactionCode")).upper()
+        if code not in ("P", "S"):
+            continue
+        tx_date = _deep_text(tx, ("transactionDate", "value")) or _deep_text(tx, ("transactionDate",)) or filing_date
+        acq_disp = _deep_text(tx, ("transactionAmounts", "transactionAcquiredDisposedCode")).upper()
+        sh_str = _deep_text(tx, ("transactionAmounts", "transactionShares"))
+        px_str = _deep_text(tx, ("transactionAmounts", "transactionPricePerShare"))
+        try:
+            sh_val = float(sh_str.replace(",", ""))
+            px_val = float(px_str.replace(",", ""))
+        except ValueError:
+            continue
+        if not (math.isfinite(sh_val) and math.isfinite(px_val) and sh_val > 0 and px_val > 0):
+            continue
+
+        tx_fn_ids = [
+            (fn_ref.attrib.get("id") or "").strip()
+            for fn_ref in tx.xpath(".//*[local-name()='footnoteId']")
+        ]
+        tx_fn_10b5 = any(_footnote_confirms_10b5(footnotes.get(fid, "")) for fid in tx_fn_ids)
+        is_10b5 = bool(doc_10b5 or tx_fn_10b5 or any_fn_10b5)
+        val_usd = round(sh_val * px_val, 2)
+
+        if code == "P":
+            if acq_disp == "D":
+                continue
+            buys.append({
+                "accessionNumber": acc,
+                "filingDate": filing_date,
+                "transactionDate": tx_date[:10],
+                "reporterKey": rep_key,
+                "insiderName": rep_name,
+                "insiderRole": rep_role,
+                "isOfficer": any_officer,
+                "isDirector": any_director,
+                "isTenPercentOwner": any_ten,
+                "isCsuite": any_csuite,
+                "isAmendment": is_amendment,
+                "shares": round(sh_val, 2),
+                "pricePerShare": round(px_val, 4),
+                "valueUsd": val_usd,
+                "is10b5Plan": is_10b5,
+                "edgarUrl": edgar_url,
+            })
+        elif code == "S":
+            if acq_disp == "A":
+                continue
+            if is_10b5:
+                sched_sell_usd += val_usd
+            else:
+                disc_sell_usd += val_usd
+
+    return {
+        "accessionNumber": acc,
+        "form": doc_type,
+        "isAmendment": is_amendment,
+        "filingDate": filing_date,
+        "issuerCik": issuer_cik,
+        "issuerSymbol": issuer_sym.upper(),
+        "reporterKey": rep_key,
+        "reporterName": rep_name,
+        "reporterRole": rep_role,
+        "isOfficer": any_officer,
+        "isDirector": any_director,
+        "isTenPercentOwner": any_ten,
+        "isCsuite": any_csuite,
+        "buys": buys,
+        "discretionarySellValueUsd": round(disc_sell_usd, 2),
+        "scheduledSellValueUsd": round(sched_sell_usd, 2),
+        "edgarUrl": edgar_url,
+    }
+
+
+def summarize_form4_transactions_for_ticker(
+    ticker: str,
+    issuer_cik: str,
+    parsed_docs: list[dict[str, Any]],
+    lookback_days: int = 90,
+) -> dict[str, Any]:
+    """
+    Aggregate parsed Form 4 / 4/A filings into a clean insider cluster summary for a ticker.
+    Deduplicates `4` filings superseded by matching `4/A` amendments while preserving separate lots
+    inside a single Form 4 filing.
+    """
+    ordered_docs = sorted(
+        parsed_docs,
+        key=lambda d: (d.get("filingDate", ""), 1 if d.get("isAmendment") else 0, d.get("accessionNumber", "")),
+    )
+
+    # Deduplicate buys by (reporterKey, txDate, round(shares, 1), round(price, 2), per_filing_ordinal)
+    dedup_buys: dict[tuple[str, str, float, float, int], dict[str, Any]] = {}
+    disc_sell_by_doc: dict[str, float] = {}
+    sched_sell_by_doc: dict[str, float] = {}
+
+    for doc in ordered_docs:
+        acc = str(doc.get("accessionNumber") or "")
+        disc_sell_by_doc[acc] = float(doc.get("discretionarySellValueUsd") or 0.0)
+        sched_sell_by_doc[acc] = float(doc.get("scheduledSellValueUsd") or 0.0)
+        in_doc_counts: dict[tuple[str, str, float, float], int] = {}
+        for tx in doc.get("buys") or []:
+            rkey = str(tx.get("reporterKey") or doc.get("reporterKey") or "UNKNOWN")
+            txd = str(tx.get("transactionDate") or doc.get("filingDate") or "")
+            sh_r = round(float(tx.get("shares") or 0.0), 1)
+            px_r = round(float(tx.get("pricePerShare") or 0.0), 2)
+            base_k = (rkey, txd, sh_r, px_r)
+            ord_idx = in_doc_counts.get(base_k, 0)
+            in_doc_counts[base_k] = ord_idx + 1
+            full_k = (*base_k, ord_idx)
+            prev_tx = dedup_buys.get(full_k)
+            if prev_tx is None or tx.get("isAmendment") or doc.get("isAmendment"):
+                dedup_buys[full_k] = tx
+
+    buys = list(dedup_buys.values())
+    disc_sell_usd = round(sum(disc_sell_by_doc.values()), 2)
+    sched_sell_usd = round(sum(sched_sell_by_doc.values()), 2)
+    total_sell_usd = round(disc_sell_usd + sched_sell_usd, 2)
+
+    distinct_buyers: set[str] = set()
+    officer_buyers: set[str] = set()
+    csuite_buyers: set[str] = set()
+    director_buyers: set[str] = set()
+    tenpct_buyers: set[str] = set()
+    total_buy_val = 0.0
+    total_buy_sh = 0.0
+    non10b5_count = 0
+    non10b5_val = 0.0
+    latest_buy_date: str | None = None
+    latest_filing_date: str | None = None
+
+    for tx in buys:
+        rk = str(tx.get("reporterKey") or tx.get("insiderName") or "UNKNOWN")
+        distinct_buyers.add(rk)
+        if tx.get("isOfficer"):
+            officer_buyers.add(rk)
+        if tx.get("isCsuite"):
+            csuite_buyers.add(rk)
+        if tx.get("isDirector"):
+            director_buyers.add(rk)
+        if tx.get("isTenPercentOwner"):
+            tenpct_buyers.add(rk)
+        val = float(tx.get("valueUsd") or 0.0)
+        sh = float(tx.get("shares") or 0.0)
+        total_buy_val += val
+        total_buy_sh += sh
+        if not tx.get("is10b5Plan"):
+            non10b5_count += 1
+            non10b5_val += val
+        td = tx.get("transactionDate")
+        fd = tx.get("filingDate")
+        if td and (latest_buy_date is None or td > latest_buy_date):
+            latest_buy_date = td
+        if fd and (latest_filing_date is None or fd > latest_filing_date):
+            latest_filing_date = fd
+
+    open_mkt_cnt = len(buys)
+    d_cnt = len(distinct_buyers)
+    o_cnt = len(officer_buyers)
+    c_cnt = len(csuite_buyers)
+    dir_cnt = len(director_buyers)
+    ten_cnt = len(tenpct_buyers)
+
+    avg_px = round(total_buy_val / total_buy_sh, 2) if total_buy_sh > 0 else None
+
+    if open_mkt_cnt == 0:
+        sig_label = "NONE"
+    elif disc_sell_usd > total_buy_val * 3.0 and total_buy_val < 500_000.0:
+        sig_label = "MIXED_SELL_HEAVY"
+    elif d_cnt >= 2 and (o_cnt >= 1 or total_buy_val >= 100_000.0):
+        sig_label = "CLUSTER_BUY"
+    elif c_cnt >= 1 and total_buy_val >= 100_000.0:
+        sig_label = "C_SUITE_BUY"
+    elif dir_cnt >= 1 and total_buy_val >= 50_000.0:
+        sig_label = "DIRECTOR_BUY"
+    else:
+        sig_label = "SINGLE_BUY"
+
+    cluster_detected = bool(
+        open_mkt_cnt > 0
+        and sig_label != "MIXED_SELL_HEAVY"
+        and (
+            (d_cnt >= 2 and (o_cnt >= 1 or total_buy_val >= 100_000.0))
+            or (c_cnt >= 1 and total_buy_val >= 250_000.0)
+        )
+    )
+
+    buys_sorted = sorted(
+        buys,
+        key=lambda x: (x.get("transactionDate", ""), float(x.get("valueUsd") or 0.0)),
+        reverse=True,
+    )
+    clean_recent = [
+        {
+            "accessionNumber": b["accessionNumber"],
+            "filingDate": b["filingDate"],
+            "transactionDate": b["transactionDate"],
+            "insiderName": b["insiderName"],
+            "insiderRole": b["insiderRole"],
+            "isOfficer": bool(b.get("isOfficer")),
+            "isDirector": bool(b.get("isDirector")),
+            "isCsuite": bool(b.get("isCsuite")),
+            "isTenPercentOwner": bool(b.get("isTenPercentOwner")),
+            "shares": round(float(b["shares"]), 0),
+            "pricePerShare": round(float(b["pricePerShare"]), 2),
+            "valueUsd": round(float(b["valueUsd"]), 2),
+            "is10b5Plan": bool(b.get("is10b5Plan")),
+            "edgarUrl": b["edgarUrl"],
+        }
+        for b in buys_sorted[:12]
+    ]
+
+    return {
+        "ticker": ticker,
+        "issuerCik": issuer_cik,
+        "lookbackDays": lookback_days,
+        "openMarketBuyCount": open_mkt_cnt,
+        "distinctBuyersCount": d_cnt,
+        "officerBuyersCount": o_cnt,
+        "cSuiteBuyersCount": c_cnt,
+        "directorBuyersCount": dir_cnt,
+        "tenPctOwnerBuyersCount": ten_cnt,
+        "totalBuyValueUsd": round(total_buy_val, 2),
+        "totalBuyShares": round(total_buy_sh, 0),
+        "avgBuyPriceUsd": avg_px,
+        "buyPriceVsQuarterVwapPct": None,
+        "latestBuyDate": latest_buy_date,
+        "latestFilingDate": latest_filing_date,
+        "non10b5Count": non10b5_count,
+        "non10b5BuyValueUsd": round(non10b5_val, 2),
+        "discretionarySellValueUsd": disc_sell_usd,
+        "totalSellValueUsd": total_sell_usd,
+        "insiderSignalLabel": sig_label,
+        "clusterDetected": cluster_detected,
+        "recentTransactions": clean_recent,
+    }
+
+
+def fetch_form4_insider_signals(
+    tickers: list[str],
+    ticker_to_cik: dict[str, str],
+    today_date: date,
+    lookback_days: int = 90,
+    max_age_hours: float = 24.0,
+    max_filings_per_ticker: int = 30,
+) -> dict[str, dict[str, Any]]:
+    """
+    Fetch and parse recent SEC EDGAR Form 4 / 4/A open-market ('P') insider cluster buys
+    across prioritized Ideal Portfolio, Signal Screener, Consensus, and 13D/13G tickers.
+    Caches parsed Form 4 accessions in `pipeline/cache/sec/` across runs so repeated executions
+    only fetch newly filed Form 4s.
+    """
+    if not tickers:
+        return {}
+
+    cutoff_str = (today_date - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+    now_ts = time.time()
+    ticker_cache = load_json_dict(FORM4_TICKER_CACHE_PATH)
+    parsed_cache = load_json_dict(FORM4_PARSED_CACHE_PATH)
+    parsed_dirty = False
+    ticker_dirty = False
+
+    target_pairs: list[tuple[str, str]] = []
+    out: dict[str, dict[str, Any]] = {}
+
+    for t in tickers:
+        cik10 = ticker_to_cik.get(t)
+        if not cik10:
+            continue
+        cached = ticker_cache.get(t)
+        if (
+            isinstance(cached, dict)
+            and cached.get("_ver") == FORM4_PARSER_VERSION
+            and cached.get("_cutoff") == cutoff_str
+            and (now_ts - float(cached.get("_ts", 0))) / 3600.0 <= max_age_hours
+        ):
+            payload = {k: v for k, v in cached.items() if not k.startswith("_")}
+            if payload.get("openMarketBuyCount", 0) > 0 or payload.get("discretionarySellValueUsd", 0) > 0:
+                out[t] = payload
+            continue
+        target_pairs.append((t, cik10))
+
+    if target_pairs:
+        print(
+            f"[form4] Scanning SEC Form 4 open-market ('P') insider filings across {len(target_pairs)} priority tickers...",
+            flush=True,
+        )
+
+        def _process_ticker(pair: tuple[str, str]) -> tuple[str, dict[str, Any] | None, list[tuple[str, dict[str, Any]]]]:
+            t, cik10 = pair
+            new_parsed: list[tuple[str, dict[str, Any]]] = []
+            try:
+                sub = get_submissions(cik10)
+            except Exception:
+                return t, None, new_parsed
+
+            recent = (sub.get("filings") or {}).get("recent") or {}
+            forms = recent.get("form") or []
+            accs = recent.get("accessionNumber") or []
+            fds = recent.get("filingDate") or []
+            pdocs = recent.get("primaryDocument") or [""] * len(forms)
+
+            cand_docs: list[tuple[str, str, str, str]] = []
+            for form, acc, fdate, pdoc in zip(forms, accs, fds, pdocs):
+                f_str = str(form or "").strip().upper()
+                if f_str not in ("4", "4/A") or not acc or not fdate:
+                    continue
+                if str(fdate).strip() < cutoff_str:
+                    continue
+                cand_docs.append((f_str, str(acc).strip(), str(fdate).strip(), str(pdoc or "").strip()))
+                if len(cand_docs) >= max_filings_per_ticker:
+                    break
+
+            parsed_docs: list[dict[str, Any]] = []
+            for f_str, acc, fdate, pdoc in cand_docs:
+                cached_doc = parsed_cache.get(acc)
+                if isinstance(cached_doc, dict) and cached_doc.get("_ver") == FORM4_PARSER_VERSION:
+                    parsed_docs.append(cached_doc)
+                    continue
+                raw_xml_name = pdoc.split("/")[-1].strip()
+                if not raw_xml_name.lower().endswith(".xml"):
+                    continue
+                acc_nd = acc.replace("-", "")
+                xml_url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{raw_xml_name}"
+                try:
+                    raw_xml = fetch_bytes(xml_url, cache_key=None, max_age_hours=24 * 365)
+                    parsed = _parse_form4_xml(
+                        raw_xml,
+                        cik10=cik10,
+                        acc=acc,
+                        filing_date=fdate,
+                        pdoc=pdoc,
+                        form_type=f_str,
+                    )
+                    if parsed is not None:
+                        parsed["_ver"] = FORM4_PARSER_VERSION
+                        parsed_docs.append(parsed)
+                        new_parsed.append((acc, parsed))
+                except Exception:
+                    continue
+
+            summary = summarize_form4_transactions_for_ticker(
+                t,
+                issuer_cik=cik10,
+                parsed_docs=parsed_docs,
+                lookback_days=lookback_days,
+            )
+            return t, summary, new_parsed
+
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            for idx_done, (t, summary, new_parsed) in enumerate(ex.map(_process_ticker, target_pairs), 1):
+                for acc_k, pdoc_v in new_parsed:
+                    parsed_cache[acc_k] = pdoc_v
+                    parsed_dirty = True
+                if summary is not None:
+                    cached_entry = dict(summary)
+                    cached_entry["_ver"] = FORM4_PARSER_VERSION
+                    cached_entry["_cutoff"] = cutoff_str
+                    cached_entry["_ts"] = now_ts
+                    ticker_cache[t] = cached_entry
+                    ticker_dirty = True
+                    if summary["openMarketBuyCount"] > 0 or summary["discretionarySellValueUsd"] > 0:
+                        out[t] = summary
+                if idx_done % 25 == 0 or idx_done == len(target_pairs):
+                    if parsed_dirty:
+                        FORM4_PARSED_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                        save_json_dict(FORM4_PARSED_CACHE_PATH, parsed_cache)
+                        parsed_dirty = False
+                    if ticker_dirty:
+                        FORM4_TICKER_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                        save_json_dict(FORM4_TICKER_CACHE_PATH, ticker_cache)
+                        ticker_dirty = False
+                    print(f"[form4] Progress {idx_done}/{len(target_pairs)} tickers scanned ({len(out)} active)...", flush=True)
+
+    return out
+

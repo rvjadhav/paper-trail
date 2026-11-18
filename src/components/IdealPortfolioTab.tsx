@@ -3,6 +3,8 @@ import { AlertTriangle, Calculator, Check, Download, Info, RotateCcw, Save } fro
 import type {
   ActionVerdict,
   BenchmarkSeries,
+  DualConvictionSignal,
+  Form4InsiderSummary,
   FundSummary,
   IdealPortfolioData,
   IdealPortfolioPosition,
@@ -20,12 +22,16 @@ import {
   actionVerdictShortLabel,
   alphaDecayChipClass,
   alphaDecayLabel,
+  convergenceTierChipClass,
+  convergenceTierLabel,
   downloadCsv,
   entryZoneChipClass,
   formatPct,
   formatSignedPct,
   formatSignedUsd,
   formatUsdCompact,
+  insiderSignalChipClass,
+  insiderSignalLabelText,
   returnClass,
 } from '../utils/format';
 import {
@@ -46,6 +52,8 @@ interface IdealPortfolioTabProps {
   stocksIndex: Record<string, StockIndexEntry>;
   funds?: FundSummary[];
   convictionByTicker?: Record<string, UnifiedConvictionRow>;
+  dualConvictionByTicker?: Record<string, DualConvictionSignal>;
+  form4Signals?: Record<string, Form4InsiderSummary>;
   latestQuarterLabel?: string;
   mode: ReturnMode;
   onModeChange: (m: ReturnMode) => void;
@@ -118,6 +126,8 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   stocksIndex,
   funds,
   convictionByTicker,
+  dualConvictionByTicker,
+  form4Signals,
   latestQuarterLabel,
   mode,
   onModeChange,
@@ -187,6 +197,36 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
       latestQuarterLabel,
       isCoreConsensus: p.rationaleTag === 'Core Consensus',
     });
+
+  const renderConvergenceBadges = (ticker: string) => {
+    const upper = ticker.toUpperCase();
+    const conv = dualConvictionByTicker?.[upper] ?? dualConvictionByTicker?.[ticker];
+    const f4 = form4Signals?.[upper] ?? form4Signals?.[ticker];
+    const hasBuy = Boolean(f4 && f4.openMarketBuyCount > 0);
+    if (!conv && !hasBuy) return null;
+    return (
+      <div style={{ display: 'flex', gap: '0.24rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+        {conv && (
+          <span
+            className={`chip ${convergenceTierChipClass(conv.tier)}`}
+            style={{ fontSize: '0.62rem' }}
+            title={conv.headline}
+          >
+            {convergenceTierLabel(conv.tier)}
+          </span>
+        )}
+        {f4 && hasBuy && (
+          <span
+            className={`chip ${insiderSignalChipClass(f4.insiderSignalLabel)}`}
+            style={{ fontSize: '0.62rem' }}
+            title={`Form 4 open-market ('P') buys: ${f4.openMarketBuyCount} trades by ${f4.distinctBuyersCount} insiders`}
+          >
+            {insiderSignalLabelText(f4.insiderSignalLabel)} · {formatUsdCompact(f4.totalBuyValueUsd)}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   const defaultWeightMap = useMemo(
     () => new Map(idealPortfolio.positions.map((p) => [p.ticker, p.idealWeightPct])),
@@ -503,11 +543,16 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         'Ranked Holders',
         'Avg Fund Weight (%)',
         'Signal Tag',
+        'Convergence Signal',
+        'Form 4 Insider Signal',
         'Top Backers',
       ],
       displayedPositions.map((p) => {
         const ad = resolveAlphaDecayMetrics(p, { latestQuarterLabel });
         const act = getPositionActionability(p);
+        const upper = p.ticker.toUpperCase();
+        const conv = dualConvictionByTicker?.[upper] ?? dualConvictionByTicker?.[p.ticker];
+        const f4 = form4Signals?.[upper] ?? form4Signals?.[p.ticker];
         return [
           p.rank,
           p.ticker,
@@ -532,6 +577,10 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
           p.holderCount,
           p.avgFundWeightPct,
           p.rationaleTag,
+          conv ? convergenceTierLabel(conv.tier) : '',
+          f4 && f4.openMarketBuyCount > 0
+            ? `${insiderSignalLabelText(f4.insiderSignalLabel)} (${formatUsdCompact(f4.totalBuyValueUsd)})`
+            : '',
           p.topBackers.map((b) => `${b.fundName} (${b.weightPct.toFixed(1)}%)`).join('; '),
         ];
       })
@@ -1258,6 +1307,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                         {p.priceUsd ? `$${p.priceUsd.toFixed(2)}` : '—'}
                         {p.marketCapTier ? ` · ${p.marketCapTier}` : ''} · Avg wt {p.avgFundWeightPct.toFixed(1)}%
                       </div>
+                      {renderConvergenceBadges(p.ticker)}
                     </td>
                     <td style={{ minWidth: '162px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.32rem', flexWrap: 'wrap' }}>
