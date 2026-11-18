@@ -1599,10 +1599,362 @@ class TestForm4And13DConvergence(unittest.TestCase):
         )
         self.assertIsNone(suppressed)
 
+    def test_parse_13g_xml_rejects_item4_row11_text_and_cleans_stale_cache(self) -> None:
+        exit_13g_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+        <edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13g">
+          <formData>
+            <submissionType>SCHEDULE 13G/A</submissionType>
+            <issuerInfo>
+              <issuerCik>0001819394</issuerCik>
+              <issuerCusipNumber>00091G104</issuerCusipNumber>
+            </issuerInfo>
+            <coverPageHeaderReportingPersonDetails>
+              <reportingPersonBeneficiallyOwnedAggregateNumberOfShares>0</reportingPersonBeneficiallyOwnedAggregateNumberOfShares>
+              <classPercent>0.0</classPercent>
+            </coverPageHeaderReportingPersonDetails>
+            <item4>
+              <ownership>
+                <amountBeneficiallyOwned>See Row 9 of cover page for each Reporting Person.</amountBeneficiallyOwned>
+                <classPercent>See Row 11 of cover page for each Reporting Person.</classPercent>
+              </ownership>
+            </item4>
+          </formData>
+        </edgarSubmission>
+        """
+        parsed_exit = enrichment._parse_13dg_primary_xml(exit_13g_xml, is_activist=False)
+        self.assertEqual(parsed_exit["percentOfClass"], 0.0)
+        self.assertEqual(parsed_exit["sharesOwned"], 0)
+        self.assertEqual(parsed_exit["subjectCik"], "0001819394")
+        self.assertEqual(parsed_exit["item4Intent"], "")
+        self.assertEqual(parsed_exit["item4Category"], "Passive (13G)")
+
+        active_13g_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+        <edgarSubmission xmlns="http://www.sec.gov/edgar/schedule13g">
+          <formData>
+            <submissionType>SCHEDULE 13G/A</submissionType>
+            <issuerInfo>
+              <issuerCik>0002021528</issuerCik>
+              <issuerCusipNumber>15678U102</issuerCusipNumber>
+            </issuerInfo>
+            <coverPageHeaderReportingPersonDetails>
+              <reportingPersonBeneficiallyOwnedAggregateNumberOfShares>9,972,083*</reportingPersonBeneficiallyOwnedAggregateNumberOfShares>
+              <classPercent>8.4</classPercent>
+            </coverPageHeaderReportingPersonDetails>
+            <item4>
+              <ownership>
+                <amountBeneficiallyOwned>9,972,083*</amountBeneficiallyOwned>
+                <classPercent>See Row 11 of cover page for each Reporting Person.</classPercent>
+              </ownership>
+            </item4>
+          </formData>
+        </edgarSubmission>
+        """
+        parsed_active = enrichment._parse_13dg_primary_xml(active_13g_xml, is_activist=False)
+        self.assertEqual(parsed_active["percentOfClass"], 8.4)
+        self.assertEqual(parsed_active["sharesOwned"], 9972083)
+        self.assertEqual(parsed_active["item4Intent"], "")
+        self.assertEqual(parsed_active["item4Category"], "Passive (13G)")
+
+        with tempfile.TemporaryDirectory() as td:
+            hdr_path = Path(td) / "hdr_cache.json"
+            hdr_path.write_text(json.dumps({
+                "0001777813-26-000012": {
+                    "subjectName": "ACV Auctions Inc.",
+                    "subjectCik": "0001819394",
+                    "percentOfClass": 11.0,
+                    "sharesOwned": 0,
+                    "item4Intent": "See Row 11 of cover page for each Reporting Person.",
+                    "item4Category": "Active 13D",
+                    "stakeChecked": True,
+                    "_item4Ver": 2,
+                }
+            }))
+            sub_payload = {
+                "name": "Coatue Management",
+                "filings": {
+                    "recent": {
+                        "form": ["SCHEDULE 13G/A"],
+                        "accessionNumber": ["0001777813-26-000012"],
+                        "filingDate": ["2026-11-10"],
+                        "primaryDocument": ["xslSCHEDULE_13G_X01/primary_doc.xml"],
+                    }
+                },
+            }
+            with (
+                mock.patch.object(enrichment, "MIDQUARTER_HDR_CACHE_PATH", hdr_path),
+                mock.patch.object(enrichment, "get_submissions", return_value=sub_payload),
+                mock.patch.object(enrichment, "fetch_bytes", return_value=exit_13g_xml),
+            ):
+                alerts = enrichment.fetch_midquarter_alerts(
+                    elite_ciks=["0001777813"],
+                    fund_names_by_cik={"0001777813": "Coatue Management"},
+                    cik_to_ticker_map={"0001819394": "ACVA"},
+                    name_to_ticker_map={},
+                    today_date=date(2026, 11, 18),
+                    since_days=95,
+                )
+            self.assertEqual(len(alerts), 1)
+            self.assertEqual(alerts[0]["ticker"], "ACVA")
+            self.assertEqual(alerts[0]["percentOfClass"], 0.0)
+            self.assertEqual(alerts[0]["stakeStatus"], "Exited (0%)")
+            self.assertIsNone(alerts[0]["item4Intent"])
+            self.assertEqual(alerts[0]["item4Category"], "Passive (13G)")
+
+    def test_form4_cross_row_10b5_footnote_isolation_and_dollar_price(self) -> None:
+        mixed_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>0</aff10b5One>
+          <issuer><issuerCik>50863</issuerCik><issuerTradingSymbol>INTC</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000010</rptOwnerCik><rptOwnerName>TAN LIP BU</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>Chief Executive Officer</officerTitle></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-02</value></transactionDate>
+              <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>15,000</value></transactionShares>
+                <transactionPricePerShare><value>$110.50</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+              <footnoteId id="F2"/>
+            </nonDerivativeTransaction>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-05</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>4,000</value></transactionShares>
+                <transactionPricePerShare><value>$45.50</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+              <footnoteId id="F1"/>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+          <footnotes>
+            <footnote id="F1">Open-market purchase executed by reporting person.</footnote>
+            <footnote id="F2">Automatic sale effected pursuant to a Rule 10b5-1 trading plan.</footnote>
+          </footnotes>
+        </ownershipDocument>
+        """
+        parsed = enrichment._parse_form4_xml(
+            mixed_xml,
+            cik10="0000050863",
+            acc="0000050863-26-000195",
+            filing_date="2026-11-06",
+            pdoc="form4.xml",
+            form_type="4",
+        )
+        assert parsed is not None
+        self.assertEqual(parsed["issuerCik"], "0000050863")
+        self.assertEqual(len(parsed["buys"]), 1)
+        self.assertFalse(parsed["buys"][0]["is10b5Plan"])
+        self.assertEqual(parsed["buys"][0]["pricePerShare"], 45.5)
+        self.assertEqual(parsed["buys"][0]["valueUsd"], 182000.0)
+        self.assertEqual(parsed["scheduledSellValueUsd"], 1657500.0)
+        self.assertEqual(parsed["discretionarySellValueUsd"], 0.0)
+
+    def test_fetch_form4_insider_signals_efts_prefilter_offset_sells_and_fallback(self) -> None:
+        intc_buy_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>0</aff10b5One>
+          <issuer><issuerCik>0000050863</issuerCik><issuerTradingSymbol>INTC</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000011</rptOwnerCik><rptOwnerName>BUYER ONE</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isDirector>1</isDirector></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-05</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>1000</value></transactionShares>
+                <transactionPricePerShare><value>50.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+        intc_disc_sell_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>0</aff10b5One>
+          <issuer><issuerCik>0000050863</issuerCik><issuerTradingSymbol>INTC</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000012</rptOwnerCik><rptOwnerName>SELLER TWO</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>Chief Financial Officer</officerTitle></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-08</value></transactionDate>
+              <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>20000</value></transactionShares>
+                <transactionPricePerShare><value>45.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+        other_issuer_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>0</aff10b5One>
+          <issuer><issuerCik>0001780312</issuerCik><issuerTradingSymbol>ASTS</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0001652044</rptOwnerCik><rptOwnerName>ALPHABET INC</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isTenPercentOwner>1</isTenPercentOwner></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-04</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>50000</value></transactionShares>
+                <transactionPricePerShare><value>25.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+
+        efts_p_response = {
+            "hits": {
+                "total": {"value": 2, "relation": "eq"},
+                "hits": [
+                    {
+                        "_id": "0000050863-26-000101:buy4.xml",
+                        "_source": {
+                            "adsh": "0000050863-26-000101",
+                            "file_date": "2026-11-06",
+                            "form": "4",
+                            "ciks": ["0009000011", "0000050863"],
+                        },
+                    },
+                    {
+                        "_id": "0001652044-26-000202:asts4.xml",
+                        "_source": {
+                            "adsh": "0001652044-26-000202",
+                            "file_date": "2026-11-05",
+                            "form": "4",
+                            "ciks": ["0001652044", "0001780312"],
+                        },
+                    },
+                ],
+            }
+        }
+        efts_s_response = {
+            "hits": {
+                "total": {"value": 1, "relation": "eq"},
+                "hits": [
+                    {
+                        "_id": "0000050863-26-000102:sell4.xml",
+                        "_source": {
+                            "adsh": "0000050863-26-000102",
+                            "file_date": "2026-11-09",
+                            "form": "4",
+                            "ciks": ["0009000012", "0000050863"],
+                        },
+                    },
+                ],
+            }
+        }
+
+        efts_calls: list[str] = []
+        sub_calls: list[str] = []
+
+        def _fake_fetch_json(url: str, cache_key: object = None, max_age_hours: float = 0) -> dict[str, object]:
+            efts_calls.append(url)
+            if "q=S" in url:
+                # Only INTC's CIK should enter Pass 2 (MSFT had 0 hits; GOOG only bought ASTS)
+                self.assertIn("0000050863", url)
+                self.assertNotIn("0000789019", url)
+                self.assertNotIn("0001652044", url)
+                return efts_s_response
+            return efts_p_response
+
+        def _fake_get_submissions(cik10: str) -> dict[str, object]:
+            sub_calls.append(cik10)
+            return {
+                "filings": {
+                    "recent": {
+                        "form": ["4", "4"],
+                        "accessionNumber": ["0000050863-26-000102", "0000050863-26-000101"],
+                        "filingDate": ["2026-11-09", "2026-11-06"],
+                        "primaryDocument": ["xslF345X05/sell4.xml", "xslF345X05/buy4.xml"],
+                    }
+                }
+            }
+
+        def _fake_fetch_bytes(url: str, cache_key: object = None, max_age_hours: float = 0) -> bytes:
+            if "buy4.xml" in url:
+                return intc_buy_xml
+            if "sell4.xml" in url:
+                return intc_disc_sell_xml
+            if "asts4.xml" in url:
+                return other_issuer_xml
+            raise AssertionError(f"Unexpected fetch_bytes URL {url}")
+
+        cik_map = {
+            "INTC": "0000050863",
+            "MSFT": "0000789019",
+            "GOOG": "0001652044",
+        }
+
+        with tempfile.TemporaryDirectory() as td:
+            parsed_path = Path(td) / "f4_parsed.json"
+            ticker_path = Path(td) / "f4_ticker.json"
+            with (
+                mock.patch.object(enrichment, "FORM4_PARSED_CACHE_PATH", parsed_path),
+                mock.patch.object(enrichment, "FORM4_TICKER_CACHE_PATH", ticker_path),
+                mock.patch.object(enrichment, "fetch_json", side_effect=_fake_fetch_json),
+                mock.patch.object(enrichment, "fetch_bytes", side_effect=_fake_fetch_bytes),
+                mock.patch.object(enrichment, "get_submissions", side_effect=_fake_get_submissions),
+            ):
+                res = enrichment.fetch_form4_insider_signals(
+                    ["INTC", "MSFT", "GOOG"],
+                    cik_map,
+                    today_date=date(2026, 11, 18),
+                )
+
+        # Happy path completes solely via EFTS q=P + q=S with zero get_submissions calls
+        self.assertEqual(sub_calls, [])
+        self.assertEqual(len(efts_calls), 2)
+        self.assertIn("INTC", res)
+        self.assertEqual(res["INTC"]["openMarketBuyCount"], 1)
+        self.assertEqual(res["INTC"]["discretionarySellValueUsd"], 900000.0)
+        self.assertEqual(res["INTC"]["insiderSignalLabel"], "MIXED_SELL_HEAVY")
+        self.assertNotIn("GOOG", res)
+        self.assertNotIn("MSFT", res)
+
+        # Verify automatic get_submissions fallback if Pass 1 (q=P) fails OR Pass 2 (q=S) fails
+        with tempfile.TemporaryDirectory() as td2:
+            parsed_path2 = Path(td2) / "f4_parsed.json"
+            ticker_path2 = Path(td2) / "f4_ticker.json"
+            with (
+                mock.patch.object(enrichment, "FORM4_PARSED_CACHE_PATH", parsed_path2),
+                mock.patch.object(enrichment, "FORM4_TICKER_CACHE_PATH", ticker_path2),
+                mock.patch.object(enrichment, "fetch_json", side_effect=RuntimeError("EFTS 503")),
+                mock.patch.object(enrichment, "fetch_bytes", side_effect=_fake_fetch_bytes),
+                mock.patch.object(enrichment, "get_submissions", side_effect=_fake_get_submissions),
+            ):
+                fb_res = enrichment.fetch_form4_insider_signals(
+                    ["INTC"],
+                    {"INTC": "0000050863"},
+                    today_date=date(2026, 11, 18),
+                )
+        self.assertEqual(sub_calls, ["0000050863"])
+        self.assertIn("INTC", fb_res)
+        self.assertEqual(fb_res["INTC"]["openMarketBuyCount"], 1)
+        self.assertEqual(fb_res["INTC"]["discretionarySellValueUsd"], 900000.0)
+        self.assertEqual(fb_res["INTC"]["insiderSignalLabel"], "MIXED_SELL_HEAVY")
+
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
-
-
-

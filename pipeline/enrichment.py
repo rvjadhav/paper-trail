@@ -15,6 +15,7 @@ import json
 import math
 import re
 import time
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
@@ -34,10 +35,12 @@ from security_resolver import (
 FUNDAMENTALS_CACHE_PATH = Path(__file__).resolve().parent / "fundamentals_cache.json"
 XBRL_PARSER_VERSION = 2
 MIDQUARTER_HDR_CACHE_PATH = SEC_CACHE_DIR / "hdr_13dg_cache.json"
-ITEM4_PARSER_VERSION = 2
+ITEM4_PARSER_VERSION = 3
 FORM4_PARSED_CACHE_PATH = SEC_CACHE_DIR / "form4_parsed_v1.json"
 FORM4_TICKER_CACHE_PATH = SEC_CACHE_DIR / "form4_ticker_v1.json"
-FORM4_PARSER_VERSION = 1
+FORM4_PARSER_VERSION = 2
+_XML_NUMERIC_PCT_RE = re.compile(r"[<>~]?\s*(\d+(?:\.\d+)?|\.\d+)\s*%?")
+_XML_NUMERIC_SHARES_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*\*?")
 _13DG_FORM_RE = re.compile(r"^(?:SCHEDULE|SC)\s*13([DG])(?:/A)?$", re.I)
 _13DG_ITEM4_MNA_RE = re.compile(
     r"\b(strategic\s+alternatives?|sale\s+of\s+(?:the\s+)?(?:issuer|company)|mergers?|business\s+combinations?|"
@@ -737,12 +740,13 @@ def _normalize_sec_date_str(raw_dt: str) -> str:
 def _parse_13dg_primary_xml(raw_xml: bytes, is_activist: bool = False) -> dict[str, Any]:
     """
     Parse SEC Schedule 13D/13G XML filing to extract ownership % (classPercent),
-    beneficial shares owned, subject CUSIP, event date, and Item 4 activist intent.
+    beneficial shares owned, subject CUSIP, issuer CIK, event date, and Item 4 activist intent.
     """
     out: dict[str, Any] = {
         "percentOfClass": None,
         "sharesOwned": None,
         "subjectCusip": "",
+        "subjectCik": "",
         "eventDate": "",
         "item4Intent": "",
         "item4Category": "Passive (13G)" if not is_activist else "Active 13D",
@@ -758,7 +762,10 @@ def _parse_13dg_primary_xml(raw_xml: bytes, is_activist: bool = False) -> dict[s
     sh_vals: list[float] = []
     purpose_candidates: list[str] = []
     item4_wrapper_candidates: list[str] = []
-    detected_activist = is_activist
+
+    root_ns = (root.tag or "").lower()
+    is_xml_13g = "schedule13g" in root_ns
+    detected_activist = bool(is_activist) or ("schedule13d" in root_ns)
 
     for el in root.iter():
         if not isinstance(el.tag, str):
@@ -767,34 +774,44 @@ def _parse_13dg_primary_xml(raw_xml: bytes, is_activist: bool = False) -> dict[s
         lname_low = lname.lower()
         txt = el.text.strip() if el.text else ""
 
-        if lname_low in ("submissiontype", "formtype") and "13D" in txt.upper():
-            detected_activist = True
+        if lname_low in ("submissiontype", "formtype"):
+            up_t = txt.upper()
+            if "13D" in up_t:
+                detected_activist = True
+                is_xml_13g = False
+            elif "13G" in up_t:
+                is_xml_13g = True
+                detected_activist = False
 
         if lname_low in ("transactionpurpose", "purposeoftransaction", "item4purpose", "item4text"):
-            full_t = " ".join(s.strip() for s in el.itertext() if s and s.strip())
-            cleaned_t = _clean_text_excerpt(full_t, max_len=340)
-            if len(cleaned_t) >= 8:
-                purpose_candidates.append(cleaned_t)
+            if detected_activist and not is_xml_13g:
+                full_t = " ".join(s.strip() for s in el.itertext() if s and s.strip())
+                cleaned_t = _clean_text_excerpt(full_t, max_len=340)
+                if len(cleaned_t) >= 8:
+                    purpose_candidates.append(cleaned_t)
             continue
 
         if lname_low == "item4":
-            full_t = " ".join(s.strip() for s in el.itertext() if s and s.strip())
-            cleaned_t = _clean_text_excerpt(full_t, max_len=340)
-            if len(cleaned_t) >= 8:
-                item4_wrapper_candidates.append(cleaned_t)
+            # In Schedule 13G XML, <item4> is "Ownership" rather than Purpose of Transaction
+            if detected_activist and not is_xml_13g:
+                full_t = " ".join(s.strip() for s in el.itertext() if s and s.strip())
+                cleaned_t = _clean_text_excerpt(full_t, max_len=340)
+                if len(cleaned_t) >= 8:
+                    item4_wrapper_candidates.append(cleaned_t)
             continue
 
         if not txt:
             continue
 
         if lname in ("classPercent", "percentOfClass", "aggregatePercentOfClass", "percentOwned"):
-            cleaned = re.sub(r"[^0-9.-]", "", txt)
-            try:
-                pv = float(cleaned)
-                if 0.0 <= pv <= 100.0:
-                    pct_vals.append(round(pv, 2))
-            except ValueError:
-                pass
+            m_pct = _XML_NUMERIC_PCT_RE.fullmatch(txt)
+            if m_pct:
+                try:
+                    pv = float(m_pct.group(1))
+                    if 0.0 <= pv <= 100.0:
+                        pct_vals.append(round(pv, 2))
+                except ValueError:
+                    pass
         elif lname in (
             "reportingPersonBeneficiallyOwnedAggregateNumberOfShares",
             "aggregateAmountOwned",
@@ -802,13 +819,21 @@ def _parse_13dg_primary_xml(raw_xml: bytes, is_activist: bool = False) -> dict[s
             "aggregateAmountBeneficiallyOwnedByEachReportingPerson",
             "sharesOwned",
         ):
-            cleaned = re.sub(r"[^0-9.]", "", txt.replace(",", ""))
-            try:
-                sv = float(cleaned)
-                if sv >= 0:
-                    sh_vals.append(round(sv))
-            except ValueError:
-                pass
+            m_sh = _XML_NUMERIC_SHARES_RE.fullmatch(txt)
+            if m_sh:
+                num_str = m_sh.group(1).replace(",", "")
+                if m_sh.group(2):
+                    num_str = f"{num_str}.{m_sh.group(2)}"
+                try:
+                    sv = float(num_str)
+                    if sv >= 0:
+                        sh_vals.append(round(sv))
+                except ValueError:
+                    pass
+        elif lname_low == "issuercik" and not out["subjectCik"]:
+            c_digits = re.sub(r"\D", "", txt)
+            if c_digits:
+                out["subjectCik"] = f"{int(c_digits):010d}"
         elif lname in ("issuerCusipNumber", "cusipNo", "cusipNumber") and not out["subjectCusip"]:
             c_clean = re.sub(r"[^A-Za-z0-9]", "", txt).upper()[:9]
             if len(c_clean) >= 6:
@@ -823,13 +848,17 @@ def _parse_13dg_primary_xml(raw_xml: bytes, is_activist: bool = False) -> dict[s
     if sh_vals:
         out["sharesOwned"] = max(sh_vals)
 
-    best_item4 = (
-        max(purpose_candidates, key=len)
-        if purpose_candidates
-        else (max(item4_wrapper_candidates, key=len) if item4_wrapper_candidates else "")
-    )
-    out["item4Intent"] = best_item4
-    out["item4Category"] = _classify_item4_intent(best_item4, detected_activist)
+    if detected_activist and not is_xml_13g:
+        best_item4 = (
+            max(purpose_candidates, key=len)
+            if purpose_candidates
+            else (max(item4_wrapper_candidates, key=len) if item4_wrapper_candidates else "")
+        )
+        out["item4Intent"] = best_item4
+        out["item4Category"] = _classify_item4_intent(best_item4, True)
+    else:
+        out["item4Intent"] = ""
+        out["item4Category"] = "Passive (13G)"
     return out
 
 
@@ -1014,16 +1043,21 @@ def fetch_midquarter_alerts(
             acc = item["accessionNumber"]
             acc_nd = acc.replace("-", "")
             existing = dict(hdr_cache.get(acc) or {})
+            stale_ver = existing.get("_item4Ver") != ITEM4_PARSER_VERSION
             is_act = bool(item.get("isActivist"))
             info: dict[str, Any] = {
                 "subjectName": existing.get("subjectName", ""),
                 "subjectCik": existing.get("subjectCik", ""),
-                "percentOfClass": existing.get("percentOfClass"),
-                "sharesOwned": existing.get("sharesOwned"),
-                "subjectCusip": existing.get("subjectCusip", ""),
-                "eventDate": existing.get("eventDate", ""),
-                "item4Intent": existing.get("item4Intent", ""),
-                "item4Category": existing.get("item4Category", "Passive (13G)" if not is_act else "Active 13D"),
+                "percentOfClass": None if stale_ver else existing.get("percentOfClass"),
+                "sharesOwned": None if stale_ver else existing.get("sharesOwned"),
+                "subjectCusip": "" if stale_ver else existing.get("subjectCusip", ""),
+                "eventDate": "" if stale_ver else existing.get("eventDate", ""),
+                "item4Intent": "" if (stale_ver or not is_act) else existing.get("item4Intent", ""),
+                "item4Category": (
+                    "Passive (13G)"
+                    if not is_act
+                    else ("Active 13D" if stale_ver else existing.get("item4Category", "Active 13D"))
+                ),
                 "primaryDoc": item.get("primaryDoc") or existing.get("primaryDoc", ""),
                 "stakeChecked": True,
                 "_item4Ver": ITEM4_PARSER_VERSION,
@@ -1075,6 +1109,8 @@ def fetch_midquarter_alerts(
                 try:
                     raw_xml = fetch_bytes(xml_url, cache_key=f"xml13dg_{cik10}_{acc_nd}.xml", max_age_hours=24 * 365)
                     parsed_xml = _parse_13dg_primary_xml(raw_xml, is_activist=is_act)
+                    if not info["subjectCik"] and parsed_xml.get("subjectCik"):
+                        info["subjectCik"] = parsed_xml["subjectCik"]
                     if parsed_xml["percentOfClass"] is not None:
                         info["percentOfClass"] = parsed_xml["percentOfClass"]
                     if parsed_xml["sharesOwned"] is not None:
@@ -1083,10 +1119,13 @@ def fetch_midquarter_alerts(
                         info["subjectCusip"] = parsed_xml["subjectCusip"]
                     if parsed_xml["eventDate"]:
                         info["eventDate"] = parsed_xml["eventDate"]
-                    if parsed_xml["item4Intent"]:
+                    if is_act and parsed_xml["item4Intent"]:
                         info["item4Intent"] = parsed_xml["item4Intent"]
-                    if parsed_xml["item4Category"]:
+                    if is_act and parsed_xml["item4Category"]:
                         info["item4Category"] = parsed_xml["item4Category"]
+                    if not is_act:
+                        info["item4Intent"] = ""
+                        info["item4Category"] = "Passive (13G)"
                 except Exception:
                     pass
 
@@ -1210,6 +1249,16 @@ def _xml_flag_true(val: str | None) -> bool:
     return (val or "").strip().lower() in ("1", "true", "yes", "y")
 
 
+def _normalize_cik10(val: Any) -> str:
+    digits = re.sub(r"\D", "", str(val or ""))
+    if not digits:
+        return ""
+    try:
+        return f"{int(digits):010d}"
+    except ValueError:
+        return ""
+
+
 def _format_insider_name(raw_name: str) -> str:
     txt = re.sub(r"\s+", " ", (raw_name or "").strip())
     if not txt:
@@ -1302,7 +1351,8 @@ def _parse_form4_xml(
     doc_10b5 = _xml_flag_true(_local_text(root, "aff10b5One"))
 
     issuer_el_l = root.xpath("./*[local-name()='issuer']")
-    issuer_cik = _local_text(issuer_el_l[0], "issuerCik") if issuer_el_l else ""
+    issuer_cik_raw = _local_text(issuer_el_l[0], "issuerCik") if issuer_el_l else ""
+    issuer_cik = _normalize_cik10(issuer_cik_raw) or issuer_cik_raw
     issuer_sym = _local_text(issuer_el_l[0], "issuerTradingSymbol") if issuer_el_l else ""
 
     footnotes: dict[str, str] = {}
@@ -1311,8 +1361,6 @@ def _parse_form4_xml(
         ftxt = " ".join(s.strip() for s in fn.itertext() if s and s.strip())
         if fid and ftxt:
             footnotes[fid] = ftxt
-
-    any_fn_10b5 = any(_footnote_confirms_10b5(ftxt) for ftxt in footnotes.values())
 
     # Parse reportingOwner(s) prioritizing Officer/C-Suite > Director > 10% Owner
     owners: list[dict[str, Any]] = []
@@ -1370,10 +1418,11 @@ def _parse_form4_xml(
 
     acc_nd = acc.replace("-", "")
     clean_pdoc = (pdoc or "").strip().lstrip("/")
+    url_cik = issuer_cik if (issuer_cik and issuer_cik.isdigit()) else cik10
     edgar_url = (
-        f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{clean_pdoc}"
+        f"https://www.sec.gov/Archives/edgar/data/{int(url_cik)}/{acc_nd}/{clean_pdoc}"
         if clean_pdoc
-        else f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/"
+        else f"https://www.sec.gov/Archives/edgar/data/{int(url_cik)}/{acc_nd}/"
     )
 
     buys: list[dict[str, Any]] = []
@@ -1389,8 +1438,8 @@ def _parse_form4_xml(
         sh_str = _deep_text(tx, ("transactionAmounts", "transactionShares"))
         px_str = _deep_text(tx, ("transactionAmounts", "transactionPricePerShare"))
         try:
-            sh_val = float(sh_str.replace(",", ""))
-            px_val = float(px_str.replace(",", ""))
+            sh_val = float(sh_str.replace(",", "").strip())
+            px_val = float(px_str.replace(",", "").strip().lstrip("$"))
         except ValueError:
             continue
         if not (math.isfinite(sh_val) and math.isfinite(px_val) and sh_val > 0 and px_val > 0):
@@ -1401,7 +1450,7 @@ def _parse_form4_xml(
             for fn_ref in tx.xpath(".//*[local-name()='footnoteId']")
         ]
         tx_fn_10b5 = any(_footnote_confirms_10b5(footnotes.get(fid, "")) for fid in tx_fn_ids)
-        is_10b5 = bool(doc_10b5 or tx_fn_10b5 or any_fn_10b5)
+        is_10b5 = bool(doc_10b5 or tx_fn_10b5)
         val_usd = round(sh_val * px_val, 2)
 
         if code == "P":
@@ -1628,13 +1677,17 @@ def fetch_form4_insider_signals(
     """
     Fetch and parse recent SEC EDGAR Form 4 / 4/A open-market ('P') insider cluster buys
     across prioritized Ideal Portfolio, Signal Screener, Consensus, and 13D/13G tickers.
-    Caches parsed Form 4 accessions in `pipeline/cache/sec/` across runs so repeated executions
-    only fetch newly filed Form 4s.
+    Phase 1 batch-queries SEC EFTS (`q=P&forms=4`) across 25-CIK chunks to skip scanning
+    thousands of non-buy RSU/tax/10b5-1 Form 4 filings; Phase 2 pulls `get_submissions` only
+    for detected open-market buyer tickers (to capture offsetting discretionary 'S' sells and
+    amendments) plus any chunk needing fallback. Caches parsed Form 4 accessions in
+    `pipeline/cache/sec/` across runs.
     """
     if not tickers:
         return {}
 
     cutoff_str = (today_date - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+    end_dt_str = (today_date + timedelta(days=1)).strftime("%Y-%m-%d")
     now_ts = time.time()
     ticker_cache = load_json_dict(FORM4_TICKER_CACHE_PATH)
     parsed_cache = load_json_dict(FORM4_PARSED_CACHE_PATH)
@@ -1642,10 +1695,11 @@ def fetch_form4_insider_signals(
     ticker_dirty = False
 
     target_pairs: list[tuple[str, str]] = []
+    seen_targets: set[tuple[str, str]] = set()
     out: dict[str, dict[str, Any]] = {}
 
     for t in tickers:
-        cik10 = ticker_to_cik.get(t)
+        cik10 = _normalize_cik10(ticker_to_cik.get(t))
         if not cik10:
             continue
         cached = ticker_cache.get(t)
@@ -1659,21 +1713,247 @@ def fetch_form4_insider_signals(
             if payload.get("openMarketBuyCount", 0) > 0 or payload.get("discretionarySellValueUsd", 0) > 0:
                 out[t] = payload
             continue
-        target_pairs.append((t, cik10))
+        pair = (t, cik10)
+        if pair not in seen_targets:
+            seen_targets.add(pair)
+            target_pairs.append(pair)
 
-    if target_pairs:
-        print(
-            f"[form4] Scanning SEC Form 4 open-market ('P') insider filings across {len(target_pairs)} priority tickers...",
-            flush=True,
-        )
+    if not target_pairs:
+        return out
 
-        def _process_ticker(pair: tuple[str, str]) -> tuple[str, dict[str, Any] | None, list[tuple[str, dict[str, Any]]]]:
+    cik_to_tickers: dict[str, list[str]] = {}
+    for t, cik10 in target_pairs:
+        cik_to_tickers.setdefault(cik10, []).append(t)
+    unique_ciks = list(cik_to_tickers.keys())
+    chunks = [unique_ciks[i : i + 25] for i in range(0, len(unique_ciks), 25)]
+
+    print(
+        f"[form4] Pre-filtering {len(target_pairs)} priority tickers ({len(unique_ciks)} CIKs) "
+        f"across {len(chunks)} SEC EFTS q=P batches...",
+        flush=True,
+    )
+
+    def _attribute_doc(
+        parsed: dict[str, Any],
+        acc: str,
+        matched_ciks: set[str],
+        allowed_tickers: set[str] | None = None,
+    ) -> set[str]:
+        p_icik = _normalize_cik10(parsed.get("issuerCik"))
+        if p_icik:
+            attr_ciks = [p_icik] if p_icik in cik_to_tickers else []
+        else:
+            attr_ciks = list(matched_ciks)
+        buyers_hit: set[str] = set()
+        for acik in attr_ciks:
+            for tk in cik_to_tickers.get(acik, []):
+                if allowed_tickers is not None and tk not in allowed_tickers:
+                    continue
+                docs_by_ticker.setdefault(tk, {})[acc] = parsed
+                if parsed.get("buys"):
+                    buyers_hit.add(tk)
+        return buyers_hit
+
+    docs_by_ticker: dict[str, dict[str, dict[str, Any]]] = {}
+
+    def _query_efts_chunk(batch_ciks: list[str], q_token: str) -> tuple[list[dict[str, Any]], set[str]]:
+        hits_acc: list[dict[str, Any]] = []
+        failed_ciks: set[str] = set()
+        start_idx = 0
+        try:
+            while True:
+                params = urllib.parse.urlencode({
+                    "q": q_token,
+                    "forms": "4",
+                    "startdt": cutoff_str,
+                    "enddt": end_dt_str,
+                    "ciks": ",".join(batch_ciks),
+                    "from": start_idx,
+                })
+                url = f"https://efts.sec.gov/LATEST/search-index?{params}"
+                res = fetch_json(url, cache_key=None, max_age_hours=0)
+                if not isinstance(res, dict) or not isinstance(res.get("hits"), dict):
+                    raise ValueError("Invalid EFTS search-index response")
+                hits_obj = res["hits"]
+                total_obj = hits_obj.get("total")
+                total_val = (
+                    int(total_obj.get("value", 0))
+                    if isinstance(total_obj, dict)
+                    else int(total_obj or 0)
+                )
+                if total_val > 800 and len(batch_ciks) > 1 and start_idx == 0:
+                    mid = len(batch_ciks) // 2
+                    l_hits, l_fail = _query_efts_chunk(batch_ciks[:mid], q_token)
+                    r_hits, r_fail = _query_efts_chunk(batch_ciks[mid:], q_token)
+                    return l_hits + r_hits, l_fail | r_fail
+                page_hits = hits_obj.get("hits") or []
+                hits_acc.extend(page_hits)
+                start_idx += len(page_hits)
+                max_cap = 1000 if len(batch_ciks) == 1 else 9900
+                if not page_hits or start_idx >= total_val or start_idx >= max_cap:
+                    break
+        except Exception:
+            failed_ciks.update(batch_ciks)
+        return hits_acc, failed_ciks
+
+    def _run_efts_stage(
+        stage_ciks: list[str],
+        q_token: str,
+        allowed_tickers: set[str] | None = None,
+    ) -> tuple[int, set[str], set[str]]:
+        nonlocal parsed_dirty
+        stage_chunks = [stage_ciks[i : i + 25] for i in range(0, len(stage_ciks), 25)]
+        raw_hits: list[dict[str, Any]] = []
+        stage_failed_ciks: set[str] = set()
+        if not stage_chunks:
+            return 0, set(), stage_failed_ciks
+
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            for c_hits, c_fail in ex.map(lambda b: _query_efts_chunk(b, q_token), stage_chunks):
+                raw_hits.extend(c_hits)
+                stage_failed_ciks.update(c_fail)
+
+        candidates: dict[str, dict[str, Any]] = {}
+        stage_ciks_set = set(stage_ciks)
+        for hit in raw_hits:
+            src = hit.get("_source") or {}
+            hit_id = str(hit.get("_id") or "")
+            id_acc, has_colon, id_xml = hit_id.partition(":")
+            acc = str(src.get("adsh") or id_acc).strip()
+            if not acc:
+                continue
+            fdate = str(src.get("file_date") or "")[:10]
+            if fdate and fdate < cutoff_str:
+                continue
+            raw_ciks = [_normalize_cik10(c) for c in (src.get("ciks") or [])]
+            src_ciks = [c for c in raw_ciks if c]
+            matched_ciks = {c for c in src_ciks if c in stage_ciks_set}
+            if not matched_ciks:
+                continue
+            if not has_colon:
+                stage_failed_ciks.update(matched_ciks)
+                continue
+            xml_name = id_xml.split("/")[-1].strip()
+            if not xml_name.lower().endswith(".xml"):
+                continue
+            # Skip accessions already attributed for every matched ticker
+            all_already_attributed = all(
+                acc in docs_by_ticker.get(tk, {})
+                for mc in matched_ciks
+                for tk in cik_to_tickers.get(mc, [])
+                if allowed_tickers is None or tk in allowed_tickers
+            )
+            if all_already_attributed:
+                continue
+            form_raw = src.get("form") or ((src.get("root_forms") or ["4"])[0] if src.get("root_forms") else "4")
+            form_str = str(form_raw or "4").strip().upper()
+            if acc not in candidates:
+                candidates[acc] = {
+                    "acc": acc,
+                    "xml_name": xml_name,
+                    "fdate": fdate,
+                    "form_type": form_str,
+                    "matched_ciks": set(matched_ciks),
+                    "all_src_ciks": src_ciks,
+                }
+            else:
+                candidates[acc]["matched_ciks"].update(matched_ciks)
+
+        stage_buyers: set[str] = set()
+        to_fetch: list[dict[str, Any]] = []
+        for acc, cand in candidates.items():
+            cached_doc = parsed_cache.get(acc)
+            if isinstance(cached_doc, dict) and cached_doc.get("_ver") == FORM4_PARSER_VERSION:
+                stage_buyers.update(
+                    _attribute_doc(cached_doc, acc, cand["matched_ciks"], allowed_tickers=allowed_tickers)
+                )
+            else:
+                to_fetch.append(cand)
+
+        def _fetch_cand_xml(cand: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any] | None, bool]:
+            acc = cand["acc"]
+            acc_nd = acc.replace("-", "")
+            xml_name = cand["xml_name"]
+            url_ciks = list(dict.fromkeys([c for c in sorted(cand["matched_ciks"]) + cand["all_src_ciks"] if c]))
+            for url_cik in url_ciks:
+                xml_url = f"https://www.sec.gov/Archives/edgar/data/{int(url_cik)}/{acc_nd}/{xml_name}"
+                try:
+                    raw_xml = fetch_bytes(xml_url, cache_key=None, max_age_hours=24 * 365)
+                    parsed = _parse_form4_xml(
+                        raw_xml,
+                        cik10=url_cik,
+                        acc=acc,
+                        filing_date=cand["fdate"],
+                        pdoc=xml_name,
+                        form_type=cand["form_type"],
+                    )
+                    if parsed is not None:
+                        parsed["_ver"] = FORM4_PARSER_VERSION
+                        return cand, parsed, False
+                except Exception:
+                    continue
+            return cand, None, True
+
+        if to_fetch:
+            print(
+                f"[form4] EFTS q={q_token}: {len(candidates)} candidate filings ({len(to_fetch)} uncached XMLs to fetch)...",
+                flush=True,
+            )
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                for cand, parsed, failed in ex.map(_fetch_cand_xml, to_fetch):
+                    if parsed is not None:
+                        parsed_cache[cand["acc"]] = parsed
+                        parsed_dirty = True
+                        stage_buyers.update(
+                            _attribute_doc(
+                                parsed,
+                                cand["acc"],
+                                cand["matched_ciks"],
+                                allowed_tickers=allowed_tickers,
+                            )
+                        )
+                    elif failed:
+                        stage_failed_ciks.update(cand["matched_ciks"])
+
+        if parsed_dirty:
+            FORM4_PARSED_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            save_json_dict(FORM4_PARSED_CACHE_PATH, parsed_cache)
+            parsed_dirty = False
+
+        return len(candidates), stage_buyers, stage_failed_ciks
+
+    p_hit_cnt, p_buy_tickers, efts_failed_ciks = _run_efts_stage(unique_ciks, "P")
+
+    p_buy_ciks = sorted({
+        cik10 for t, cik10 in target_pairs
+        if t in p_buy_tickers and cik10 not in efts_failed_ciks
+    })
+    s_hit_cnt, _, s_failed_ciks = _run_efts_stage(p_buy_ciks, "S", allowed_tickers=p_buy_tickers)
+    efts_failed_ciks.update(s_failed_ciks)
+
+    fallback_pairs = [(t, cik10) for t, cik10 in target_pairs if cik10 in efts_failed_ciks]
+
+    print(
+        f"[form4] EFTS identified {p_hit_cnt} 'P' hits -> {len(p_buy_tickers)} buyer tickers "
+        f"(+{s_hit_cnt} offsetting 'S' hits; submissions fallback={len(fallback_pairs)})...",
+        flush=True,
+    )
+
+    fetch_failed_tickers: set[str] = set()
+    scan_limit = max(max_filings_per_ticker, 40)
+
+    if fallback_pairs:
+        def _process_fallback_ticker(
+            pair: tuple[str, str],
+        ) -> tuple[str, list[dict[str, Any]], list[tuple[str, dict[str, Any]]], bool]:
             t, cik10 = pair
+            existing_accs = set(docs_by_ticker.get(t, {}).keys())
             new_parsed: list[tuple[str, dict[str, Any]]] = []
+            extra_docs: list[dict[str, Any]] = []
             try:
                 sub = get_submissions(cik10)
             except Exception:
-                return t, None, new_parsed
+                return t, extra_docs, new_parsed, True
 
             recent = (sub.get("filings") or {}).get("recent") or {}
             forms = recent.get("form") or []
@@ -1689,14 +1969,17 @@ def fetch_form4_insider_signals(
                 if str(fdate).strip() < cutoff_str:
                     continue
                 cand_docs.append((f_str, str(acc).strip(), str(fdate).strip(), str(pdoc or "").strip()))
-                if len(cand_docs) >= max_filings_per_ticker:
+                if len(cand_docs) >= scan_limit:
                     break
 
-            parsed_docs: list[dict[str, Any]] = []
             for f_str, acc, fdate, pdoc in cand_docs:
+                if acc in existing_accs:
+                    continue
                 cached_doc = parsed_cache.get(acc)
                 if isinstance(cached_doc, dict) and cached_doc.get("_ver") == FORM4_PARSER_VERSION:
-                    parsed_docs.append(cached_doc)
+                    p_icik = _normalize_cik10(cached_doc.get("issuerCik"))
+                    if not p_icik or p_icik == cik10:
+                        extra_docs.append(cached_doc)
                     continue
                 raw_xml_name = pdoc.split("/")[-1].strip()
                 if not raw_xml_name.lower().endswith(".xml"):
@@ -1715,43 +1998,56 @@ def fetch_form4_insider_signals(
                     )
                     if parsed is not None:
                         parsed["_ver"] = FORM4_PARSER_VERSION
-                        parsed_docs.append(parsed)
                         new_parsed.append((acc, parsed))
+                        p_icik = _normalize_cik10(parsed.get("issuerCik"))
+                        if not p_icik or p_icik == cik10:
+                            extra_docs.append(parsed)
                 except Exception:
                     continue
 
-            summary = summarize_form4_transactions_for_ticker(
-                t,
-                issuer_cik=cik10,
-                parsed_docs=parsed_docs,
-                lookback_days=lookback_days,
-            )
-            return t, summary, new_parsed
+            return t, extra_docs, new_parsed, False
 
         with ThreadPoolExecutor(max_workers=6) as ex:
-            for idx_done, (t, summary, new_parsed) in enumerate(ex.map(_process_ticker, target_pairs), 1):
+            for t, extra_docs, new_parsed, sub_failed in ex.map(_process_fallback_ticker, fallback_pairs):
                 for acc_k, pdoc_v in new_parsed:
                     parsed_cache[acc_k] = pdoc_v
                     parsed_dirty = True
-                if summary is not None:
-                    cached_entry = dict(summary)
-                    cached_entry["_ver"] = FORM4_PARSER_VERSION
-                    cached_entry["_cutoff"] = cutoff_str
-                    cached_entry["_ts"] = now_ts
-                    ticker_cache[t] = cached_entry
-                    ticker_dirty = True
-                    if summary["openMarketBuyCount"] > 0 or summary["discretionarySellValueUsd"] > 0:
-                        out[t] = summary
-                if idx_done % 25 == 0 or idx_done == len(target_pairs):
-                    if parsed_dirty:
-                        FORM4_PARSED_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-                        save_json_dict(FORM4_PARSED_CACHE_PATH, parsed_cache)
-                        parsed_dirty = False
-                    if ticker_dirty:
-                        FORM4_TICKER_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-                        save_json_dict(FORM4_TICKER_CACHE_PATH, ticker_cache)
-                        ticker_dirty = False
-                    print(f"[form4] Progress {idx_done}/{len(target_pairs)} tickers scanned ({len(out)} active)...", flush=True)
+                if sub_failed:
+                    fetch_failed_tickers.add(t)
+                    continue
+                for pd in extra_docs:
+                    p_acc = str(pd.get("accessionNumber") or "")
+                    if p_acc:
+                        docs_by_ticker.setdefault(t, {})[p_acc] = pd
 
+    for t, cik10 in target_pairs:
+        if t in fetch_failed_tickers:
+            continue
+        pdocs_list = list(docs_by_ticker.get(t, {}).values())
+        summary = summarize_form4_transactions_for_ticker(
+            t,
+            issuer_cik=cik10,
+            parsed_docs=pdocs_list,
+            lookback_days=lookback_days,
+        )
+        cached_entry = dict(summary)
+        cached_entry["_ver"] = FORM4_PARSER_VERSION
+        cached_entry["_cutoff"] = cutoff_str
+        cached_entry["_ts"] = now_ts
+        ticker_cache[t] = cached_entry
+        ticker_dirty = True
+        if summary["openMarketBuyCount"] > 0 or summary["discretionarySellValueUsd"] > 0:
+            out[t] = summary
+
+    if parsed_dirty:
+        FORM4_PARSED_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        save_json_dict(FORM4_PARSED_CACHE_PATH, parsed_cache)
+    if ticker_dirty:
+        FORM4_TICKER_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        save_json_dict(FORM4_TICKER_CACHE_PATH, ticker_cache)
+
+    print(
+        f"[form4] Completed scan across {len(target_pairs)} tickers ({len(out)} active with Form 4 signal).",
+        flush=True,
+    )
     return out
-
