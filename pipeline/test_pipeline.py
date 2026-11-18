@@ -1071,7 +1071,225 @@ class TestAlphaDecayAndLagEngine(unittest.TestCase):
         self.assertAlmostEqual(runn["qVwapToFilingPct"], 18.0)
 
 
+class TestConvictionMatrixAndPersistence(unittest.TestCase):
+    def _mock_filing(self, cik: str, rd: str, fd: str, holdings: list[tuple[str, float, float]]) -> dict:
+        return {
+            "cik": cik,
+            "entityName": f"FUND {cik}",
+            "form": "13F-HR",
+            "amendmentType": "",
+            "reportDate": rd,
+            "filingDate": fd,
+            "originalFilingDate": fd,
+            "latestAmendmentDate": fd,
+            "accessionNumber": f"{cik}-{rd}",
+            "rows": [
+                {
+                    "cusip": c,
+                    "issuer": c,
+                    "title": "COM",
+                    "secType": "EQUITY",
+                    "shares": sh,
+                    "valueUsd": val,
+                }
+                for c, sh, val in holdings
+            ],
+        }
+
+    def test_split_adjusted_thesis_persistence_and_streaks(self) -> None:
+        cusip_meta = {
+            "C_NVDA": {"ticker": "NVDA", "name": "NVIDIA", "sector": "Technology", "industry": "Semiconductors", "isTechTmt": True},
+            "C_META": {"ticker": "META", "name": "Meta", "sector": "Communication Services", "industry": "Internet Content", "isTechTmt": True},
+            "C_INTC": {"ticker": "INTC", "name": "Intel", "sector": "Technology", "industry": "Semiconductors", "isTechTmt": True},
+        }
+        splits_map = {
+            "NVDA": [{"date": "2026-04-10", "factor": 10.0, "ratio": "10:1"}],
+        }
+        # Fund 1: NVDA held flat through 10:1 split (100 -> 1,000 -> 1,020); META added 3 consecutive transitions; INTC trimmed & exited
+        f1 = [
+            self._mock_filing("0004000001", "2025-12-31", "2026-02-14", [("C_NVDA", 100, 10_000_000), ("C_META", 100, 10_000_000), ("C_INTC", 200, 5_000_000)]),
+            self._mock_filing("0004000001", "2026-03-31", "2026-05-15", [("C_NVDA", 100, 10_000_000), ("C_META", 125, 12_500_000), ("C_INTC", 150, 3_500_000)]),
+            self._mock_filing("0004000001", "2026-06-30", "2026-08-14", [("C_NVDA", 1000, 10_000_000), ("C_META", 160, 16_000_000), ("C_INTC", 80, 1_800_000)]),
+            self._mock_filing("0004000001", "2026-09-30", "2026-11-16", [("C_NVDA", 1020, 10_200_000), ("C_META", 200, 20_000_000)]),
+        ]
+        # Fund 2: also trims INTC in Q2 & Q3; joins META in Q3
+        f2 = [
+            self._mock_filing("0004000002", "2026-03-31", "2026-05-15", [("C_INTC", 300, 7_000_000)]),
+            self._mock_filing("0004000002", "2026-06-30", "2026-08-14", [("C_INTC", 200, 4_500_000)]),
+            self._mock_filing("0004000002", "2026-09-30", "2026-11-16", [("C_META", 90, 9_000_000), ("C_INTC", 100, 2_000_000)]),
+        ]
+
+        res = build_data.compute_stock_thesis_persistence(
+            raw_fund_filings={"0004000001": f1, "0004000002": f2},
+            cusip_meta=cusip_meta,
+            splits_map=splits_map,
+            eligible_ciks={"0004000001", "0004000002"},
+            elite_ciks={"0004000001"},
+            latest_pe_mode="2026-09-30",
+        )
+
+        # NVDA had zero >=5% moves after split-adjustment -> never falsely flagged as buying/selling streak
+        self.assertNotIn("NVDA", res)
+        self.assertEqual(res["META"]["consecutiveNetBuyQuarters"], 3)
+        self.assertEqual(res["META"]["consecutiveNetSellQuarters"], 0)
+        self.assertEqual(res["META"]["direction"], "ACCUMULATION")
+
+        self.assertEqual(res["INTC"]["consecutiveNetSellQuarters"], 3)
+        self.assertEqual(res["INTC"]["consecutiveNetBuyQuarters"], 0)
+        self.assertEqual(res["INTC"]["direction"], "DISTRIBUTION")
+
+    def test_actionability_matrix_all_verdicts_dilution_and_guardrails(self) -> None:
+        skill_map = {"0001": 92.0, "0002": 84.0, "0003": 79.0, "0004": 48.0}
+        strong_movers = [
+            {"cik": "0001", "fundTier": "Elite 50", "action": "NEW"},
+            {"cik": "0002", "fundTier": "Elite 50", "action": "NEW"},
+            {"cik": "0003", "fundTier": "Elite 50", "action": "ADDED"},
+        ]
+        good_xbrl = {
+            "revenueGrowthYoYPct": 28.0,
+            "fcfMarginPct": 24.0,
+            "operatingMarginPct": 27.0,
+            "shareDilutionYoYPct": -1.2,
+        }
+        good_pers = {"consecutiveNetBuyQuarters": 3, "consecutiveNetSellQuarters": 0, "netBuyQuartersLast4": 3, "netSellQuartersLast4": 0, "quartersObserved": 4}
+
+        # 1. Aligned STRONG ACCUMULATE
+        strong = build_data.compute_actionability_matrix(
+            new_count=2,
+            added_count=2,
+            trimmed_count=0,
+            exited_count=0,
+            elite_buyers_count=3,
+            elite_holders_count=5,
+            total_value_usd=450_000_000.0,
+            net_est_flow_usd=210_000_000.0,
+            movers=strong_movers,
+            fund_skill_by_cik=skill_map,
+            pct_vs_quarter_vwap=-6.0,
+            alpha_decay_status="LAG_ADVANTAGE",
+            fundamentals=good_xbrl,
+            avg_elite_holding_quarters=5.2,
+            thesis_persistence=good_pers,
+        )
+        self.assertEqual(strong["verdict"], "STRONG ACCUMULATE")
+        self.assertGreaterEqual(strong["score"], 80.0)
+        self.assertGreater(strong["pillars"]["flowImpulse"], 18.0)
+        self.assertGreater(strong["pillars"]["priceDiscipline"], 20.0)
+        self.assertGreater(strong["pillars"]["xbrlQuality"], 20.0)
+        self.assertGreater(strong["pillars"]["thesisPersistence"], 20.0)
+
+        # 2. Same setup at +28% above Q-VWAP -> Price Discipline guardrail caps STRONG ACCUMULATE to ACCUMULATE ON DIP
+        extended = build_data.compute_actionability_matrix(
+            new_count=2,
+            added_count=2,
+            trimmed_count=0,
+            exited_count=0,
+            elite_buyers_count=3,
+            elite_holders_count=5,
+            total_value_usd=450_000_000.0,
+            net_est_flow_usd=210_000_000.0,
+            movers=strong_movers,
+            fund_skill_by_cik=skill_map,
+            pct_vs_quarter_vwap=28.0,
+            alpha_decay_status="POST_FILING_EXTENDED",
+            fundamentals=good_xbrl,
+            avg_elite_holding_quarters=5.2,
+            thesis_persistence=good_pers,
+        )
+        self.assertEqual(extended["verdict"], "ACCUMULATE ON DIP")
+        self.assertLess(extended["pillars"]["priceDiscipline"], 12.0)
+
+        # 3. Heavy SBC Share Dilution (+14% YoY) + negative FCF margin fails XBRL Quality Gate -> HOLD
+        dilutive = build_data.compute_actionability_matrix(
+            new_count=2,
+            added_count=1,
+            trimmed_count=0,
+            exited_count=0,
+            elite_buyers_count=2,
+            elite_holders_count=3,
+            total_value_usd=200_000_000.0,
+            net_est_flow_usd=80_000_000.0,
+            movers=strong_movers,
+            fund_skill_by_cik=skill_map,
+            pct_vs_quarter_vwap=-1.0,
+            fundamentals={
+                "revenueGrowthYoYPct": 4.0,
+                "fcfMarginPct": -12.0,
+                "operatingMarginPct": -8.0,
+                "shareDilutionYoYPct": 14.0,
+            },
+            avg_elite_holding_quarters=2.5,
+            thesis_persistence={"consecutiveNetBuyQuarters": 2, "consecutiveNetSellQuarters": 0, "netBuyQuartersLast4": 2, "netSellQuartersLast4": 0, "quartersObserved": 2},
+        )
+        self.assertLess(dilutive["pillars"]["xbrlQuality"], 7.5)
+        self.assertEqual(dilutive["verdict"], "HOLD")
+
+        # Missing fundamentals (e.g., foreign issuer) falls back strictly to neutral 12.5 / 25
+        missing_xbrl = build_data.compute_actionability_matrix(
+            new_count=1,
+            added_count=1,
+            trimmed_count=1,
+            exited_count=0,
+            fundamentals=None,
+            pct_vs_quarter_vwap=0.0,
+        )
+        self.assertEqual(missing_xbrl["pillars"]["xbrlQuality"], 12.5)
+
+        # 4. FOMO_TRAP -> forced DISTRIBUTION WARNING regardless of legacy profit margin
+        fomo_trap = build_data.compute_actionability_matrix(
+            new_count=0,
+            added_count=1,
+            trimmed_count=3,
+            exited_count=1,
+            elite_buyers_count=1,
+            elite_sellers_count=3,
+            total_value_usd=300_000_000.0,
+            net_est_flow_usd=-45_000_000.0,
+            pct_vs_quarter_vwap=27.0,
+            alpha_decay_status="FOMO_TRAP",
+            fundamentals=good_xbrl,
+        )
+        self.assertEqual(fomo_trap["verdict"], "DISTRIBUTION WARNING")
+        self.assertLessEqual(fomo_trap["pillars"]["priceDiscipline"], 5.0)
+
+        # 5. Severe exits + negative persistence -> EXIT SIGNAL
+        exit_sig = build_data.compute_actionability_matrix(
+            new_count=0,
+            added_count=1,
+            trimmed_count=3,
+            exited_count=3,
+            elite_buyers_count=0,
+            elite_sellers_count=4,
+            total_value_usd=180_000_000.0,
+            net_est_flow_usd=-140_000_000.0,
+            pct_vs_quarter_vwap=15.0,
+            fundamentals={"revenueGrowthYoYPct": -8.0, "fcfMarginPct": -2.0, "shareDilutionYoYPct": 4.5},
+            thesis_persistence={"consecutiveNetBuyQuarters": 0, "consecutiveNetSellQuarters": 3, "netBuyQuartersLast4": 0, "netSellQuartersLast4": 3, "quartersObserved": 3},
+        )
+        self.assertEqual(exit_sig["verdict"], "EXIT SIGNAL")
+        self.assertLess(exit_sig["score"], 35.0)
+
+        # 6. Score < 50 WITHOUT distribution evidence (net buying + expensive + weak XBRL) must stay HOLD, not DISTRIBUTION WARNING
+        no_sell_drag = build_data.compute_actionability_matrix(
+            new_count=1,
+            added_count=1,
+            trimmed_count=0,
+            exited_count=0,
+            elite_buyers_count=1,
+            elite_sellers_count=0,
+            total_value_usd=200_000_000.0,
+            net_est_flow_usd=20_000_000.0,
+            pct_vs_quarter_vwap=42.0,
+            fundamentals={"revenueGrowthYoYPct": -12.0, "fcfMarginPct": -15.0, "shareDilutionYoYPct": 10.0},
+            thesis_persistence={"consecutiveNetBuyQuarters": 1, "consecutiveNetSellQuarters": 0, "netBuyQuartersLast4": 1, "netSellQuartersLast4": 1, "quartersObserved": 2},
+        )
+        self.assertLess(no_sell_drag["score"], 50.0)
+        self.assertEqual(no_sell_drag["verdict"], "HOLD")
+        self.assertNotIn("outflows", no_sell_drag["summary"].lower())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 
 

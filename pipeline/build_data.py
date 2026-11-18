@@ -2261,6 +2261,545 @@ def compute_alpha_decay_metrics(
     }
 
 
+def _interp_knots(val: float, knots: list[tuple[float, float]]) -> float:
+    """Piecewise-linear clamped interpolation across sorted (x, y) knots."""
+    if val <= knots[0][0]:
+        return knots[0][1]
+    if val >= knots[-1][0]:
+        return knots[-1][1]
+    for i in range(1, len(knots)):
+        x0, y0 = knots[i - 1]
+        x1, y1 = knots[i]
+        if val <= x1:
+            span = x1 - x0
+            t = (val - x0) / span if span > 0 else 0.0
+            return y0 + t * (y1 - y0)
+    return knots[-1][1]
+
+
+def _quarter_sort_key(q_lbl: str) -> tuple[int, int]:
+    parts = q_lbl.split()
+    try:
+        return (int(parts[0]), int(parts[1].lstrip("Qq")))
+    except Exception:
+        return (0, 0)
+
+
+def compute_stock_thesis_persistence(
+    raw_fund_filings: dict[str, list[dict[str, Any]]],
+    cusip_meta: dict[str, dict[str, Any]],
+    excluded_etfs: set[str] | frozenset[str] = NON_STOCK_ETFS,
+    splits_map: dict[str, list[dict[str, Any]]] | None = None,
+    eligible_ciks: set[str] | frozenset[str] | None = None,
+    elite_ciks: set[str] | frozenset[str] | None = None,
+    latest_pe_mode: str | None = None,
+) -> dict[str, dict[str, Any]]:
+    """
+    Measure multi-quarter split-adjusted institutional accumulation vs. distribution persistence
+    across up to the last 4 QoQ transitions (5 quarterly filings per eligible manager).
+    """
+    target_ciks = set(eligible_ciks) if eligible_ciks else set(raw_fund_filings.keys())
+    elite_set = set(elite_ciks) if elite_ciks else set()
+    max_q_key = _quarter_sort_key(quarter_label(latest_pe_mode)) if latest_pe_mode else None
+
+    # ticker -> quarter_label -> [buyers, sellers, elite_buyers, elite_sellers]
+    per_ticker_q: dict[str, dict[str, list[int]]] = {}
+
+    for cik in target_ciks:
+        filings = raw_fund_filings.get(cik) or []
+        if len(filings) < 2:
+            continue
+        by_q: dict[str, dict[str, Any]] = {}
+        for fl in sorted(filings, key=lambda x: x["reportDate"]):
+            q_lbl = quarter_label(fl["reportDate"])
+            if max_q_key and _quarter_sort_key(q_lbl) > max_q_key:
+                continue
+            by_q[q_lbl] = fl
+        ordered_qs = sorted(by_q.keys(), key=_quarter_sort_key)[-6:]
+        if len(ordered_qs) < 2:
+            continue
+
+        is_elite = cik in elite_set
+        q_shares = [
+            (
+                q_lbl,
+                by_q[q_lbl]["reportDate"],
+                extract_canon_equity_shares(by_q[q_lbl]["rows"], cusip_meta, excluded_etfs=excluded_etfs),
+            )
+            for q_lbl in ordered_qs
+        ]
+        for idx in range(1, len(q_shares)):
+            _, prev_rd, prev_sh = q_shares[idx - 1]
+            curr_q, curr_rd, curr_sh = q_shares[idx]
+            for t in set(prev_sh.keys()) | set(curr_sh.keys()):
+                psh_raw = prev_sh.get(t, 0.0)
+                csh = curr_sh.get(t, 0.0)
+                psh = psh_raw
+                if psh_raw > 0 and csh > 0 and splits_map and not t.startswith("CUSIP:"):
+                    sp_fac, _ = split_factor_between(t, prev_rd, curr_rd, splits_map)
+                    psh = psh_raw * sp_fac
+                if psh <= 0 and csh > 0:
+                    side = 1
+                elif psh > 0 and csh <= 0:
+                    side = -1
+                else:
+                    dp = (csh / psh) - 1.0
+                    side = 1 if dp >= 0.05 else (-1 if dp <= -0.05 else 0)
+                if side == 0:
+                    continue
+                t_qs = per_ticker_q.setdefault(t, {})
+                cnts = t_qs.get(curr_q)
+                if cnts is None:
+                    cnts = [0, 0, 0, 0]
+                    t_qs[curr_q] = cnts
+                if side > 0:
+                    cnts[0] += 1
+                    if is_elite:
+                        cnts[2] += 1
+                else:
+                    cnts[1] += 1
+                    if is_elite:
+                        cnts[3] += 1
+
+    out: dict[str, dict[str, Any]] = {}
+    for t, q_map in per_ticker_q.items():
+        recent_qs = sorted(q_map.keys(), key=_quarter_sort_key)[-4:]
+        if not recent_qs:
+            continue
+
+        def _net_sign(c: list[int]) -> int:
+            b, s, eb, es = c
+            if b > s or (b == s and eb > es):
+                return 1
+            if s > b or (b == s and es > eb):
+                return -1
+            return 0
+
+        signs = [_net_sign(q_map[q]) for q in recent_qs]
+        net_buy_4 = sum(1 for sg in signs if sg > 0)
+        net_sell_4 = sum(1 for sg in signs if sg < 0)
+
+        consec_buy = 0
+        for sg in reversed(signs):
+            if sg > 0:
+                consec_buy += 1
+            else:
+                break
+
+        consec_sell = 0
+        for sg in reversed(signs):
+            if sg < 0:
+                consec_sell += 1
+            else:
+                break
+
+        lat_b, lat_s, _, _ = q_map[recent_qs[-1]]
+        if consec_buy >= 1 or (consec_sell == 0 and net_buy_4 > net_sell_4):
+            direction = "ACCUMULATION"
+        elif consec_sell >= 1 or (consec_buy == 0 and net_sell_4 > net_buy_4):
+            direction = "DISTRIBUTION"
+        else:
+            direction = "MIXED"
+
+        n_obs = len(recent_qs)
+        if consec_buy >= 2:
+            summary = f"{consec_buy}Q consecutive net buying (latest: +{lat_b} buy vs -{lat_s} sell)"
+        elif consec_sell >= 2:
+            summary = f"{consec_sell}Q consecutive net distribution (latest: +{lat_b} buy vs -{lat_s} sell)"
+        elif consec_buy == 1:
+            summary = f"Fresh net buying in latest Q (+{lat_b} buy vs -{lat_s} sell; {net_buy_4}/{n_obs}Q net buy)"
+        elif consec_sell == 1:
+            summary = f"Net selling in latest Q (+{lat_b} buy vs -{lat_s} sell; {net_sell_4}/{n_obs}Q net sell)"
+        else:
+            summary = f"Balanced multi-quarter flow ({net_buy_4} buy / {net_sell_4} sell across last {n_obs}Q)"
+
+        out[t] = {
+            "consecutiveNetBuyQuarters": consec_buy,
+            "consecutiveNetSellQuarters": consec_sell,
+            "netBuyQuartersLast4": net_buy_4,
+            "netSellQuartersLast4": net_sell_4,
+            "quartersObserved": n_obs,
+            "direction": direction,
+            "summary": summary,
+        }
+    return out
+
+
+def _tier_default_skill(tier: str | None) -> float:
+    if tier == "Elite 50":
+        return 82.0
+    if tier == "Top 100":
+        return 66.0
+    if tier == "Qualified":
+        return 52.0
+    return 44.0
+
+
+def compute_actionability_matrix(
+    *,
+    new_count: int = 0,
+    added_count: int = 0,
+    trimmed_count: int = 0,
+    exited_count: int = 0,
+    elite_buyers_count: int = 0,
+    elite_sellers_count: int = 0,
+    elite_holders_count: int = 0,
+    total_value_usd: float = 0.0,
+    net_est_flow_usd: float | None = None,
+    movers: list[dict[str, Any]] | None = None,
+    holders: list[dict[str, Any]] | None = None,
+    fund_skill_by_cik: dict[str, float | None] | None = None,
+    pct_vs_quarter_vwap: float | None = None,
+    filing_to_today_pct: float | None = None,
+    alpha_decay_status: str | None = None,
+    fundamentals: dict[str, Any] | None = None,
+    avg_elite_holding_quarters: float | None = None,
+    thesis_persistence: dict[str, Any] | None = None,
+    is_core_consensus: bool = False,
+) -> dict[str, Any]:
+    """
+    Unified Actionable Buy / Trim / Exit Conviction Matrix:
+      Combines 4 independent pillars (each 0-25 -> 0-100 Total Score):
+        1. Smart-Money Flow Impulse (split- & price-adjusted net dollar flow weighted by Elite skill)
+        2. Price Discipline (distance to Est. Quarter-VWAP / institutional cost basis)
+        3. XBRL Quality Gate (Rev Growth + FCF Margin less SBC/Share Dilution penalty)
+        4. Thesis Persistence (consecutive quarters of net buying vs. multi-fund distribution)
+    """
+    skill_map = fund_skill_by_cik or {}
+
+    # 1. Smart-Money Flow Impulse (0-25)
+    total_buyers = max(0, int(new_count) + int(added_count))
+    total_sellers = max(0, int(trimmed_count) + int(exited_count))
+
+    buyer_skills: list[float] = []
+    seller_skills: list[float] = []
+    seen_move_ciks: set[str] = set()
+
+    for mv in movers or []:
+        cik = mv.get("cik", "")
+        if cik:
+            seen_move_ciks.add(cik)
+        sk = mv.get("skillScore")
+        if sk is None and cik:
+            sk = skill_map.get(cik)
+        if sk is None:
+            sk = _tier_default_skill(mv.get("fundTier"))
+        act = mv.get("action")
+        if act in ("NEW", "ADDED"):
+            buyer_skills.append(float(sk))
+        elif act in ("TRIMMED", "EXITED"):
+            seller_skills.append(float(sk))
+
+    for h in holders or []:
+        cik = h.get("cik", "")
+        if cik and cik in seen_move_ciks:
+            continue
+        sk = h.get("skillScore")
+        if sk is None and cik:
+            sk = skill_map.get(cik)
+        if sk is None:
+            sk = _tier_default_skill(h.get("fundTier"))
+        st = h.get("status")
+        if st in ("NEW", "ADDED"):
+            buyer_skills.append(float(sk))
+        elif st == "TRIMMED":
+            seller_skills.append(float(sk))
+
+    avg_b_skill = (
+        sum(buyer_skills) / len(buyer_skills)
+        if buyer_skills
+        else (82.0 if elite_buyers_count > 0 else 52.0)
+    )
+    avg_s_skill = (
+        sum(seller_skills) / len(seller_skills)
+        if seller_skills
+        else (82.0 if elite_sellers_count > 0 else 52.0)
+    )
+    avg_active_skill = (
+        (avg_b_skill * total_buyers + avg_s_skill * total_sellers) / max(1, total_buyers + total_sellers)
+    )
+    buy_w = total_buyers * (0.5 + min(100.0, max(0.0, avg_b_skill)) / 100.0)
+    sell_w = total_sellers * (0.5 + min(100.0, max(0.0, avg_s_skill)) / 100.0)
+
+    tot_w = buy_w + sell_w
+    if tot_w > 0:
+        part_balance = (buy_w - sell_w) / tot_w
+        part_conf = min(1.0, tot_w / 4.5)
+        part_score = 6.5 + 6.5 * part_balance * part_conf
+    else:
+        part_score = 6.5
+
+    if net_est_flow_usd is not None:
+        skill_mult = min(1.5, max(0.75, avg_active_skill / 55.0))
+        eff_flow = float(net_est_flow_usd) * skill_mult
+        abs_tanh = math.tanh(eff_flow / 120_000_000.0)
+        if total_value_usd and total_value_usd > 0:
+            rel_tanh = math.tanh(eff_flow / (0.35 * max(float(total_value_usd), 25_000_000.0)))
+            flow_signal = 0.65 * abs_tanh + 0.35 * rel_tanh
+        else:
+            flow_signal = abs_tanh
+        flow_sub = 6.0 + 6.0 * flow_signal
+        flow_impulse = min(25.0, max(0.0, part_score + flow_sub))
+    else:
+        flow_impulse = min(25.0, max(0.0, 12.5 + (part_score - 6.5) * (8.5 / 6.5)))
+
+    # 2. Price Discipline (0-25)
+    if pct_vs_quarter_vwap is None:
+        price_discipline = 12.5
+    else:
+        price_discipline = _interp_knots(
+            float(pct_vs_quarter_vwap),
+            [
+                (-15.0, 25.0),
+                (-5.0, 23.5),
+                (0.0, 21.0),
+                (5.0, 17.5),
+                (10.0, 14.0),
+                (15.0, 10.5),
+                (20.0, 7.0),
+                (30.0, 3.0),
+                (45.0, 0.0),
+            ],
+        )
+    if filing_to_today_pct is not None and filing_to_today_pct > 20.0:
+        price_discipline = max(0.0, price_discipline - 1.5)
+    if alpha_decay_status == "FOMO_TRAP":
+        price_discipline = min(5.0, max(0.0, price_discipline - 2.0))
+
+    # 3. XBRL Quality Gate (0-25): Rev Growth + FCF/Op Margin - SBC/Share Dilution penalty
+    if not fundamentals:
+        xbrl_quality = 12.5
+    else:
+        rev_yoy = fundamentals.get("revenueGrowthYoYPct")
+        fcf_m = fundamentals.get("fcfMarginPct")
+        op_m = fundamentals.get("operatingMarginPct")
+        dil_yoy = fundamentals.get("shareDilutionYoYPct")
+
+        rev_pts = (
+            _interp_knots(
+                float(rev_yoy),
+                [(-20.0, 0.0), (-10.0, 2.5), (0.0, 5.0), (10.0, 7.0), (20.0, 8.8), (40.0, 11.0)],
+            )
+            if rev_yoy is not None
+            else 5.5
+        )
+        raw_mgn = fcf_m if fcf_m is not None else op_m
+        if raw_mgn is not None:
+            mgn_pts = _interp_knots(
+                float(raw_mgn),
+                [(-25.0, 0.0), (-10.0, 2.0), (0.0, 4.5), (10.0, 6.4), (20.0, 8.2), (35.0, 10.0)],
+            )
+            if fcf_m is None and mgn_pts > 5.0:
+                mgn_pts = 5.0 + 0.85 * (mgn_pts - 5.0)
+        else:
+            mgn_pts = 5.0
+
+        dil_adj = (
+            _interp_knots(
+                float(dil_yoy),
+                [(-3.0, 4.0), (0.0, 2.5), (2.0, 1.0), (4.0, -1.0), (8.0, -4.5), (12.0, -7.0)],
+            )
+            if dil_yoy is not None
+            else 2.0
+        )
+        xbrl_quality = min(25.0, max(0.0, rev_pts + mgn_pts + dil_adj))
+
+    # 4. Thesis Persistence (0-25)
+    has_multi_q = thesis_persistence is not None and (thesis_persistence.get("quartersObserved") or 0) > 0
+    if has_multi_q and thesis_persistence is not None:
+        cb = int(thesis_persistence.get("consecutiveNetBuyQuarters", 0))
+        cs = int(thesis_persistence.get("consecutiveNetSellQuarters", 0))
+        nb4 = int(thesis_persistence.get("netBuyQuartersLast4", 0))
+        ns4 = int(thesis_persistence.get("netSellQuartersLast4", 0))
+        if cb >= 4:
+            streak_delta = 9.0
+        elif cb == 3:
+            streak_delta = 7.5
+        elif cb == 2:
+            streak_delta = 5.5
+        elif cb == 1:
+            streak_delta = 2.5 - (1.0 if ns4 >= 2 else 0.0)
+        elif cs >= 4:
+            streak_delta = -10.5
+        elif cs == 3:
+            streak_delta = -8.5
+        elif cs == 2:
+            streak_delta = -6.5
+        elif cs == 1:
+            streak_delta = -3.5 - (1.5 if exited_count >= 2 else 0.0)
+        else:
+            streak_delta = max(-4.0, min(4.0, (nb4 - ns4) * 1.5))
+    else:
+        tot_m = total_buyers + total_sellers
+        breadth = ((total_buyers - total_sellers) / tot_m) * min(1.0, tot_m / 4.0) if tot_m > 0 else 0.0
+        streak_delta = breadth * 7.5
+        if exited_count >= 2 and total_sellers > total_buyers:
+            streak_delta -= 2.0
+        elif new_count >= 2 and total_buyers > total_sellers:
+            streak_delta += 1.5
+        if is_core_consensus and total_buyers >= total_sellers:
+            streak_delta += 1.5
+
+    hold_delta = 0.0
+    if avg_elite_holding_quarters is not None and avg_elite_holding_quarters > 0:
+        if avg_elite_holding_quarters >= 8.0:
+            hold_delta = 3.5
+        elif avg_elite_holding_quarters >= 4.0:
+            hold_delta = 2.5
+        elif avg_elite_holding_quarters >= 2.0:
+            hold_delta = 1.0
+        elif total_sellers > total_buyers:
+            hold_delta = -1.5
+    elif elite_holders_count >= 5 and total_buyers >= total_sellers:
+        hold_delta = 2.0
+    elif elite_holders_count >= 2 and total_buyers >= total_sellers:
+        hold_delta = 1.0
+
+    persistence_score = min(25.0, max(0.0, 12.5 + streak_delta + hold_delta))
+
+    flow_r = round(flow_impulse, 1)
+    price_r = round(price_discipline, 1)
+    xbrl_r = round(xbrl_quality, 1)
+    pers_r = round(persistence_score, 1)
+    total_score = round(min(100.0, max(0.0, flow_r + price_r + xbrl_r + pers_r)), 1)
+
+    if total_score >= 72.0:
+        verdict = "STRONG ACCUMULATE"
+    elif total_score >= 60.0:
+        verdict = "ACCUMULATE ON DIP"
+    elif total_score >= 50.0:
+        verdict = "HOLD"
+    elif total_score >= 35.0:
+        verdict = "DISTRIBUTION WARNING"
+    else:
+        verdict = "EXIT SIGNAL"
+
+    has_neg_or_flat_flow = net_est_flow_usd is None or net_est_flow_usd <= 0.0
+    has_neg_flow = net_est_flow_usd is None or net_est_flow_usd < 0.0
+    has_distribution_evidence = (
+        (total_sellers > total_buyers)
+        or (net_est_flow_usd is not None and net_est_flow_usd < 0.0)
+        or (exited_count >= 2)
+    )
+    has_multi_q_sell = bool(
+        thesis_persistence and int(thesis_persistence.get("consecutiveNetSellQuarters", 0)) >= 2
+    )
+    severe_exit_signal = (
+        (exited_count >= 2 and total_sellers >= total_buyers + 2 and has_neg_or_flat_flow)
+        or (
+            flow_r <= 6.0
+            and pers_r <= 6.5
+            and total_sellers >= total_buyers + 3
+            and (exited_count >= 1 or has_multi_q_sell)
+            and has_neg_flow
+        )
+    )
+
+    if severe_exit_signal or (total_score < 35.0 and has_distribution_evidence):
+        verdict = "EXIT SIGNAL"
+        summary = (
+            f"Multi-fund institutional distribution (+{total_buyers} buy vs -{total_sellers} sell, "
+            f"{exited_count} exits); capital preservation favors exit."
+        )
+    elif (
+        alpha_decay_status == "FOMO_TRAP"
+        or (flow_r <= 9.5 and total_sellers > total_buyers and has_neg_flow)
+        or (pers_r <= 8.5 and total_sellers > total_buyers)
+        or (total_score < 50.0 and has_distribution_evidence)
+    ):
+        verdict = "DISTRIBUTION WARNING"
+        if alpha_decay_status == "FOMO_TRAP":
+            summary = (
+                f"Trading extended above Q-VWAP while smart money distributes "
+                f"(Flow {flow_r}/25, Price {price_r}/25); avoid chasing strength."
+            )
+        else:
+            summary = (
+                f"Smart-money outflows & trimming (+{total_buyers}/-{total_sellers}) outweigh fundamentals "
+                f"({total_score}/100); trim risk or wait for stabilization."
+            )
+    elif total_score < 50.0:
+        verdict = "HOLD"
+        if price_r < 8.0 and xbrl_r < 9.0:
+            summary = (
+                f"Institutional selling is limited (+{total_buyers}/-{total_sellers}), but extended Q-VWAP pricing "
+                f"({price_r}/25) & XBRL gate ({xbrl_r}/25) hold rating at {total_score}/100."
+            )
+        elif price_r < 8.0:
+            summary = (
+                f"Institutions remain supportive (+{total_buyers}/-{total_sellers}), but extended Q-VWAP pricing "
+                f"({price_r}/25) caps reward-to-risk at Hold."
+            )
+        elif xbrl_r < 9.0:
+            summary = (
+                f"Flows are constructive (+{total_buyers}/-{total_sellers}), but XBRL profitability/dilution gate "
+                f"({xbrl_r}/25) caps conviction at Hold."
+            )
+        else:
+            summary = (
+                f"Mixed conviction profile ({total_score}/100: Flow {flow_r}, Price {price_r}, "
+                f"XBRL {xbrl_r}, Persist {pers_r}); hold pending stronger alignment."
+            )
+    elif verdict == "STRONG ACCUMULATE":
+        if price_r < 12.0:
+            verdict = "ACCUMULATE ON DIP"
+            summary = (
+                f"Strong Elite flow ({flow_r}/25) & quality ({xbrl_r}/25), but price is extended vs. Est. Q-VWAP "
+                f"(Price {price_r}/25) — stage buys on pullbacks."
+            )
+        elif xbrl_r < 8.0:
+            verdict = "HOLD"
+            summary = (
+                f"Strong institutional buying offset by weak XBRL fundamentals / SBC dilution "
+                f"(XBRL Gate {xbrl_r}/25); monitor execution."
+            )
+        elif xbrl_r < 10.5 or flow_r < 14.0:
+            verdict = "ACCUMULATE ON DIP"
+            summary = (
+                f"Constructive multi-pillar profile ({total_score}/100); prefer staged entries near institutional Q-VWAP."
+            )
+        else:
+            summary = (
+                f"Aligned 4-pillar conviction ({total_score}/100): positive skill-weighted inflows ({flow_r}/25), "
+                f"disciplined entry ({price_r}/25), XBRL quality ({xbrl_r}/25) & persistence ({pers_r}/25)."
+            )
+    elif verdict == "ACCUMULATE ON DIP":
+        if xbrl_r < 7.5:
+            verdict = "HOLD"
+            summary = (
+                f"Institutional interest present, but XBRL profitability/dilution gate ({xbrl_r}/25) "
+                f"warrants patience at Hold."
+            )
+        elif price_r < 12.0:
+            summary = (
+                f"High smart-money conviction capped by extended price vs. Q-VWAP ({price_r}/25); "
+                f"target pullbacks toward institutional cost basis."
+            )
+        else:
+            summary = (
+                f"Constructive accumulation setup ({total_score}/100) near favorable Q-VWAP cost basis ({price_r}/25)."
+            )
+    else:
+        summary = (
+            f"Balanced signal across pillars ({total_score}/100: Flow {flow_r}, Price {price_r}, "
+            f"XBRL {xbrl_r}, Persist {pers_r}); maintain current sizing."
+        )
+
+    return {
+        "score": total_score,
+        "verdict": verdict,
+        "pillars": {
+            "flowImpulse": flow_r,
+            "priceDiscipline": price_r,
+            "xbrlQuality": xbrl_r,
+            "thesisPersistence": pers_r,
+        },
+        "summary": summary,
+        "thesisPersistence": thesis_persistence,
+    }
+
+
+
 def build_signal_screener(
     funds_out: list[dict[str, Any]],
     fund_updates_out: list[dict[str, Any]],
@@ -4019,6 +4558,20 @@ def main() -> None:
         elite_ciks=elite50_set,
         lb_ciks=lb_ciks,
     )
+    thesis_persistence_map = compute_stock_thesis_persistence(
+        raw_fund_filings=raw_fund_filings,
+        cusip_meta=cusip_meta,
+        excluded_etfs=excluded_etf_tickers,
+        splits_map=splits_map,
+        eligible_ciks=lb_ciks,
+        elite_ciks=elite50_set,
+        latest_pe_mode=latest_pe_mode,
+    )
+    fund_skill_by_cik = {
+        f["cik"]: f["metrics"]["filing_lag"]["skillScore"]
+        for f in funds_out
+    }
+
     for t in all_dossier_tickers:
         rec_b = all_dossier_builders[t]
         enr = enrichment_by_ticker[t]
@@ -4041,6 +4594,29 @@ def main() -> None:
             elite_holders_count=rec_b["eliteHoldersCount"],
             net_est_flow_usd=rec_b["netEstFlowUsd"],
         ))
+        act_m = compute_actionability_matrix(
+            new_count=rec_b["newCount"],
+            added_count=rec_b["addedCount"],
+            trimmed_count=rec_b["trimmedCount"],
+            exited_count=rec_b["exitedCount"],
+            elite_buyers_count=rec_b["eliteBuyersCount"],
+            elite_sellers_count=rec_b["eliteSellersCount"],
+            elite_holders_count=rec_b["eliteHoldersCount"],
+            total_value_usd=rec_b["totalValueUsd"],
+            net_est_flow_usd=rec_b["netEstFlowUsd"],
+            movers=rec_b["recentMoves"],
+            holders=rec_b["holders"],
+            fund_skill_by_cik=fund_skill_by_cik,
+            pct_vs_quarter_vwap=enr.get("pctVsQuarterVwap"),
+            filing_to_today_pct=enr.get("filingToTodayPct"),
+            alpha_decay_status=enr.get("alphaDecayStatus"),
+            fundamentals=enr.get("fundamentals"),
+            avg_elite_holding_quarters=enr.get("avgEliteHoldingQuarters"),
+            thesis_persistence=thesis_persistence_map.get(t),
+        )
+        enr["actionability"] = act_m
+        enr["actionabilityScore"] = act_m["score"]
+        enr["actionVerdict"] = act_m["verdict"]
 
     _ALPHA_DECAY_KEYS = (
         "consensusFilingDate",
@@ -4052,6 +4628,9 @@ def main() -> None:
         "eliteSellersCount",
         "alphaDecayStatus",
         "alphaDecayReason",
+        "actionability",
+        "actionabilityScore",
+        "actionVerdict",
     )
 
     # Build Ideal Portfolio Top-40 positions AND Top-80 candidatePool (for interactive filters)
@@ -4197,7 +4776,7 @@ def main() -> None:
         },
     }
 
-    # Enrich Top 30 Consensus Holdings & Signal Screener with Q-VWAP + XBRL + Alpha-Decay
+    # Enrich Top 30 Consensus Holdings & Signal Screener with Q-VWAP + XBRL + Alpha-Decay + Actionability
     for mode in MODES:
         for h in top_holdings_out[mode]:
             enr = enrichment_by_ticker.get(h["ticker"])
@@ -4259,6 +4838,7 @@ def main() -> None:
             verdict = "Held Across Funds"
 
         enr = enrichment_by_ticker.get(t) or _compute_stock_enrichment(t)
+        tp_t = thesis_persistence_map.get(t)
         sec = rec["sector"] or "Other"
         sub_sec = classify_sub_sector(sec, rec["industry"], rec["isTechTmt"])
         sh_id = stock_shard_id(t)
@@ -4284,6 +4864,10 @@ def main() -> None:
             "eliteBuyersCount": enr.get("eliteBuyersCount", rec["eliteBuyersCount"]),
             "eliteSellersCount": enr.get("eliteSellersCount", rec["eliteSellersCount"]),
             "alphaDecayStatus": enr.get("alphaDecayStatus"),
+            "actionabilityScore": enr.get("actionabilityScore"),
+            "actionVerdict": enr.get("actionVerdict"),
+            "consecutiveNetBuyQuarters": tp_t["consecutiveNetBuyQuarters"] if tp_t else None,
+            "consecutiveNetSellQuarters": tp_t["consecutiveNetSellQuarters"] if tp_t else None,
         }
 
         stock_shards[sh_id][t] = {

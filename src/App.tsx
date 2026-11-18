@@ -12,6 +12,7 @@ import { FundDetailDrawer } from './components/FundDetailDrawer';
 import { UpdateDetailDrawer } from './components/UpdateDetailDrawer';
 import { StockDetailDrawer } from './components/StockDetailDrawer';
 import { ThemeToggle, type ThemeMode } from './components/ThemeToggle';
+import { buildConvictionLookupMap, buildUnifiedConvictionList } from './utils/convictionMatrix';
 import { useModalFocusTrap } from './utils/useModalFocusTrap';
 
 type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'updates';
@@ -388,6 +389,20 @@ export function App() {
     [dataset]
   );
 
+  const unifiedConvictionByTicker = useMemo(() => {
+    if (!dataset) return {};
+    return buildConvictionLookupMap(
+      buildUnifiedConvictionList({
+        topHoldings: dataset.topHoldings,
+        signalScreener: dataset.signalScreener,
+        idealPortfolio: dataset.idealPortfolio,
+        stocksIndex: dataset.stocksIndex,
+        funds: dataset.funds,
+        mode,
+      })
+    );
+  }, [dataset, mode]);
+
   const generatedFormatted = useMemo(() => {
     if (!dataset) return 'Loading...';
     try {
@@ -615,6 +630,7 @@ export function App() {
             rankings={dataset.rankings}
             benchmarks={dataset.benchmarks}
             stocksIndex={dataset.stocksIndex}
+            convictionByTicker={unifiedConvictionByTicker}
             latestQuarterCovered={dataset.metadata.latestQuarterCovered}
             windowSize={windowSize}
             onWindowChange={setWindowSize}
@@ -635,6 +651,8 @@ export function App() {
             topHoldings={dataset.topHoldings}
             signalScreener={dataset.signalScreener}
             stocksIndex={dataset.stocksIndex}
+            funds={dataset.funds}
+            idealPortfolio={dataset.idealPortfolio}
             mode={mode}
             onModeChange={setMode}
             onSelectFund={setSelectedFundCik}
@@ -652,6 +670,8 @@ export function App() {
             idealPortfolio={dataset.idealPortfolio}
             benchmarks={dataset.benchmarks}
             stocksIndex={dataset.stocksIndex}
+            funds={dataset.funds}
+            convictionByTicker={unifiedConvictionByTicker}
             latestQuarterLabel={dataset.updatesOverview.latestQuarterLabel}
             mode={mode}
             onModeChange={setMode}
@@ -749,6 +769,9 @@ export function App() {
           ticker={selectedStockTicker}
           stocksIndex={dataset.stocksIndex}
           latestQuarterLabel={dataset.updatesOverview.latestQuarterLabel}
+          funds={dataset.funds}
+          mode={mode}
+          convictionByTicker={unifiedConvictionByTicker}
           onClose={() => setSelectedStockTicker(null)}
           onSelectFund={(cik) => {
             const originStock = selectedStockTicker;
@@ -817,9 +840,9 @@ export function App() {
                 </li>
               </ul>
 
-              <h3 style={{ color: 'var(--text-primary)' }}>4. Public APIs &amp; Stock Dossier Signals</h3>
+              <h3 style={{ color: 'var(--text-primary)' }}>4. Public APIs, Lag Engine &amp; Unified 4-Pillar Conviction Matrix</h3>
               <p>
-                Every indexed equity ({stocksIndexedCount.toLocaleString()} stocks across sharded JSON payloads) integrates <strong>Est. Quarter VWAP &amp; Entry Zones</strong> from split-adjusted daily OHLCV volumes, <strong>SEC EDGAR XBRL CompanyFacts</strong> (TTM Revenue, YoY Growth, Operating &amp; FCF Margins, R&amp;D Intensity, Share Dilution, Market Cap Tiers), and <strong>Live Schedule 13D / 13G Filings</strong> across Elite-50 managers for mid-quarter &ge;5% activist &amp; passive stake alerts.
+                Every indexed equity ({stocksIndexedCount.toLocaleString()} stocks across sharded JSON payloads) integrates <strong>Est. Quarter VWAP &amp; Post-13F Alpha-Decay</strong> (3-timestamp trajectory + Elite holding tenure), <strong>SEC EDGAR XBRL CompanyFacts</strong> (TTM Revenue, YoY Growth, Operating &amp; FCF Margins, R&amp;D Intensity, Share Dilution, Market Cap Tiers), and <strong>Live Schedule 13D / 13G Filings</strong>. The <strong>Unified Actionability Matrix (0–100)</strong> combines <strong>Smart-Money Flow Impulse</strong> (25 pts), <strong>Price Discipline vs. Q-VWAP</strong> (25 pts), <strong>XBRL Quality Gate</strong> less dilution (25 pts), and <strong>Thesis Persistence</strong> across split-adjusted multi-quarter streaks (25 pts) into <code>STRONG ACCUMULATE</code>, <code>ACCUMULATE ON DIP</code>, <code>HOLD</code>, <code>DISTRIBUTION WARNING</code>, or <code>EXIT SIGNAL</code> verdicts.
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>5. Optimal Filing-Season Cron Schedule</h3>

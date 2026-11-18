@@ -2213,7 +2213,8 @@ html.theme-fallback-transition .site-footer {
 
 @media (max-width: 720px) {
   .vwap-kpis,
-  .xbrl-grid {
+  .xbrl-grid,
+  .pillar-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .midq-alerts-grid {
@@ -2228,6 +2229,10 @@ html.theme-fallback-transition .site-footer {
   .lag-arrow-bridge {
     flex-direction: row;
     justify-content: center;
+  }
+  .conviction-hero-top {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 
@@ -2330,3 +2335,166 @@ html.theme-fallback-transition .site-footer {
   color: var(--text-secondary);
 }
 
+/* Unified Actionable Conviction Matrix */
+.conviction-panel-pos {
+  border-color: rgba(52, 211, 153, 0.32);
+}
+
+.conviction-panel-tech {
+  border-color: var(--accent-border-soft);
+}
+
+.conviction-panel-warn {
+  border-color: rgba(255, 179, 64, 0.34);
+}
+
+.conviction-panel-neg {
+  border-color: rgba(255, 105, 97, 0.34);
+}
+
+.conviction-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.conviction-score-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.22rem;
+  padding: 0.36rem 0.78rem;
+  border-radius: 10px;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.conviction-score-pill.pos {
+  background: var(--pos-bg);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: var(--pos-text);
+}
+
+.conviction-score-pill.tech {
+  background: var(--accent-primary-soft);
+  border-color: var(--accent-border-soft);
+  color: var(--accent-primary);
+}
+
+.conviction-score-pill.warn {
+  background: var(--warn-bg);
+  border-color: rgba(255, 179, 64, 0.35);
+  color: var(--warn-text);
+}
+
+.conviction-score-pill.neg {
+  background: var(--neg-bg);
+  border-color: rgba(255, 105, 97, 0.35);
+  color: var(--neg-text);
+}
+
+.conviction-score-num {
+  font-size: 1.32rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.conviction-score-denom {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.pillar-card {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 0.62rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+}
+
+.pillar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.71rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pillar-bar-track {
+  height: 7px;
+  background: var(--bg-page);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border-hairline);
+}
+
+.pillar-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-primary);
+  transition: width 0.25s ease;
+}
+
+.pillar-bar-fill.pos {
+  background: var(--pos-text);
+}
+
+.pillar-bar-fill.warn {
+  background: var(--warn-text);
+}
+
+.pillar-bar-fill.neg {
+  background: var(--neg-text);
+}
+
+.pillar-sub {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.pillar-mini-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-wrap: wrap;
+}
+
+.pillar-mini-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.16rem;
+  padding: 0.12rem 0.36rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-secondary);
+}
+
+.pillar-mini-chip.pos {
+  color: var(--pos-text);
+  border-color: rgba(52, 211, 153, 0.28);
+}
+
+.pillar-mini-chip.warn {
+  color: var(--warn-text);
+  border-color: rgba(255, 179, 64, 0.28);
+}
+
+.pillar-mini-chip.neg {
+  color: var(--neg-text);
+  border-color: rgba(255, 105, 97, 0.28);
+}

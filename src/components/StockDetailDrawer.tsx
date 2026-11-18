@@ -10,15 +10,24 @@ import {
   Layers,
   PieChart,
   Radio,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import type {
+  FundSummary,
+  ReturnMode,
   StockDetail,
   StockIndexEntry,
 } from '../types/data';
 import { resolveAlphaDecayMetrics } from '../utils/alphaDecay';
+import {
+  buildFundSkillMap,
+  resolveActionabilityMatrix,
+  type UnifiedConvictionRow,
+} from '../utils/convictionMatrix';
 import { fetchStockDetail } from '../utils/dataLoader';
 import {
+  actionVerdictChipClass,
   alphaDecayChipClass,
   alphaDecayLabel,
   compactShares,
@@ -37,15 +46,28 @@ interface StockDetailDrawerProps {
   ticker: string;
   stocksIndex: Record<string, StockIndexEntry>;
   latestQuarterLabel: string;
+  funds?: FundSummary[];
+  mode?: ReturnMode;
+  convictionByTicker?: Record<string, UnifiedConvictionRow>;
   onClose: () => void;
   onSelectFund: (cik: string) => void;
   onJumpToIdeal?: () => void;
+}
+
+function pillarTone(val: number): string {
+  if (val >= 17) return 'pos';
+  if (val >= 12) return '';
+  if (val >= 8) return 'warn';
+  return 'neg';
 }
 
 export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
   ticker,
   stocksIndex,
   latestQuarterLabel,
+  funds,
+  mode = 'filing_lag',
+  convictionByTicker,
   onClose,
   onSelectFund,
   onJumpToIdeal,
@@ -98,11 +120,31 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
     return detail.holders;
   }, [detail, holderFilter]);
 
+  const fundSkillByCik = useMemo(() => buildFundSkillMap(funds, mode), [funds, mode]);
+  const fallbackUnified =
+    convictionByTicker?.[ticker.toUpperCase()] ?? convictionByTicker?.[ticker] ?? null;
+
   const alphaDecay = useMemo(() => {
     if (detail) return resolveAlphaDecayMetrics(detail, { latestQuarterLabel });
     if (preview) return resolveAlphaDecayMetrics(preview, { latestQuarterLabel });
     return null;
   }, [detail, preview, latestQuarterLabel]);
+
+  const actionability = useMemo(() => {
+    if (detail) {
+      const hasFlow = detail.netEstFlowUsd != null;
+      return resolveActionabilityMatrix(detail, {
+        fundSkillByCik,
+        latestQuarterLabel,
+        isCoreConsensus:
+          detail.signalVerdict.includes('Core Consensus') || detail.eliteHoldersCount >= 5,
+        fallbackFlowUsd: hasFlow ? detail.netEstFlowUsd : (fallbackUnified?.netFlowUsd ?? null),
+      });
+    }
+    if (fallbackUnified) return fallbackUnified.actionability;
+    if (preview) return resolveActionabilityMatrix(preview, { latestQuarterLabel });
+    return null;
+  }, [detail, fallbackUnified, preview, fundSkillByCik, latestQuarterLabel]);
 
   const vwapGeometry = useMemo(() => {
     if (!detail) return null;
@@ -164,6 +206,14 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
               </h2>
               <span className="chip tech">{displaySubSector}</span>
               {displayCapTier && <span className="chip">{displayCapTier}</span>}
+              {actionability && (
+                <span
+                  className={`chip ${actionVerdictChipClass(actionability.verdict)}`}
+                  title={`Unified 4-Pillar Actionability Score: ${actionability.score.toFixed(1)}/100`}
+                >
+                  {actionability.verdict} · {actionability.score.toFixed(0)}/100
+                </span>
+              )}
               <span
                 className={`chip ${
                   verdict.includes('Cluster') || verdict.includes('Elite Consensus')
@@ -293,11 +343,11 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                 )}
               </div>
               <div className="metric-sub">
-                {detail?.netEstFlowUsd != null ? (
+                {(detail?.netEstFlowUsd ?? fallbackUnified?.netFlowUsd) != null ? (
                   <>
                     Net est. flow:{' '}
-                    <strong className={`mono ${returnClass(detail.netEstFlowUsd)}`}>
-                      {formatSignedUsd(detail.netEstFlowUsd)}
+                    <strong className={`mono ${returnClass(detail?.netEstFlowUsd ?? fallbackUnified?.netFlowUsd)}`}>
+                      {formatSignedUsd(detail?.netEstFlowUsd ?? fallbackUnified?.netFlowUsd)}
                     </strong>
                     {' · '}
                   </>
@@ -325,6 +375,135 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
           ) : (
             detail && (
               <>
+                {/* Unified Actionable Buy / Trim / Exit Conviction Matrix */}
+                {actionability && (
+                  <div
+                    className={`panel ${
+                      actionVerdictChipClass(actionability.verdict)
+                        ? `conviction-panel-${actionVerdictChipClass(actionability.verdict)}`
+                        : ''
+                    }`}
+                    style={{ marginBottom: '1.15rem' }}
+                    aria-label="Unified Actionable Conviction Matrix"
+                  >
+                    <div className="panel-header">
+                      <div>
+                        <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <ShieldCheck size={16} color="var(--accent-primary)" /> Unified Actionable Buy / Trim / Exit Conviction Matrix
+                        </h3>
+                        <p className="panel-subtitle">
+                          Synthesizes 4 independent pillars (25 pts each → 0–100 score) into a single institutional action verdict
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <div className={`conviction-score-pill mono ${actionVerdictChipClass(actionability.verdict)}`}>
+                          <span className="conviction-score-num">{actionability.score.toFixed(1)}</span>
+                          <span className="conviction-score-denom">/100</span>
+                        </div>
+                        <span className={`chip ${actionVerdictChipClass(actionability.verdict)}`}>
+                          {actionability.verdict}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '1rem 1.25rem' }}>
+                      <div className="pillar-grid">
+                        <div className="pillar-card">
+                          <div className="pillar-head">
+                            <span>1. Smart-Money Flow Impulse</span>
+                            <strong className="mono">{actionability.pillars.flowImpulse.toFixed(1)}/25</strong>
+                          </div>
+                          <div className="pillar-bar-track">
+                            <div
+                              className={`pillar-bar-fill ${pillarTone(actionability.pillars.flowImpulse)}`}
+                              style={{ width: `${Math.min(100, (actionability.pillars.flowImpulse / 25) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="pillar-sub mono">
+                            +{detail.newCount + detail.addedCount} buy / -{detail.trimmedCount + detail.exitedCount} cut
+                            {(detail.netEstFlowUsd ?? fallbackUnified?.netFlowUsd) != null
+                              ? ` · ${formatSignedUsd(detail.netEstFlowUsd ?? fallbackUnified?.netFlowUsd)}`
+                              : ''}
+                          </div>
+                        </div>
+
+                        <div className="pillar-card">
+                          <div className="pillar-head">
+                            <span>2. Price Discipline (Q-VWAP)</span>
+                            <strong className="mono">{actionability.pillars.priceDiscipline.toFixed(1)}/25</strong>
+                          </div>
+                          <div className="pillar-bar-track">
+                            <div
+                              className={`pillar-bar-fill ${pillarTone(actionability.pillars.priceDiscipline)}`}
+                              style={{ width: `${Math.min(100, (actionability.pillars.priceDiscipline / 25) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="pillar-sub mono">
+                            {pctVsVwap != null ? `${formatSignedPct(pctVsVwap)} vs Est. Q-VWAP` : 'Q-VWAP pending'}
+                            {alphaDecay?.filingToTodayPct != null
+                              ? ` · Fil→Now ${formatSignedPct(alphaDecay.filingToTodayPct)}`
+                              : ''}
+                          </div>
+                        </div>
+
+                        <div className="pillar-card">
+                          <div className="pillar-head">
+                            <span>3. XBRL Quality Gate</span>
+                            <strong className="mono">{actionability.pillars.xbrlQuality.toFixed(1)}/25</strong>
+                          </div>
+                          <div className="pillar-bar-track">
+                            <div
+                              className={`pillar-bar-fill ${pillarTone(actionability.pillars.xbrlQuality)}`}
+                              style={{ width: `${Math.min(100, (actionability.pillars.xbrlQuality / 25) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="pillar-sub mono">
+                            {detail.fundamentals
+                              ? `Rev ${formatSignedPct(detail.fundamentals.revenueGrowthYoYPct, 0)} · ${
+                                  detail.fundamentals.fcfMarginPct != null
+                                    ? `FCF ${detail.fundamentals.fcfMarginPct.toFixed(0)}%`
+                                    : detail.fundamentals.operatingMarginPct != null
+                                      ? `OpM ${detail.fundamentals.operatingMarginPct.toFixed(0)}%`
+                                      : 'Mgn N/A'
+                                } · Dil ${formatSignedPct(detail.fundamentals.shareDilutionYoYPct, 1)}`
+                              : 'XBRL unavailable (12.5 neutral)'}
+                          </div>
+                        </div>
+
+                        <div className="pillar-card">
+                          <div className="pillar-head">
+                            <span>4. Thesis Persistence</span>
+                            <strong className="mono">{actionability.pillars.thesisPersistence.toFixed(1)}/25</strong>
+                          </div>
+                          <div className="pillar-bar-track">
+                            <div
+                              className={`pillar-bar-fill ${pillarTone(actionability.pillars.thesisPersistence)}`}
+                              style={{ width: `${Math.min(100, (actionability.pillars.thesisPersistence / 25) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="pillar-sub mono">
+                            {actionability.thesisPersistence
+                              ? actionability.thesisPersistence.summary
+                              : alphaDecay?.avgEliteHoldingQuarters != null
+                                ? `Avg Elite hold ${alphaDecay.avgEliteHoldingQuarters.toFixed(1)}Q`
+                                : `${displayEliteCnt} Elite holders · +${detail.newCount}N/-${detail.exitedCount}X`}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className={`alpha-decay-banner ${actionVerdictChipClass(actionability.verdict)}`}
+                        style={{ marginTop: '0.78rem' }}
+                      >
+                        <div>
+                          <strong style={{ marginRight: '0.45rem' }}>{actionability.verdict}:</strong>
+                          <span>{actionability.summary}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Post-13F Lag & Alpha-Decay Engine */}
                 {alphaDecay && (
                   <div className="panel" style={{ marginBottom: '1.15rem' }} aria-label="Post-13F Lag and Alpha-Decay Engine">

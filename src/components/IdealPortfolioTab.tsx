@@ -1,13 +1,23 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
-import { Calculator, Check, Download, Info, RotateCcw, Save } from 'lucide-react';
+import { AlertTriangle, Calculator, Check, Download, Info, RotateCcw, Save } from 'lucide-react';
 import type {
+  ActionVerdict,
   BenchmarkSeries,
+  FundSummary,
   IdealPortfolioData,
+  IdealPortfolioPosition,
   ReturnMode,
   StockIndexEntry,
 } from '../types/data';
 import { resolveAlphaDecayMetrics } from '../utils/alphaDecay';
 import {
+  buildFundSkillMap,
+  resolveActionabilityMatrix,
+  type UnifiedConvictionRow,
+} from '../utils/convictionMatrix';
+import {
+  actionVerdictChipClass,
+  actionVerdictShortLabel,
   alphaDecayChipClass,
   alphaDecayLabel,
   downloadCsv,
@@ -34,6 +44,8 @@ interface IdealPortfolioTabProps {
   idealPortfolio: IdealPortfolioData;
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
   stocksIndex: Record<string, StockIndexEntry>;
+  funds?: FundSummary[];
+  convictionByTicker?: Record<string, UnifiedConvictionRow>;
   latestQuarterLabel?: string;
   mode: ReturnMode;
   onModeChange: (m: ReturnMode) => void;
@@ -42,13 +54,23 @@ interface IdealPortfolioTabProps {
 }
 
 type IdealEntryFilter = 'ALL' | 'VALUE' | 'EXTENDED';
+type IdealVerdictFilter = 'ALL' | ActionVerdict;
 type IdealSortKey =
   | 'idealWeightPct'
+  | 'actionScore'
   | 'revYoY'
   | 'fcfMargin'
   | 'convictionScore'
   | 'holderCount'
   | 'stockTtmPct';
+
+const VERDICT_ORDER: ActionVerdict[] = [
+  'STRONG ACCUMULATE',
+  'ACCUMULATE ON DIP',
+  'HOLD',
+  'DISTRIBUTION WARNING',
+  'EXIT SIGNAL',
+];
 
 interface SavedBuilderPreset {
   universeFilter: UniverseFilter;
@@ -94,6 +116,8 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   idealPortfolio,
   benchmarks,
   stocksIndex,
+  funds,
+  convictionByTicker,
   latestQuarterLabel,
   mode,
   onModeChange,
@@ -135,6 +159,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   );
 
   const [entryFilter, setEntryFilter] = useState<IdealEntryFilter>('ALL');
+  const [verdictFilter, setVerdictFilter] = useState<IdealVerdictFilter>('ALL');
   const [sortBy, setSortBy] = useState<IdealSortKey>('idealWeightPct');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -152,6 +177,16 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
       // Ignore storage quota errors
     }
   }, [showRebalance, holdingsText, rebalanceMode, newCashUsd, driftTolerancePct]);
+
+  const fundSkillByCik = useMemo(() => buildFundSkillMap(funds, mode), [funds, mode]);
+
+  const getPositionActionability = (p: IdealPortfolioPosition) =>
+    convictionByTicker?.[p.ticker]?.actionability ??
+    resolveActionabilityMatrix(p, {
+      fundSkillByCik,
+      latestQuarterLabel,
+      isCoreConsensus: p.rationaleTag === 'Core Consensus',
+    });
 
   const defaultWeightMap = useMemo(
     () => new Map(idealPortfolio.positions.map((p) => [p.ticker, p.idealWeightPct])),
@@ -201,6 +236,33 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     sectorCapPct,
     defaultWeightMap,
   ]);
+
+  const activePositionByTicker = useMemo(
+    () => new Map(activePositions.map((p) => [p.ticker, p])),
+    [activePositions]
+  );
+
+  const verdictCounts = useMemo(() => {
+    const counts: Record<ActionVerdict, number> = {
+      'STRONG ACCUMULATE': 0,
+      'ACCUMULATE ON DIP': 0,
+      HOLD: 0,
+      'DISTRIBUTION WARNING': 0,
+      'EXIT SIGNAL': 0,
+    };
+    for (const p of activePositions) {
+      const v = (
+        convictionByTicker?.[p.ticker]?.actionability ??
+        resolveActionabilityMatrix(p, {
+          fundSkillByCik,
+          latestQuarterLabel,
+          isCoreConsensus: p.rationaleTag === 'Core Consensus',
+        })
+      ).verdict;
+      counts[v] += 1;
+    }
+    return counts;
+  }, [activePositions, convictionByTicker, fundSkillByCik, latestQuarterLabel]);
 
   const dynamicSectors = useMemo(() => {
     const map = new Map<string, { sector: string; weightPct: number; stockCount: number }>();
@@ -260,13 +322,50 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     ]
   );
 
+  const getTickerActionabilityForRebalance = (ticker: string) => {
+    const conv = convictionByTicker?.[ticker]?.actionability;
+    if (conv) return conv;
+    const pos = activePositionByTicker.get(ticker);
+    if (pos) {
+      return resolveActionabilityMatrix(pos, {
+        fundSkillByCik,
+        latestQuarterLabel,
+        isCoreConsensus: pos.rationaleTag === 'Core Consensus',
+      });
+    }
+    const idxEntry = stocksIndex[ticker];
+    if (idxEntry) {
+      return resolveActionabilityMatrix(idxEntry, {
+        fundSkillByCik,
+        latestQuarterLabel,
+      });
+    }
+    return null;
+  };
+
   const displayedPositions = useMemo<DynamicPosition[]>(() => {
     const filtered = activePositions.filter((p) => {
-      if (entryFilter === 'ALL') return true;
       if (entryFilter === 'VALUE') {
-        return p.entryZoneStatus === 'Discount to Q-Avg' || p.entryZoneStatus === 'Near Q-Avg';
+        if (p.entryZoneStatus !== 'Discount to Q-Avg' && p.entryZoneStatus !== 'Near Q-Avg') {
+          return false;
+        }
+      } else if (entryFilter === 'EXTENDED') {
+        if (p.entryZoneStatus !== 'Extended' && p.entryZoneStatus !== 'Chasing (+30%+)') {
+          return false;
+        }
       }
-      return p.entryZoneStatus === 'Extended' || p.entryZoneStatus === 'Chasing (+30%+)';
+      if (verdictFilter !== 'ALL') {
+        const v = (
+          convictionByTicker?.[p.ticker]?.actionability ??
+          resolveActionabilityMatrix(p, {
+            fundSkillByCik,
+            latestQuarterLabel,
+            isCoreConsensus: p.rationaleTag === 'Core Consensus',
+          })
+        ).verdict;
+        if (v !== verdictFilter) return false;
+      }
+      return true;
     });
     if (sortBy === 'idealWeightPct' && !sortAsc) return filtered;
     const cmpNullable = (a: number | null | undefined, b: number | null | undefined): number => {
@@ -278,6 +377,25 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
       return sortAsc ? an - bn : bn - an;
     };
     return [...filtered].sort((a, b) => {
+      if (sortBy === 'actionScore') {
+        const sa = (
+          convictionByTicker?.[a.ticker]?.actionability ??
+          resolveActionabilityMatrix(a, {
+            fundSkillByCik,
+            latestQuarterLabel,
+            isCoreConsensus: a.rationaleTag === 'Core Consensus',
+          })
+        ).score;
+        const sb = (
+          convictionByTicker?.[b.ticker]?.actionability ??
+          resolveActionabilityMatrix(b, {
+            fundSkillByCik,
+            latestQuarterLabel,
+            isCoreConsensus: b.rationaleTag === 'Core Consensus',
+          })
+        ).score;
+        return cmpNullable(sa, sb);
+      }
       if (sortBy === 'revYoY') {
         return cmpNullable(a.fundamentals?.revenueGrowthYoYPct, b.fundamentals?.revenueGrowthYoYPct);
       }
@@ -295,7 +413,16 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
       }
       return cmpNullable(a.dynamicWeightPct, b.dynamicWeightPct);
     });
-  }, [activePositions, entryFilter, sortBy, sortAsc]);
+  }, [
+    activePositions,
+    entryFilter,
+    verdictFilter,
+    convictionByTicker,
+    fundSkillByCik,
+    latestQuarterLabel,
+    sortBy,
+    sortAsc,
+  ]);
 
   const toggleSort = (col: IdealSortKey) => {
     if (sortBy === col) {
@@ -356,6 +483,8 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         'Rank',
         'Ticker',
         'Company',
+        'Action Verdict',
+        'Actionability Score (/100)',
         'Sub-Sector',
         'Market Cap Tier',
         'Ideal Weight (%)',
@@ -378,10 +507,13 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
       ],
       displayedPositions.map((p) => {
         const ad = resolveAlphaDecayMetrics(p, { latestQuarterLabel });
+        const act = getPositionActionability(p);
         return [
           p.rank,
           p.ticker,
           p.name,
+          act.verdict,
+          act.score,
           p.subSector || p.sector,
           p.marketCapTier ?? '',
           p.dynamicWeightPct,
@@ -410,19 +542,37 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     if (!rebalancePlan) return;
     downloadCsv(
       `paper-trail-rebalance-${rebalanceMode}-trades-${activePositions.length}names.csv`,
-      ['Mode', 'Action', 'Ticker', 'Company', 'Current (USD)', 'Current (%)', 'Target (USD)', 'Target (%)', 'Trade Delta (USD)', 'Est. Shares'],
-      rebalancePlan.rows.map((r) => [
-        rebalanceMode === 'buyOnly' ? 'Buy-Only' : 'Full',
-        r.action,
-        r.ticker,
-        r.name,
-        Math.round(r.currUsd),
-        r.currPct.toFixed(2),
-        Math.round(r.targetUsd),
-        r.targetPct.toFixed(2),
-        Math.round(r.deltaUsd),
-        r.estSharesDelta ?? '',
-      ])
+      [
+        'Mode',
+        'Action',
+        'Ticker',
+        'Company',
+        'Action Verdict',
+        'Actionability Score (/100)',
+        'Current (USD)',
+        'Current (%)',
+        'Target (USD)',
+        'Target (%)',
+        'Trade Delta (USD)',
+        'Est. Shares',
+      ],
+      rebalancePlan.rows.map((r) => {
+        const act = getTickerActionabilityForRebalance(r.ticker);
+        return [
+          rebalanceMode === 'buyOnly' ? 'Buy-Only' : 'Full',
+          r.action,
+          r.ticker,
+          r.name,
+          act?.verdict ?? '',
+          act?.score ?? '',
+          Math.round(r.currUsd),
+          r.currPct.toFixed(2),
+          Math.round(r.targetUsd),
+          r.targetPct.toFixed(2),
+          Math.round(r.deltaUsd),
+          r.estSharesDelta ?? '',
+        ];
+      })
     );
   };
 
@@ -738,6 +888,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                       <tr>
                         <th>Action</th>
                         <th>Stock</th>
+                        <th>Action Verdict</th>
                         <th className="num">Current ($)</th>
                         <th className="num">Target ($)</th>
                         <th className="num">Trade Delta ($)</th>
@@ -745,50 +896,94 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {rebalancePlan.rows.map((r) => (
-                        <tr key={`reb-${r.ticker}`}>
-                          <td>
-                            <span
-                              className={`chip ${
-                                r.action === 'BUY' || r.action === 'ADD'
-                                  ? 'pos'
-                                  : r.action === 'TRIM' || r.action === 'EXIT'
-                                    ? 'neg'
-                                    : ''
-                              }`}
-                            >
-                              {r.action}
-                            </span>
-                          </td>
-                          <td>
-                            {stocksIndex[r.ticker] ? (
-                              <button
-                                type="button"
-                                className="ticker-badge ticker-link-btn"
-                                onClick={() => onSelectStock(r.ticker)}
+                      {rebalancePlan.rows.map((r) => {
+                        const rowAct = getTickerActionabilityForRebalance(r.ticker);
+                        const isBuyCaution =
+                          (r.action === 'BUY' || r.action === 'ADD') &&
+                          rowAct != null &&
+                          (rowAct.verdict === 'DISTRIBUTION WARNING' ||
+                            rowAct.verdict === 'EXIT SIGNAL');
+                        return (
+                          <tr key={`reb-${r.ticker}`}>
+                            <td>
+                              <span
+                                className={`chip ${
+                                  r.action === 'BUY' || r.action === 'ADD'
+                                    ? 'pos'
+                                    : r.action === 'TRIM' || r.action === 'EXIT'
+                                      ? 'neg'
+                                      : ''
+                                }`}
                               >
-                                {r.ticker}
-                              </button>
-                            ) : (
-                              <span className="ticker-badge">{r.ticker}</span>
-                            )}
-                          </td>
-                          <td className="num mono">
-                            {formatUsdCompact(r.currUsd)} ({r.currPct.toFixed(1)}%)
-                          </td>
-                          <td className="num mono">
-                            {formatUsdCompact(r.targetUsd)} ({r.targetPct.toFixed(1)}%)
-                          </td>
-                          <td className={`num mono ${returnClass(r.deltaUsd)}`}>
-                            {formatSignedUsd(r.deltaUsd)}
-                          </td>
-                          <td className={`num mono ${returnClass(r.estSharesDelta)}`}>
-                            {r.estSharesDelta != null
-                              ? `${r.estSharesDelta > 0 ? '+' : ''}${r.estSharesDelta.toLocaleString()} sh`
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
+                                {r.action}
+                              </span>
+                            </td>
+                            <td>
+                              {stocksIndex[r.ticker] ? (
+                                <button
+                                  type="button"
+                                  className="ticker-badge ticker-link-btn"
+                                  onClick={() => onSelectStock(r.ticker)}
+                                >
+                                  {r.ticker}
+                                </button>
+                              ) : (
+                                <span className="ticker-badge">{r.ticker}</span>
+                              )}
+                            </td>
+                            <td style={{ minWidth: '160px' }}>
+                              {rowAct ? (
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', flexWrap: 'wrap' }}>
+                                    <span
+                                      className={`chip ${actionVerdictChipClass(rowAct.verdict)}`}
+                                      title={rowAct.summary}
+                                    >
+                                      {rowAct.verdict}
+                                    </span>
+                                    <span className="mono" style={{ fontSize: '0.72rem', fontWeight: 700 }}>
+                                      {rowAct.score.toFixed(0)}/100
+                                    </span>
+                                  </div>
+                                  {isBuyCaution && (
+                                    <div
+                                      className="mono"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '0.25rem',
+                                        marginTop: '0.18rem',
+                                        fontSize: '0.67rem',
+                                        fontWeight: 600,
+                                        color: 'var(--neg-text)',
+                                      }}
+                                      title={rowAct.summary}
+                                    >
+                                      <AlertTriangle size={11} /> Caution: distributing signal
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="ret-muted">—</span>
+                              )}
+                            </td>
+                            <td className="num mono">
+                              {formatUsdCompact(r.currUsd)} ({r.currPct.toFixed(1)}%)
+                            </td>
+                            <td className="num mono">
+                              {formatUsdCompact(r.targetUsd)} ({r.targetPct.toFixed(1)}%)
+                            </td>
+                            <td className={`num mono ${returnClass(r.deltaUsd)}`}>
+                              {formatSignedUsd(r.deltaUsd)}
+                            </td>
+                            <td className={`num mono ${returnClass(r.estSharesDelta)}`}>
+                              {r.estSharesDelta != null
+                                ? `${r.estSharesDelta > 0 ? '+' : ''}${r.estSharesDelta.toLocaleString()} sh`
+                                : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -953,7 +1148,26 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
               Click any stock ticker for full Q-VWAP &amp; XBRL Stock Dossier, or click any backing fund to inspect its 13F book
             </p>
           </div>
-          <div className="controls-row">
+          <div className="controls-row" style={{ flexWrap: 'wrap' }}>
+            <div className="segmented-group" role="group" aria-label="Filter by Action Verdict">
+              <button
+                type="button"
+                className={`seg-btn ${verdictFilter === 'ALL' ? 'active' : ''}`}
+                onClick={() => setVerdictFilter('ALL')}
+              >
+                All Verdicts
+              </button>
+              {VERDICT_ORDER.filter((vd) => verdictCounts[vd] > 0).map((vd) => (
+                <button
+                  key={vd}
+                  type="button"
+                  className={`seg-btn ${verdictFilter === vd ? 'active' : ''}`}
+                  onClick={() => setVerdictFilter(vd)}
+                >
+                  {actionVerdictShortLabel(vd)} ({verdictCounts[vd]})
+                </button>
+              ))}
+            </div>
             <div className="segmented-group" role="group" aria-label="Entry zone filter">
               {(
                 [
@@ -984,6 +1198,9 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
               <tr>
                 <th>#</th>
                 <th>Stock</th>
+                <th className="sortable" onClick={() => toggleSort('actionScore')}>
+                  Action Verdict {sortBy === 'actionScore' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
                 <th>Sub-Sector</th>
                 <th className="num sortable" onClick={() => toggleSort('idealWeightPct')}>
                   Ideal Weight {sortBy === 'idealWeightPct' ? (sortAsc ? '▲' : '▼') : ''}
@@ -1015,6 +1232,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                 const estShares =
                   p.priceUsd && p.priceUsd > 0 ? Math.floor(targetUsd / p.priceUsd) : null;
                 const ad = resolveAlphaDecayMetrics(p, { latestQuarterLabel });
+                const act = getPositionActionability(p);
                 return (
                   <tr key={p.ticker}>
                     <td>
@@ -1039,6 +1257,22 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                       <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.12rem' }}>
                         {p.priceUsd ? `$${p.priceUsd.toFixed(2)}` : '—'}
                         {p.marketCapTier ? ` · ${p.marketCapTier}` : ''} · Avg wt {p.avgFundWeightPct.toFixed(1)}%
+                      </div>
+                    </td>
+                    <td style={{ minWidth: '162px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.32rem', flexWrap: 'wrap' }}>
+                        <span
+                          className={`chip ${actionVerdictChipClass(act.verdict)}`}
+                          title={act.summary}
+                        >
+                          {act.verdict}
+                        </span>
+                        <span className="mono" style={{ fontWeight: 700, fontSize: '0.78rem' }}>
+                          {act.score.toFixed(0)}/100
+                        </span>
+                      </div>
+                      <div className="mono" style={{ fontSize: '0.67rem', color: 'var(--text-muted)', marginTop: '0.14rem' }}>
+                        F:{act.pillars.flowImpulse.toFixed(0)} · P:{act.pillars.priceDiscipline.toFixed(0)} · Q:{act.pillars.xbrlQuality.toFixed(0)} · T:{act.pillars.thesisPersistence.toFixed(0)}
                       </div>
                     </td>
                     <td>
@@ -1181,10 +1415,10 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
               })}
               {displayedPositions.length === 0 && (
                 <tr>
-                  <td colSpan={13} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={14} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                     {activePositions.length === 0
                       ? 'No stocks match this market-cap filter. Switch Universe back to All-Cap Tech or Ex-Mega.'
-                      : 'No positions in this Entry Zone filter. Switch back to All Zones.'}
+                      : 'No positions match active Entry Zone or Action Verdict filters.'}
                   </td>
                 </tr>
               )}
