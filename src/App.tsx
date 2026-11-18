@@ -831,7 +831,7 @@ export function App() {
             if (e.target === e.currentTarget) setShowMethodology(false);
           }}
         >
-          <div ref={methodologyPanelRef} tabIndex={-1} className="drawer-panel" style={{ width: 'min(760px, 100%)' }}>
+          <div ref={methodologyPanelRef} tabIndex={-1} className="drawer-panel" style={{ width: 'min(836px, 100%)' }}>
             <div className="drawer-header">
               <div>
                 <h2 id="meth-title" style={{ margin: 0, fontSize: '1.25rem' }}>

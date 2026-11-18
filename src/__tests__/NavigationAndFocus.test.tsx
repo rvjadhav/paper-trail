@@ -398,7 +398,7 @@ describe('useModalFocusTrap and App Navigation', () => {
     expect(dialog).toHaveClass('drawer-backdrop');
     const panel = dialog.querySelector('.drawer-panel') as HTMLElement | null;
     expect(panel).not.toBeNull();
-    expect(panel!.style.width).toBe('min(760px, 100%)');
+    expect(panel!.style.width).toBe('min(836px, 100%)');
 
     // Clicking inside the centered panel must not close it
     fireEvent.click(panel!);
