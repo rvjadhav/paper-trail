@@ -9,7 +9,9 @@ import type {
   StockIndexEntry,
 } from '../types/data';
 import { resolveAlphaDecayMetrics } from '../utils/alphaDecay';
+import type { UnifiedConvictionRow } from '../utils/convictionMatrix';
 import {
+  actionVerdictChipClass,
   alphaDecayChipClass,
   alphaDecayLabel,
   downloadCsv,
@@ -27,6 +29,7 @@ interface RankingTabProps {
   rankings: Record<ReturnMode, Record<ReturnWindow, RankedWindowEntry[]>>;
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
   stocksIndex: Record<string, StockIndexEntry>;
+  convictionByTicker?: Record<string, UnifiedConvictionRow>;
   latestQuarterCovered?: string;
   windowSize: ReturnWindow;
   onWindowChange: (w: ReturnWindow) => void;
@@ -55,6 +58,7 @@ export const RankingTab: FC<RankingTabProps> = ({
   rankings,
   benchmarks,
   stocksIndex,
+  convictionByTicker,
   latestQuarterCovered,
   windowSize,
   onWindowChange,
@@ -425,6 +429,9 @@ export const RankingTab: FC<RankingTabProps> = ({
           <div className="matching-stocks-cards">
             {matchingStocks.map((st) => {
               const ad = resolveAlphaDecayMetrics(st, { latestQuarterLabel: latestQuarterCovered });
+              const conv = convictionByTicker?.[st.ticker];
+              const actVerdict = conv?.actionVerdict ?? st.actionVerdict ?? null;
+              const actScore = conv?.actionabilityScore ?? st.actionabilityScore ?? null;
               return (
                 <button
                   key={st.ticker}
@@ -432,9 +439,18 @@ export const RankingTab: FC<RankingTabProps> = ({
                   className="matching-stock-card"
                   onClick={() => onSelectStock(st.ticker)}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                     <span className="ticker-badge">{st.ticker}</span>
                     <strong style={{ fontSize: '0.82rem' }}>{st.name}</strong>
+                    {actVerdict && (
+                      <span
+                        className={`chip ${actionVerdictChipClass(actVerdict)}`}
+                        style={{ fontSize: '0.64rem' }}
+                      >
+                        {actVerdict}
+                        {actScore != null ? ` ${actScore.toFixed(0)}/100` : ''}
+                      </span>
+                    )}
                   </div>
                   <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.25rem', flexWrap: 'wrap' }}>
                     <span>{st.priceUsd ? `$${st.priceUsd.toFixed(2)}` : '—'}</span>

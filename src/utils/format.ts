@@ -1,4 +1,5 @@
 import type {
+  ActionVerdict,
   AlphaDecayStatus,
   EntryZoneStatus,
   FundTier,
@@ -104,6 +105,23 @@ export function alphaDecayLabel(status: AlphaDecayStatus | null | undefined): st
   if (status === 'FOMO_TRAP') return 'FOMO / Late Crowded';
   if (status === 'POST_FILING_EXTENDED') return 'Post-Filing Extended';
   return 'Q-VWAP Neutral';
+}
+
+export function actionVerdictChipClass(verdict: ActionVerdict | null | undefined): string {
+  if (verdict === 'STRONG ACCUMULATE') return 'pos';
+  if (verdict === 'ACCUMULATE ON DIP') return 'tech';
+  if (verdict === 'DISTRIBUTION WARNING') return 'warn';
+  if (verdict === 'EXIT SIGNAL') return 'neg';
+  return '';
+}
+
+export function actionVerdictShortLabel(verdict: ActionVerdict | null | undefined): string {
+  if (verdict === 'STRONG ACCUMULATE') return 'Strong Accumulate';
+  if (verdict === 'ACCUMULATE ON DIP') return 'Accumulate on Dip';
+  if (verdict === 'HOLD') return 'Hold';
+  if (verdict === 'DISTRIBUTION WARNING') return 'Distribution Warning';
+  if (verdict === 'EXIT SIGNAL') return 'Exit Signal';
+  return 'Hold';
 }
 
 export function tierChipClass(tier: FundTier | string | undefined): string {

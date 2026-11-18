@@ -13,6 +13,37 @@ export type AlphaDecayStatus =
   | 'LAG_ADVANTAGE'
   | 'POST_FILING_EXTENDED'
   | 'NEUTRAL';
+export type ActionVerdict =
+  | 'STRONG ACCUMULATE'
+  | 'ACCUMULATE ON DIP'
+  | 'HOLD'
+  | 'DISTRIBUTION WARNING'
+  | 'EXIT SIGNAL';
+
+export interface ConvictionPillars {
+  flowImpulse: number;
+  priceDiscipline: number;
+  xbrlQuality: number;
+  thesisPersistence: number;
+}
+
+export interface ThesisPersistenceSummary {
+  consecutiveNetBuyQuarters: number;
+  consecutiveNetSellQuarters: number;
+  netBuyQuartersLast4: number;
+  netSellQuartersLast4: number;
+  quartersObserved: number;
+  direction: 'ACCUMULATION' | 'DISTRIBUTION' | 'MIXED';
+  summary: string;
+}
+
+export interface ActionabilityMatrix {
+  score: number;
+  verdict: ActionVerdict;
+  pillars: ConvictionPillars;
+  summary: string;
+  thesisPersistence?: ThesisPersistenceSummary | null;
+}
 
 export interface WindowReturns {
   YTD: number | null;
@@ -215,6 +246,9 @@ export interface ConsensusHolding {
   eliteSellersCount?: number;
   alphaDecayStatus?: AlphaDecayStatus | null;
   alphaDecayReason?: string | null;
+  actionability?: ActionabilityMatrix | null;
+  actionabilityScore?: number | null;
+  actionVerdict?: ActionVerdict | null;
 }
 
 export interface SignalScreenerEntry {
@@ -270,6 +304,9 @@ export interface SignalScreenerEntry {
   eliteSellersCount?: number;
   alphaDecayStatus?: AlphaDecayStatus | null;
   alphaDecayReason?: string | null;
+  actionability?: ActionabilityMatrix | null;
+  actionabilityScore?: number | null;
+  actionVerdict?: ActionVerdict | null;
 }
 
 export interface SignalScreenerData {
@@ -328,6 +365,9 @@ export interface IdealPortfolioPosition {
   eliteSellersCount?: number;
   alphaDecayStatus?: AlphaDecayStatus | null;
   alphaDecayReason?: string | null;
+  actionability?: ActionabilityMatrix | null;
+  actionabilityScore?: number | null;
+  actionVerdict?: ActionVerdict | null;
 }
 
 export interface IdealPortfolioBacktestMode {
@@ -575,6 +615,10 @@ export interface StockIndexEntry {
   eliteBuyersCount?: number;
   eliteSellersCount?: number;
   alphaDecayStatus?: AlphaDecayStatus | null;
+  actionabilityScore?: number | null;
+  actionVerdict?: ActionVerdict | null;
+  consecutiveNetBuyQuarters?: number | null;
+  consecutiveNetSellQuarters?: number | null;
 }
 
 export interface StockDetailHolder {
@@ -646,6 +690,9 @@ export interface StockDetail {
   eliteSellersCount?: number;
   alphaDecayStatus?: AlphaDecayStatus | null;
   alphaDecayReason?: string | null;
+  actionability?: ActionabilityMatrix | null;
+  actionabilityScore?: number | null;
+  actionVerdict?: ActionVerdict | null;
 }
 
 export interface UniverseFunnel {
