@@ -919,6 +919,158 @@ class TestAuditedFixesP0P1(unittest.TestCase):
         self.assertAlmostEqual(sum(segs[0][1].values()), 1.0, places=3)
 
 
+class TestAlphaDecayAndLagEngine(unittest.TestCase):
+    def _mock_filing(self, cik: str, rd: str, fd: str, holdings: list[tuple[str, float, float]]) -> dict:
+        return {
+            "cik": cik,
+            "entityName": f"FUND {cik}",
+            "form": "13F-HR",
+            "amendmentType": "",
+            "reportDate": rd,
+            "filingDate": fd,
+            "originalFilingDate": fd,
+            "latestAmendmentDate": fd,
+            "accessionNumber": f"{cik}-26-{rd[-5:].replace('-', '')}",
+            "rows": [
+                {
+                    "cusip": c,
+                    "issuer": c,
+                    "title": "COM",
+                    "secType": "EQUITY",
+                    "shares": sh,
+                    "valueUsd": val,
+                }
+                for c, sh, val in holdings
+            ],
+        }
+
+    def test_elite_holding_periods_exit_reset_and_filing_anchors(self) -> None:
+        cusip_meta = {
+            "C_NVDA": {"ticker": "NVDA", "name": "NVIDIA", "sector": "Technology", "industry": "Semiconductors", "isTechTmt": True},
+            "C_SNOW": {"ticker": "SNOW", "name": "Snowflake", "sector": "Technology", "industry": "Software—Application", "isTechTmt": True},
+        }
+        # Elite Fund 1 held NVDA across 3 consecutive quarters; exited SNOW in Q2 then re-entered Q3 (streak = 1)
+        f1 = [
+            self._mock_filing("0003000001", "2026-03-31", "2026-05-14", [("C_NVDA", 100, 10_000_000), ("C_SNOW", 50, 5_000_000)]),
+            self._mock_filing("0003000001", "2026-06-30", "2026-08-14", [("C_NVDA", 120, 12_000_000)]),
+            self._mock_filing("0003000001", "2026-09-30", "2026-11-12", [("C_NVDA", 140, 14_000_000), ("C_SNOW", 80, 8_000_000)]),
+        ]
+        # Elite Fund 2 held NVDA only in latest Q3 (streak = 1)
+        f2 = [
+            self._mock_filing("0003000002", "2026-06-30", "2026-08-14", [("C_SNOW", 40, 4_000_000)]),
+            self._mock_filing("0003000002", "2026-09-30", "2026-11-16", [("C_NVDA", 50, 5_000_000)]),
+        ]
+        # Non-Elite Qualified Fund 3 held SNOW for 3Q (must NOT affect Elite average holding period!)
+        f3 = [
+            self._mock_filing("0003000003", "2026-03-31", "2026-05-15", [("C_SNOW", 10, 1_000_000)]),
+            self._mock_filing("0003000003", "2026-06-30", "2026-08-14", [("C_SNOW", 10, 1_000_000)]),
+            self._mock_filing("0003000003", "2026-09-30", "2026-11-10", [("C_SNOW", 10, 1_000_000)]),
+        ]
+        raw_filings = {"0003000001": f1, "0003000002": f2, "0003000003": f3}
+        elite_ciks = {"0003000001", "0003000002"}
+        lb_ciks = {"0003000001", "0003000002", "0003000003"}
+
+        periods = build_data.compute_elite_holding_periods(elite_ciks, raw_filings, cusip_meta)
+        # NVDA: (3 + 1) / 2 = 2.0Q ; SNOW: Fund 1 streak reset to 1Q after Q2 exit!
+        self.assertAlmostEqual(periods["NVDA"], 2.0)
+        self.assertAlmostEqual(periods["SNOW"], 1.0)
+
+        anchors = build_data.compute_stock_filing_date_anchors(
+            raw_filings,
+            cusip_meta,
+            build_data.NON_STOCK_ETFS,
+            latest_pe_mode="2026-09-30",
+            elite_ciks=elite_ciks,
+            lb_ciks=lb_ciks,
+        )
+        # NVDA Elite dates = [2026-11-12, 2026-11-16] -> median upper = 2026-11-16; SNOW Elite date = 2026-11-12
+        self.assertIn(anchors["NVDA"], ("2026-11-12", "2026-11-16"))
+        self.assertEqual(anchors["SNOW"], "2026-11-12")
+
+    def test_three_timestamp_return_bridge_and_fomo_vs_lag_flags(self) -> None:
+        cal_dates = ["2026-11-12", "2026-11-13", "2026-11-16", "2026-11-17"]
+        aligned_prices = {
+            "FOMO": (np.array([110.0, 111.0, 112.0, 126.0], dtype=np.float64), 0, 3),
+            "DIPP": (np.array([92.0, 91.0, 90.0, 81.0], dtype=np.float64), 0, 3),
+            "RUNN": (np.array([115.0, 116.0, 118.0, 130.0], dtype=np.float64), 0, 3),
+        }
+
+        # Case 1: FOMO Trap -> Est. Q-VWAP = $100, Filing (Nov 16) = $112 (+12.0%), Today = $126 (+12.5%, +26.0% vs VWAP)
+        # while Elite funds trimmed into strength (2 Elite sellers vs 1 Elite buyer)
+        fomo = build_data.compute_alpha_decay_metrics(
+            ticker="FOMO",
+            aligned_prices=aligned_prices,
+            cal_dates=cal_dates,
+            price_usd=126.0,
+            est_quarter_vwap=100.0,
+            pct_vs_quarter_vwap=26.0,
+            latest_pe_mode="2026-09-30",
+            consensus_filing_date="2026-11-16",
+            avg_elite_holding_quarters=2.5,
+            new_count=2,
+            added_count=1,
+            trimmed_count=3,
+            exited_count=1,
+            elite_buyers_count=1,
+            elite_sellers_count=2,
+            elite_holders_count=5,
+            net_est_flow_usd=-45_000_000.0,
+        )
+        self.assertEqual(fomo["alphaDecayStatus"], "FOMO_TRAP")
+        self.assertEqual(fomo["filingDatePriceUsd"], 112.0)
+        self.assertAlmostEqual(fomo["qVwapToFilingPct"], 12.0)
+        self.assertAlmostEqual(fomo["filingToTodayPct"], 12.5)
+        self.assertAlmostEqual(fomo["avgEliteHoldingQuarters"], 2.5)
+
+        # Case 2: Lag Advantage -> Est. Q-VWAP = $100, Filing = $90 (-10.0%), Today = $81 (-10.0% post-filing, -19.0% vs VWAP)
+        # after 3 NEW + 2 ADDED cluster buys
+        dipp = build_data.compute_alpha_decay_metrics(
+            ticker="DIPP",
+            aligned_prices=aligned_prices,
+            cal_dates=cal_dates,
+            price_usd=81.0,
+            est_quarter_vwap=100.0,
+            pct_vs_quarter_vwap=-19.0,
+            latest_pe_mode="2026-09-30",
+            consensus_filing_date="2026-11-16",
+            avg_elite_holding_quarters=4.0,
+            new_count=3,
+            added_count=2,
+            trimmed_count=1,
+            exited_count=0,
+            elite_buyers_count=3,
+            elite_sellers_count=0,
+            elite_holders_count=4,
+            net_est_flow_usd=120_000_000.0,
+        )
+        self.assertEqual(dipp["alphaDecayStatus"], "LAG_ADVANTAGE")
+        self.assertAlmostEqual(dipp["qVwapToFilingPct"], -10.0)
+        self.assertAlmostEqual(dipp["filingToTodayPct"], -10.0)
+
+        # Case 3: Extended (>20% above Q-VWAP) with pure Elite accumulation (no trimming trap)
+        runn = build_data.compute_alpha_decay_metrics(
+            ticker="RUNN",
+            aligned_prices=aligned_prices,
+            cal_dates=cal_dates,
+            price_usd=130.0,
+            est_quarter_vwap=100.0,
+            pct_vs_quarter_vwap=30.0,
+            latest_pe_mode="2026-09-30",
+            consensus_filing_date="2026-11-16",
+            avg_elite_holding_quarters=3.2,
+            new_count=4,
+            added_count=3,
+            trimmed_count=0,
+            exited_count=0,
+            elite_buyers_count=4,
+            elite_sellers_count=0,
+            elite_holders_count=6,
+            net_est_flow_usd=210_000_000.0,
+        )
+        self.assertEqual(runn["alphaDecayStatus"], "POST_FILING_EXTENDED")
+        self.assertAlmostEqual(runn["qVwapToFilingPct"], 18.0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
 

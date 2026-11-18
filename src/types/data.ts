@@ -8,6 +8,11 @@ export type EntryZoneStatus =
   | 'Near Q-Avg'
   | 'Extended'
   | 'Chasing (+30%+)';
+export type AlphaDecayStatus =
+  | 'FOMO_TRAP'
+  | 'LAG_ADVANTAGE'
+  | 'POST_FILING_EXTENDED'
+  | 'NEUTRAL';
 
 export interface WindowReturns {
   YTD: number | null;
@@ -201,6 +206,15 @@ export interface ConsensusHolding {
   pctVsQuarterVwap?: number | null;
   entryZoneStatus?: EntryZoneStatus | null;
   fundamentals?: StockFundamentals | null;
+  consensusFilingDate?: string | null;
+  filingDatePriceUsd?: number | null;
+  qVwapToFilingPct?: number | null;
+  filingToTodayPct?: number | null;
+  avgEliteHoldingQuarters?: number | null;
+  eliteBuyersCount?: number;
+  eliteSellersCount?: number;
+  alphaDecayStatus?: AlphaDecayStatus | null;
+  alphaDecayReason?: string | null;
 }
 
 export interface SignalScreenerEntry {
@@ -247,6 +261,15 @@ export interface SignalScreenerEntry {
   pctVsQuarterVwap?: number | null;
   entryZoneStatus?: EntryZoneStatus | null;
   fundamentals?: StockFundamentals | null;
+  consensusFilingDate?: string | null;
+  filingDatePriceUsd?: number | null;
+  qVwapToFilingPct?: number | null;
+  filingToTodayPct?: number | null;
+  avgEliteHoldingQuarters?: number | null;
+  eliteBuyersCount?: number;
+  eliteSellersCount?: number;
+  alphaDecayStatus?: AlphaDecayStatus | null;
+  alphaDecayReason?: string | null;
 }
 
 export interface SignalScreenerData {
@@ -296,6 +319,15 @@ export interface IdealPortfolioPosition {
   pctVsQuarterVwap?: number | null;
   entryZoneStatus?: EntryZoneStatus | null;
   fundamentals?: StockFundamentals | null;
+  consensusFilingDate?: string | null;
+  filingDatePriceUsd?: number | null;
+  qVwapToFilingPct?: number | null;
+  filingToTodayPct?: number | null;
+  avgEliteHoldingQuarters?: number | null;
+  eliteBuyersCount?: number;
+  eliteSellersCount?: number;
+  alphaDecayStatus?: AlphaDecayStatus | null;
+  alphaDecayReason?: string | null;
 }
 
 export interface IdealPortfolioBacktestMode {
@@ -535,6 +567,14 @@ export interface StockIndexEntry {
   signalVerdict: string;
   entryZoneStatus: EntryZoneStatus | null;
   pctVsQuarterVwap: number | null;
+  consensusFilingDate?: string | null;
+  filingDatePriceUsd?: number | null;
+  qVwapToFilingPct?: number | null;
+  filingToTodayPct?: number | null;
+  avgEliteHoldingQuarters?: number | null;
+  eliteBuyersCount?: number;
+  eliteSellersCount?: number;
+  alphaDecayStatus?: AlphaDecayStatus | null;
 }
 
 export interface StockDetailHolder {
@@ -597,6 +637,15 @@ export interface StockDetail {
   holders: StockDetailHolder[];
   recentMoves: StockDetailMove[];
   midQuarterAlerts: MidQuarterAlert[];
+  consensusFilingDate?: string | null;
+  filingDatePriceUsd?: number | null;
+  qVwapToFilingPct?: number | null;
+  filingToTodayPct?: number | null;
+  avgEliteHoldingQuarters?: number | null;
+  eliteBuyersCount?: number;
+  eliteSellersCount?: number;
+  alphaDecayStatus?: AlphaDecayStatus | null;
+  alphaDecayReason?: string | null;
 }
 
 export interface UniverseFunnel {

@@ -10,7 +10,10 @@ import type {
   StockIndexEntry,
   WeightMode,
 } from '../types/data';
+import { resolveAlphaDecayMetrics } from '../utils/alphaDecay';
 import {
+  alphaDecayChipClass,
+  alphaDecayLabel,
   downloadCsv,
   entryZoneChipClass,
   formatPct,
@@ -34,8 +37,9 @@ interface HoldingsTabProps {
 type ScreenerSubTab = 'CONSENSUS' | 'CLUSTER' | 'HEAVY_ADDS' | 'EXITS' | 'CONTRARIAN';
 type CapFilter = 'ALL' | MarketCapTier;
 type EntryFilter = 'ALL' | 'VALUE' | 'EXTENDED' | 'CHASING';
-type ConsensusSortKey = 'aggregate' | 'holders' | 'totalValue' | 'ttm';
-type ScreenerSortKey = 'default' | 'netFlow' | 'holders' | 'ttm' | 'revYoY';
+type AlphaFilter = 'ALL' | 'LAG_ADVANTAGE' | 'FOMO_TRAP';
+type ConsensusSortKey = 'aggregate' | 'holders' | 'totalValue' | 'ttm' | 'vsVwap';
+type ScreenerSortKey = 'default' | 'netFlow' | 'holders' | 'ttm' | 'revYoY' | 'vsVwap';
 
 function compareNullableNumbers(a: number | null | undefined, b: number | null | undefined, asc: boolean): number {
   const an = a == null || !Number.isFinite(a) ? null : a;
@@ -82,10 +86,36 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
   const [screenerSortAsc, setScreenerSortAsc] = useState(false);
   const [capFilter, setCapFilter] = useState<CapFilter>('ALL');
   const [entryFilter, setEntryFilter] = useState<EntryFilter>('ALL');
+  const [alphaFilter, setAlphaFilter] = useState<AlphaFilter>('ALL');
   const [search, setSearch] = useState('');
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
 
+  const quarterLabel = signalScreener.quarterLabel;
   const consensusList = useMemo(() => topHoldings[mode] ?? [], [topHoldings, mode]);
+
+  const rawScreenerPool = useMemo<SignalScreenerEntry[]>(() => {
+    return subTab === 'CLUSTER'
+      ? signalScreener.clusterInitiations
+      : subTab === 'HEAVY_ADDS'
+        ? signalScreener.heavyAdds
+        : subTab === 'EXITS'
+          ? signalScreener.smartMoneyExits
+          : subTab === 'CONTRARIAN'
+            ? signalScreener.contrarianBets
+            : [];
+  }, [subTab, signalScreener]);
+
+  const alphaCounts = useMemo(() => {
+    const source = subTab === 'CONSENSUS' ? consensusList : rawScreenerPool;
+    let lag = 0;
+    let fomo = 0;
+    for (const item of source) {
+      const st = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel }).status;
+      if (st === 'LAG_ADVANTAGE') lag += 1;
+      else if (st === 'FOMO_TRAP') fomo += 1;
+    }
+    return { lag, fomo };
+  }, [subTab, consensusList, rawScreenerPool, quarterLabel]);
 
   const filteredConsensus = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -93,6 +123,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
       .filter((item) => {
         if (!matchesCapFilter(item.marketCapTier, capFilter)) return false;
         if (!matchesEntryFilter(item.entryZoneStatus, entryFilter)) return false;
+        if (alphaFilter !== 'ALL') {
+          const ad = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel });
+          if (ad.status !== alphaFilter) return false;
+        }
         if (!q) return true;
         return (
           item.ticker.toLowerCase().includes(q) ||
@@ -106,27 +140,22 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         if (sortBy === 'holders') return compareNullableNumbers(a.holderCount, b.holderCount, sortAsc);
         if (sortBy === 'totalValue') return compareNullableNumbers(a.totalValueUsd, b.totalValueUsd, sortAsc);
         if (sortBy === 'ttm') return compareNullableNumbers(a.stockTtmPct, b.stockTtmPct, sortAsc);
+        if (sortBy === 'vsVwap') return compareNullableNumbers(a.pctVsQuarterVwap, b.pctVsQuarterVwap, sortAsc);
         const wa = weightMode === 'equal' ? a.equalAggregateWeightPct : a.aumAggregateWeightPct;
         const wb = weightMode === 'equal' ? b.equalAggregateWeightPct : b.aumAggregateWeightPct;
         return compareNullableNumbers(wa, wb, sortAsc);
       });
-  }, [consensusList, capFilter, entryFilter, search, sortBy, sortAsc, weightMode]);
+  }, [consensusList, capFilter, entryFilter, alphaFilter, quarterLabel, search, sortBy, sortAsc, weightMode]);
 
   const activeScreenerList = useMemo<SignalScreenerEntry[]>(() => {
-    const raw =
-      subTab === 'CLUSTER'
-        ? signalScreener.clusterInitiations
-        : subTab === 'HEAVY_ADDS'
-          ? signalScreener.heavyAdds
-          : subTab === 'EXITS'
-            ? signalScreener.smartMoneyExits
-            : subTab === 'CONTRARIAN'
-              ? signalScreener.contrarianBets
-              : [];
     const q = search.trim().toLowerCase();
-    const filtered = raw.filter((item) => {
+    const filtered = rawScreenerPool.filter((item) => {
       if (!matchesCapFilter(item.marketCapTier, capFilter)) return false;
       if (!matchesEntryFilter(item.entryZoneStatus, entryFilter)) return false;
+      if (alphaFilter !== 'ALL') {
+        const ad = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel });
+        if (ad.status !== alphaFilter) return false;
+      }
       if (!q) return true;
       return (
         item.ticker.toLowerCase().includes(q) ||
@@ -150,13 +179,16 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
       if (screenerSortBy === 'ttm') {
         return compareNullableNumbers(a.stockTtmPct, b.stockTtmPct, screenerSortAsc);
       }
+      if (screenerSortBy === 'vsVwap') {
+        return compareNullableNumbers(a.pctVsQuarterVwap, b.pctVsQuarterVwap, screenerSortAsc);
+      }
       return compareNullableNumbers(
         a.fundamentals?.revenueGrowthYoYPct,
         b.fundamentals?.revenueGrowthYoYPct,
         screenerSortAsc
       );
     });
-  }, [subTab, signalScreener, capFilter, entryFilter, search, screenerSortBy, screenerSortAsc]);
+  }, [rawScreenerPool, capFilter, entryFilter, alphaFilter, quarterLabel, search, screenerSortBy, screenerSortAsc]);
 
   const poolSize = consensusList[0]?.totalRankedFundsPool ?? 0;
   const totalTop30Usd = useMemo(
@@ -203,6 +235,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           'Est Q-VWAP (USD)',
           'vs Q-VWAP (%)',
           'Entry Zone',
+          'Alpha-Decay Status',
+          'SEC Filing Date',
+          'Filing->Today (%)',
+          'Avg Elite Hold (Q)',
           'XBRL Rev YoY (%)',
           'XBRL Op Margin (%)',
           'Holders',
@@ -213,26 +249,33 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           'TTM Return (%)',
           'Top Holders',
         ],
-        filteredConsensus.map((item, idx) => [
-          idx + 1,
-          item.ticker,
-          item.name,
-          item.subSector || item.sector,
-          item.marketCapTier ?? '',
-          item.priceUsd ?? '',
-          item.estQuarterVwap ?? '',
-          item.pctVsQuarterVwap ?? '',
-          item.entryZoneStatus ?? '',
-          item.fundamentals?.revenueGrowthYoYPct ?? '',
-          item.fundamentals?.operatingMarginPct ?? '',
-          item.holderCount,
-          item.totalRankedFundsPool,
-          item.equalAggregateWeightPct,
-          item.aumAggregateWeightPct,
-          item.totalValueUsd,
-          item.stockTtmPct ?? '',
-          item.holders.map((h) => `${h.fundName} (${h.weightPct.toFixed(1)}%)`).join('; '),
-        ])
+        filteredConsensus.map((item, idx) => {
+          const ad = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel });
+          return [
+            idx + 1,
+            item.ticker,
+            item.name,
+            item.subSector || item.sector,
+            item.marketCapTier ?? '',
+            item.priceUsd ?? '',
+            item.estQuarterVwap ?? '',
+            item.pctVsQuarterVwap ?? '',
+            item.entryZoneStatus ?? '',
+            alphaDecayLabel(ad.status),
+            ad.consensusFilingDate ?? '',
+            ad.filingToTodayPct ?? '',
+            ad.avgEliteHoldingQuarters ?? '',
+            item.fundamentals?.revenueGrowthYoYPct ?? '',
+            item.fundamentals?.operatingMarginPct ?? '',
+            item.holderCount,
+            item.totalRankedFundsPool,
+            item.equalAggregateWeightPct,
+            item.aumAggregateWeightPct,
+            item.totalValueUsd,
+            item.stockTtmPct ?? '',
+            item.holders.map((h) => `${h.fundName} (${h.weightPct.toFixed(1)}%)`).join('; '),
+          ];
+        })
       );
       return;
     }
@@ -249,6 +292,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         'Est Q-VWAP (USD)',
         'vs Q-VWAP (%)',
         'Entry Zone',
+        'Alpha-Decay Status',
+        'SEC Filing Date',
+        'Filing->Today (%)',
+        'Avg Elite Hold (Q)',
         'XBRL Rev YoY (%)',
         'XBRL Op Margin (%)',
         'Holders',
@@ -262,29 +309,36 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         'Net Flow (USD)',
         'TTM Return (%)',
       ],
-      activeScreenerList.map((item, idx) => [
-        idx + 1,
-        item.ticker,
-        item.name,
-        item.subSector || item.sector,
-        item.marketCapTier ?? '',
-        item.priceUsd ?? '',
-        item.estQuarterVwap ?? '',
-        item.pctVsQuarterVwap ?? '',
-        item.entryZoneStatus ?? '',
-        item.fundamentals?.revenueGrowthYoYPct ?? '',
-        item.fundamentals?.operatingMarginPct ?? '',
-        item.holderCount,
-        item.eliteHoldersCount,
-        item.maxWeightPct,
-        item.newCount,
-        item.eliteNewCount,
-        item.addedCount,
-        item.trimmedCount,
-        item.exitedCount,
-        item.netEstFlowUsd ?? item.netDeltaUsd,
-        item.stockTtmPct ?? '',
-      ])
+      activeScreenerList.map((item, idx) => {
+        const ad = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel });
+        return [
+          idx + 1,
+          item.ticker,
+          item.name,
+          item.subSector || item.sector,
+          item.marketCapTier ?? '',
+          item.priceUsd ?? '',
+          item.estQuarterVwap ?? '',
+          item.pctVsQuarterVwap ?? '',
+          item.entryZoneStatus ?? '',
+          alphaDecayLabel(ad.status),
+          ad.consensusFilingDate ?? '',
+          ad.filingToTodayPct ?? '',
+          ad.avgEliteHoldingQuarters ?? '',
+          item.fundamentals?.revenueGrowthYoYPct ?? '',
+          item.fundamentals?.operatingMarginPct ?? '',
+          item.holderCount,
+          item.eliteHoldersCount,
+          item.maxWeightPct,
+          item.newCount,
+          item.eliteNewCount,
+          item.addedCount,
+          item.trimmedCount,
+          item.exitedCount,
+          item.netEstFlowUsd ?? item.netDeltaUsd,
+          item.stockTtmPct ?? '',
+        ];
+      })
     );
   };
 
@@ -444,6 +498,26 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                 </button>
               ))}
             </div>
+
+            <div className="segmented-group" role="group" aria-label="Filter by Post-13F Alpha-Decay status">
+              {(
+                [
+                  { id: 'ALL', label: 'All Alpha Signals' },
+                  { id: 'LAG_ADVANTAGE', label: `Lag Advantage (${alphaCounts.lag})` },
+                  { id: 'FOMO_TRAP', label: `FOMO / Late Crowded (${alphaCounts.fomo})` },
+                ] as const
+              ).map((af) => (
+                <button
+                  key={af.id}
+                  type="button"
+                  id={`alpha-filter-${af.id.toLowerCase()}`}
+                  className={`seg-btn ${alphaFilter === af.id ? 'active' : ''}`}
+                  onClick={() => setAlphaFilter(af.id)}
+                >
+                  {af.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="controls-row">
@@ -474,6 +548,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                       { id: 'aggregate', label: 'Weight' },
                       { id: 'holders', label: 'Holders' },
                       { id: 'totalValue', label: 'Total Held' },
+                      { id: 'vsVwap', label: 'vs VWAP' },
                       { id: 'ttm', label: 'TTM' },
                     ] as const
                   ).map((s) => (
@@ -485,7 +560,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                         if (sortBy === s.id) setSortAsc((a) => !a);
                         else {
                           setSortBy(s.id);
-                          setSortAsc(false);
+                          setSortAsc(s.id === 'vsVwap');
                         }
                       }}
                     >
@@ -502,6 +577,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                     { id: 'default', label: 'Signal Rank' },
                     { id: 'netFlow', label: 'Net Flow' },
                     { id: 'revYoY', label: 'Rev YoY' },
+                    { id: 'vsVwap', label: 'vs VWAP' },
                     { id: 'holders', label: 'Holders' },
                     { id: 'ttm', label: 'TTM' },
                   ] as const
@@ -518,7 +594,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                         setScreenerSortAsc((a) => !a);
                       } else {
                         setScreenerSortBy(s.id);
-                        setScreenerSortAsc(false);
+                        setScreenerSortAsc(s.id === 'vsVwap');
                       }
                     }}
                   >
@@ -625,6 +701,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                     weightMode === 'equal'
                       ? item.aumAggregateWeightPct
                       : item.equalAggregateWeightPct;
+                  const ad = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel });
 
                   return (
                     <Fragment key={item.ticker}>
@@ -668,16 +745,35 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                         <td>
                           <span className="chip">{item.subSector || item.sector}</span>
                         </td>
-                        <td style={{ minWidth: '155px' }}>
-                          {item.entryZoneStatus ? (
+                        <td style={{ minWidth: '175px' }}>
+                          {item.entryZoneStatus || ad.status !== 'NEUTRAL' ? (
                             <div>
-                              <span className={`chip ${entryZoneChipClass(item.entryZoneStatus)}`}>
-                                {item.entryZoneStatus}
-                              </span>
+                              <div style={{ display: 'flex', gap: '0.28rem', flexWrap: 'wrap' }}>
+                                {item.entryZoneStatus && (
+                                  <span className={`chip ${entryZoneChipClass(item.entryZoneStatus)}`}>
+                                    {item.entryZoneStatus}
+                                  </span>
+                                )}
+                                {ad.status !== 'NEUTRAL' && (
+                                  <span
+                                    className={`chip ${alphaDecayChipClass(ad.status)}`}
+                                    title={ad.reason}
+                                  >
+                                    {alphaDecayLabel(ad.status)}
+                                  </span>
+                                )}
+                              </div>
                               <div className="mono" style={{ fontSize: '0.69rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                                 {item.pctVsQuarterVwap != null ? `${formatSignedPct(item.pctVsQuarterVwap)} vs ` : ''}
                                 {item.estQuarterVwap != null ? `$${item.estQuarterVwap.toFixed(2)}` : ''}
                               </div>
+                              {(ad.filingToTodayPct != null || ad.avgEliteHoldingQuarters != null) && (
+                                <div className="mono" style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
+                                  {ad.filingToTodayPct != null ? `Fil→Now ${formatSignedPct(ad.filingToTodayPct)}` : ''}
+                                  {ad.filingToTodayPct != null && ad.avgEliteHoldingQuarters != null ? ' · ' : ''}
+                                  {ad.avgEliteHoldingQuarters != null ? `Hold ${ad.avgEliteHoldingQuarters.toFixed(1)}Q` : ''}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <span className="ret-muted">—</span>
@@ -933,6 +1029,8 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                             m.action === 'NEW' || m.action === 'ADDED' ? 'pos' : 'neg',
                         }));
 
+                  const ad = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel });
+
                   return (
                     <Fragment key={item.ticker}>
                       <tr>
@@ -974,16 +1072,35 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                         <td>
                           <span className="chip">{item.subSector || item.sector}</span>
                         </td>
-                        <td style={{ minWidth: '150px' }}>
-                          {item.entryZoneStatus ? (
+                        <td style={{ minWidth: '175px' }}>
+                          {item.entryZoneStatus || ad.status !== 'NEUTRAL' ? (
                             <div>
-                              <span className={`chip ${entryZoneChipClass(item.entryZoneStatus)}`}>
-                                {item.entryZoneStatus}
-                              </span>
+                              <div style={{ display: 'flex', gap: '0.28rem', flexWrap: 'wrap' }}>
+                                {item.entryZoneStatus && (
+                                  <span className={`chip ${entryZoneChipClass(item.entryZoneStatus)}`}>
+                                    {item.entryZoneStatus}
+                                  </span>
+                                )}
+                                {ad.status !== 'NEUTRAL' && (
+                                  <span
+                                    className={`chip ${alphaDecayChipClass(ad.status)}`}
+                                    title={ad.reason}
+                                  >
+                                    {alphaDecayLabel(ad.status)}
+                                  </span>
+                                )}
+                              </div>
                               <div className="mono" style={{ fontSize: '0.69rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                                 {item.pctVsQuarterVwap != null ? `${formatSignedPct(item.pctVsQuarterVwap)} vs ` : ''}
                                 {item.estQuarterVwap != null ? `$${item.estQuarterVwap.toFixed(2)}` : ''}
                               </div>
+                              {(ad.filingToTodayPct != null || ad.avgEliteHoldingQuarters != null) && (
+                                <div className="mono" style={{ fontSize: '0.67rem', color: 'var(--text-muted)' }}>
+                                  {ad.filingToTodayPct != null ? `Fil→Now ${formatSignedPct(ad.filingToTodayPct)}` : ''}
+                                  {ad.filingToTodayPct != null && ad.avgEliteHoldingQuarters != null ? ' · ' : ''}
+                                  {ad.avgEliteHoldingQuarters != null ? `Hold ${ad.avgEliteHoldingQuarters.toFixed(1)}Q` : ''}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <span className="ret-muted">—</span>

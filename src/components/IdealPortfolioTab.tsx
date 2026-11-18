@@ -6,7 +6,10 @@ import type {
   ReturnMode,
   StockIndexEntry,
 } from '../types/data';
+import { resolveAlphaDecayMetrics } from '../utils/alphaDecay';
 import {
+  alphaDecayChipClass,
+  alphaDecayLabel,
   downloadCsv,
   entryZoneChipClass,
   formatPct,
@@ -31,6 +34,7 @@ interface IdealPortfolioTabProps {
   idealPortfolio: IdealPortfolioData;
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
   stocksIndex: Record<string, StockIndexEntry>;
+  latestQuarterLabel?: string;
   mode: ReturnMode;
   onModeChange: (m: ReturnMode) => void;
   onSelectFund: (cik: string) => void;
@@ -90,6 +94,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   idealPortfolio,
   benchmarks,
   stocksIndex,
+  latestQuarterLabel,
   mode,
   onModeChange,
   onSelectFund,
@@ -359,6 +364,9 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         'Est. Q-VWAP (USD)',
         'vs Q-VWAP (%)',
         'Entry Zone',
+        'Alpha-Decay Status',
+        'Filing->Today (%)',
+        'Avg Elite Hold (Q)',
         'XBRL Rev YoY (%)',
         'XBRL Op Margin (%)',
         'XBRL FCF Margin (%)',
@@ -368,27 +376,33 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         'Signal Tag',
         'Top Backers',
       ],
-      displayedPositions.map((p) => [
-        p.rank,
-        p.ticker,
-        p.name,
-        p.subSector || p.sector,
-        p.marketCapTier ?? '',
-        p.dynamicWeightPct,
-        p.weightVsDefaultPct ?? '',
-        Math.round((capitalUsd * p.dynamicWeightPct) / 100),
-        p.estQuarterVwap ?? '',
-        p.pctVsQuarterVwap ?? '',
-        p.entryZoneStatus ?? '',
-        p.fundamentals?.revenueGrowthYoYPct ?? '',
-        p.fundamentals?.operatingMarginPct ?? '',
-        p.fundamentals?.fcfMarginPct ?? '',
-        p.convictionScore,
-        p.holderCount,
-        p.avgFundWeightPct,
-        p.rationaleTag,
-        p.topBackers.map((b) => `${b.fundName} (${b.weightPct.toFixed(1)}%)`).join('; '),
-      ])
+      displayedPositions.map((p) => {
+        const ad = resolveAlphaDecayMetrics(p, { latestQuarterLabel });
+        return [
+          p.rank,
+          p.ticker,
+          p.name,
+          p.subSector || p.sector,
+          p.marketCapTier ?? '',
+          p.dynamicWeightPct,
+          p.weightVsDefaultPct ?? '',
+          Math.round((capitalUsd * p.dynamicWeightPct) / 100),
+          p.estQuarterVwap ?? '',
+          p.pctVsQuarterVwap ?? '',
+          p.entryZoneStatus ?? '',
+          alphaDecayLabel(ad.status),
+          ad.filingToTodayPct ?? '',
+          ad.avgEliteHoldingQuarters ?? '',
+          p.fundamentals?.revenueGrowthYoYPct ?? '',
+          p.fundamentals?.operatingMarginPct ?? '',
+          p.fundamentals?.fcfMarginPct ?? '',
+          p.convictionScore,
+          p.holderCount,
+          p.avgFundWeightPct,
+          p.rationaleTag,
+          p.topBackers.map((b) => `${b.fundName} (${b.weightPct.toFixed(1)}%)`).join('; '),
+        ];
+      })
     );
   };
 
@@ -1000,6 +1014,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                 const targetUsd = (capitalUsd * p.dynamicWeightPct) / 100;
                 const estShares =
                   p.priceUsd && p.priceUsd > 0 ? Math.floor(targetUsd / p.priceUsd) : null;
+                const ad = resolveAlphaDecayMetrics(p, { latestQuarterLabel });
                 return (
                   <tr key={p.ticker}>
                     <td>
@@ -1059,16 +1074,35 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                         </div>
                       )}
                     </td>
-                    <td style={{ minWidth: '145px' }}>
-                      {p.entryZoneStatus ? (
+                    <td style={{ minWidth: '170px' }}>
+                      {p.entryZoneStatus || ad.status !== 'NEUTRAL' ? (
                         <div>
-                          <span className={`chip ${entryZoneChipClass(p.entryZoneStatus)}`}>
-                            {p.entryZoneStatus}
-                          </span>
+                          <div style={{ display: 'flex', gap: '0.28rem', flexWrap: 'wrap' }}>
+                            {p.entryZoneStatus && (
+                              <span className={`chip ${entryZoneChipClass(p.entryZoneStatus)}`}>
+                                {p.entryZoneStatus}
+                              </span>
+                            )}
+                            {ad.status !== 'NEUTRAL' && (
+                              <span
+                                className={`chip ${alphaDecayChipClass(ad.status)}`}
+                                title={ad.reason}
+                              >
+                                {alphaDecayLabel(ad.status)}
+                              </span>
+                            )}
+                          </div>
                           <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.12rem' }}>
                             {p.pctVsQuarterVwap != null ? `${formatSignedPct(p.pctVsQuarterVwap)} vs ` : ''}
                             {p.estQuarterVwap != null ? `$${p.estQuarterVwap.toFixed(2)}` : ''}
                           </div>
+                          {(ad.filingToTodayPct != null || ad.avgEliteHoldingQuarters != null) && (
+                            <div className="mono" style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>
+                              {ad.filingToTodayPct != null ? `Fil→Now ${formatSignedPct(ad.filingToTodayPct)}` : ''}
+                              {ad.filingToTodayPct != null && ad.avgEliteHoldingQuarters != null ? ' · ' : ''}
+                              {ad.avgEliteHoldingQuarters != null ? `Hold ${ad.avgEliteHoldingQuarters.toFixed(1)}Q` : ''}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="ret-muted">—</span>

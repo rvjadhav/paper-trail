@@ -2222,4 +2222,111 @@ html.theme-fallback-transition .site-footer {
   .rebalance-panel > div:last-child {
     grid-template-columns: 1fr !important;
   }
+  .lag-timeline {
+    grid-template-columns: 1fr;
+  }
+  .lag-arrow-bridge {
+    flex-direction: row;
+    justify-content: center;
+  }
 }
+
+/* Post-13F Lag & Alpha-Decay Engine */
+.lag-timeline {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.lag-node {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 11px;
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.lag-node.highlight-pos {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: var(--pos-bg);
+}
+
+.lag-node.highlight-neg {
+  border-color: rgba(255, 105, 97, 0.35);
+  background: var(--neg-bg);
+}
+
+.lag-node-label {
+  font-size: 0.67rem;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.lag-node-value {
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.lag-node-sub {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.lag-arrow-bridge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0 0.15rem;
+  color: var(--text-muted);
+}
+
+.alpha-decay-banner {
+  margin-top: 0.85rem;
+  padding: 0.72rem 0.9rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-subtle);
+  font-size: 0.8rem;
+  line-height: 1.48;
+}
+
+.alpha-decay-banner.pos {
+  background: var(--pos-bg);
+  border-color: rgba(52, 211, 153, 0.34);
+  color: var(--text-primary);
+}
+
+.alpha-decay-banner.neg {
+  background: var(--neg-bg);
+  border-color: rgba(255, 105, 97, 0.34);
+  color: var(--text-primary);
+}
+
+.alpha-decay-banner.warn {
+  background: var(--warn-bg);
+  border-color: rgba(255, 179, 64, 0.34);
+  color: var(--text-primary);
+}
+
+.lag-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin-top: 0.72rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import {
   Activity,
+  ArrowRight,
   ArrowUpRight,
   BarChart3,
   Building2,
+  Clock,
   ExternalLink,
   Layers,
   PieChart,
@@ -14,8 +16,11 @@ import type {
   StockDetail,
   StockIndexEntry,
 } from '../types/data';
+import { resolveAlphaDecayMetrics } from '../utils/alphaDecay';
 import { fetchStockDetail } from '../utils/dataLoader';
 import {
+  alphaDecayChipClass,
+  alphaDecayLabel,
   compactShares,
   entryZoneChipClass,
   formatPct,
@@ -93,6 +98,12 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
     return detail.holders;
   }, [detail, holderFilter]);
 
+  const alphaDecay = useMemo(() => {
+    if (detail) return resolveAlphaDecayMetrics(detail, { latestQuarterLabel });
+    if (preview) return resolveAlphaDecayMetrics(preview, { latestQuarterLabel });
+    return null;
+  }, [detail, preview, latestQuarterLabel]);
+
   const vwapGeometry = useMemo(() => {
     if (!detail) return null;
     const { quarterLow, quarterHigh, estQuarterVwap, priceUsd } = detail;
@@ -164,6 +175,11 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
               >
                 {verdict}
               </span>
+              {alphaDecay && (alphaDecay.status === 'FOMO_TRAP' || alphaDecay.status === 'LAG_ADVANTAGE') && (
+                <span className={`chip ${alphaDecayChipClass(alphaDecay.status)}`}>
+                  {alphaDecayLabel(alphaDecay.status)}
+                </span>
+              )}
               {detail?.idealPortfolioRank && (
                 <button
                   type="button"
@@ -309,6 +325,167 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
           ) : (
             detail && (
               <>
+                {/* Post-13F Lag & Alpha-Decay Engine */}
+                {alphaDecay && (
+                  <div className="panel" style={{ marginBottom: '1.15rem' }} aria-label="Post-13F Lag and Alpha-Decay Engine">
+                    <div className="panel-header">
+                      <div>
+                        <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <Clock size={16} color="var(--accent-primary)" /> Is the Move Already Over? — Post-13F Lag &amp; Alpha-Decay
+                        </h3>
+                        <p className="panel-subtitle">
+                          Price trajectory across Est. {latestQuarterLabel} Q-VWAP → SEC 13F Filing Date → Today &amp; Elite-50 Holding Tenure
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <span
+                          className="chip mono"
+                          title="Mean consecutive quarters currently held across Elite-50 managers (resets on exits)"
+                        >
+                          Avg Smart-Money Hold:{' '}
+                          {alphaDecay.avgEliteHoldingQuarters != null
+                            ? alphaDecay.holdingHorizonLabel
+                            : 'Pending 13F Sync'}
+                        </span>
+                        <span className={`chip ${alphaDecayChipClass(alphaDecay.status)}`}>
+                          {alphaDecayLabel(alphaDecay.status)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '1rem 1.25rem' }}>
+                      <div className="lag-timeline">
+                        <div className="lag-node">
+                          <span className="lag-node-label">1. Est. Q-VWAP</span>
+                          <span className="lag-node-value mono">
+                            {alphaDecay.estQuarterVwap != null ? `$${alphaDecay.estQuarterVwap.toFixed(2)}` : '—'}
+                          </span>
+                          <span className="lag-node-sub mono">{latestQuarterLabel} Inst. Avg</span>
+                        </div>
+
+                        <div className="lag-arrow-bridge" aria-label="Quarter VWAP to SEC filing date return">
+                          <ArrowRight size={14} />
+                          <span
+                            className={`chip mono ${
+                              alphaDecay.qVwapToFilingPct != null
+                                ? alphaDecay.qVwapToFilingPct > 15
+                                  ? 'warn'
+                                  : alphaDecay.qVwapToFilingPct <= 0
+                                    ? 'pos'
+                                    : ''
+                                : ''
+                            }`}
+                          >
+                            {alphaDecay.qVwapToFilingPct != null
+                              ? formatSignedPct(alphaDecay.qVwapToFilingPct)
+                              : '—'}
+                          </span>
+                        </div>
+
+                        <div className="lag-node">
+                          <span className="lag-node-label">2. SEC Filing Date</span>
+                          <span className="lag-node-value mono">
+                            {alphaDecay.filingDatePriceUsd != null
+                              ? `$${alphaDecay.filingDatePriceUsd.toFixed(2)}`
+                              : '—'}
+                          </span>
+                          <span className="lag-node-sub mono">
+                            {alphaDecay.consensusFilingDate ?? 'Statutory Deadline'}
+                          </span>
+                        </div>
+
+                        <div className="lag-arrow-bridge" aria-label="SEC filing date to today return">
+                          <ArrowRight size={14} />
+                          <span
+                            className={`chip mono ${
+                              alphaDecay.filingToTodayPct != null
+                                ? alphaDecay.filingToTodayPct > 15
+                                  ? 'warn'
+                                  : alphaDecay.filingToTodayPct <= 0
+                                    ? 'pos'
+                                    : ''
+                                : ''
+                            }`}
+                          >
+                            {alphaDecay.filingToTodayPct != null
+                              ? formatSignedPct(alphaDecay.filingToTodayPct)
+                              : '—'}
+                          </span>
+                        </div>
+
+                        <div
+                          className={`lag-node ${
+                            alphaDecay.status === 'LAG_ADVANTAGE'
+                              ? 'highlight-pos'
+                              : alphaDecay.status === 'FOMO_TRAP'
+                                ? 'highlight-neg'
+                                : ''
+                          }`}
+                        >
+                          <span className="lag-node-label">3. Today</span>
+                          <span className="lag-node-value mono">
+                            {alphaDecay.todayPriceUsd != null ? `$${alphaDecay.todayPriceUsd.toFixed(2)}` : '—'}
+                          </span>
+                          <span
+                            className={`lag-node-sub mono ${returnClass(
+                              alphaDecay.pctVsQuarterVwap != null ? -alphaDecay.pctVsQuarterVwap : null
+                            )}`}
+                          >
+                            {alphaDecay.pctVsQuarterVwap != null
+                              ? `${formatSignedPct(alphaDecay.pctVsQuarterVwap)} vs Q-VWAP`
+                              : 'Total lag vs Q-VWAP —'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="lag-meta-row mono">
+                        <span>
+                          Elite-50 Flow: <strong className="ret-pos">+{alphaDecay.eliteBuyersCount} Buy</strong> /{' '}
+                          <strong className="ret-neg">-{alphaDecay.eliteSellersCount} Sell</strong>
+                        </span>
+                        <span>·</span>
+                        <span>
+                          All Ranked Funds: <strong>+{alphaDecay.totalBuyersCount} Buy</strong> /{' '}
+                          <strong>-{alphaDecay.totalSellersCount} Trim &amp; Exit</strong>
+                        </span>
+                        {alphaDecay.filingDatePriceUsd == null && (
+                          <>
+                            <span>·</span>
+                            <span style={{ color: 'var(--text-muted)' }}>
+                              Historical filing-date close &amp; multi-quarter tenure populate on next EDGAR data build.
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div
+                        className={`alpha-decay-banner ${
+                          alphaDecay.status === 'LAG_ADVANTAGE'
+                            ? 'pos'
+                            : alphaDecay.status === 'FOMO_TRAP'
+                              ? 'neg'
+                              : alphaDecay.status === 'POST_FILING_EXTENDED'
+                                ? 'warn'
+                                : ''
+                        }`}
+                      >
+                        <div>
+                          <strong style={{ marginRight: '0.45rem' }}>
+                            {alphaDecay.status === 'FOMO_TRAP'
+                              ? 'FOMO / Late Crowded Trap:'
+                              : alphaDecay.status === 'LAG_ADVANTAGE'
+                                ? 'Lag Advantage Entry:'
+                                : alphaDecay.status === 'POST_FILING_EXTENDED'
+                                  ? 'Post-Filing Extended:'
+                                  : 'Balanced Lag Profile:'}
+                          </strong>
+                          <span>{alphaDecay.reason}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Two-Column Microstructure + XBRL Fundamentals */}
                 <div className="split-grid" style={{ gridTemplateColumns: '1.1fr 1fr' }}>
                   {/* Est Quarter VWAP & Entry Zone */}

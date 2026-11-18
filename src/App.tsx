@@ -652,6 +652,7 @@ export function App() {
             idealPortfolio={dataset.idealPortfolio}
             benchmarks={dataset.benchmarks}
             stocksIndex={dataset.stocksIndex}
+            latestQuarterLabel={dataset.updatesOverview.latestQuarterLabel}
             mode={mode}
             onModeChange={setMode}
             onSelectFund={setSelectedFundCik}
