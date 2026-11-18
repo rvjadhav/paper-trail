@@ -226,7 +226,7 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
               {fund.strategySummary}
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+          <div className="drawer-header-actions">
             {returnToStockTicker && onReturnToStock && (
               <button
                 type="button"
