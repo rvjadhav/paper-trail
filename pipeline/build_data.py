@@ -4783,8 +4783,33 @@ def main() -> None:
         if al_t and al_scik.isdigit() and len(al_scik) == 10 and al_t not in form4_cik_map:
             form4_cik_map[al_t] = al_scik
 
+    form4_candidates_sorted = sorted(
+        [
+            t
+            for t, r in all_dossier_builders.items()
+            if (
+                r["eliteHoldersCount"] >= 1
+                or r["eliteBuyersCount"] >= 1
+                or (r["newCount"] + r["addedCount"]) >= 2
+                or len(r["holders"]) >= 2
+            )
+        ],
+        key=lambda t: (
+            all_dossier_builders[t]["eliteHoldersCount"] >= 1
+            and all_dossier_builders[t]["eliteBuyersCount"] >= 1,
+            (all_dossier_builders[t]["newCount"] + all_dossier_builders[t]["addedCount"])
+            > (all_dossier_builders[t]["trimmedCount"] + all_dossier_builders[t]["exitedCount"]),
+            all_dossier_builders[t]["eliteBuyersCount"],
+            (all_dossier_builders[t]["newCount"] + all_dossier_builders[t]["addedCount"])
+            - (all_dossier_builders[t]["trimmedCount"] + all_dossier_builders[t]["exitedCount"]),
+            all_dossier_builders[t]["eliteHoldersCount"],
+            all_dossier_builders[t]["totalValueUsd"],
+        ),
+        reverse=True,
+    )
+
     form4_priority_set: set[str] = set()
-    for t_cand in (xbrl_priority_set | set(alerts_by_ticker.keys())):
+    for t_cand in (xbrl_priority_set | set(alerts_by_ticker.keys()) | set(form4_candidates_sorted[:750])):
         canon_cand = DUAL_CLASS_CANONICAL.get(t_cand, t_cand)
         if (
             canon_cand
