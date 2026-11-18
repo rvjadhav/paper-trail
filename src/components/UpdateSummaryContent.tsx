@@ -71,7 +71,7 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           <div className="card-mix-labels mono">
             <span>Common {u.currEquityBookPct.toFixed(1)}%</span>
             {u.currCallBookPct > 0 && (
-              <span style={{ color: '#008770', fontWeight: 600 }}>
+              <span style={{ color: 'var(--chart-teal)', fontWeight: 600 }}>
                 Calls {u.currCallBookPct.toFixed(1)}% ({formatUsdCompact(u.currCallUsd)})
               </span>
             )}

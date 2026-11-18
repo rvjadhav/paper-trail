@@ -36,7 +36,7 @@ export const MiniSparkline: FC<MiniSparklineProps> = ({
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
 
-  const stroke = positive ? '#047857' : '#b91c1c';
+  const stroke = positive ? 'var(--pos-text)' : 'var(--neg-text)';
   return (
     <svg
       width={width}
@@ -229,8 +229,8 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
           const y = yAt(tv);
           return (
             <g key={i}>
-              <line x1={padL} y1={y} x2={width - padR} y2={y} stroke="#e5e5ea" strokeDasharray="3 3" />
-              <text x={padL - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#86868b" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
+              <line x1={padL} y1={y} x2={width - padR} y2={y} stroke="var(--chart-grid)" strokeDasharray="3 3" />
+              <text x={padL - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--text-muted)" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
                 {tv >= 0 ? `+${tv.toFixed(0)}%` : `${tv.toFixed(0)}%`}
               </text>
             </g>
@@ -244,13 +244,13 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
             y1={yAt(0)}
             x2={width - padR}
             y2={yAt(0)}
-            stroke="#c7c7cc"
+            stroke="var(--chart-baseline)"
             strokeWidth="1"
           />
         )}
 
         {/* X-axis boundary labels */}
-        <text x={padL} y={height - 6} fontSize="10" fill="#86868b" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
+        <text x={padL} y={height - 6} fontSize="10" fill="var(--text-muted)" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
           {dates[0]}
         </text>
         <text
@@ -258,12 +258,12 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
           y={height - 6}
           textAnchor="middle"
           fontSize="10"
-          fill="#86868b"
+          fill="var(--text-muted)"
           fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif"
         >
           {dates[Math.floor(dates.length / 2)]}
         </text>
-        <text x={width - padR} y={height - 6} textAnchor="end" fontSize="10" fill="#86868b" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
+        <text x={width - padR} y={height - 6} textAnchor="end" fontSize="10" fill="var(--text-muted)" fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif">
           {dates[dates.length - 1]}
         </text>
 
@@ -298,7 +298,7 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
               y1={padT}
               x2={xAt(activeIdx)}
               y2={padT + plotH}
-              stroke="#1d1d1f"
+              stroke="var(--text-primary)"
               strokeWidth="1"
               strokeDasharray="3 3"
             />
@@ -312,7 +312,7 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
                   cy={yAt(v)}
                   r="3.8"
                   fill={r.color}
-                  stroke="#ffffff"
+                  stroke="var(--bg-surface)"
                   strokeWidth="1.5"
                 />
               );

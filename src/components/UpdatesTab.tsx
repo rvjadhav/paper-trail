@@ -357,7 +357,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
         <div className="panel-header">
           <div>
             <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <Radio size={15} color="#b25000" /> Live Mid-Quarter Schedule 13D / 13G Filings ({midQuarterAlerts.length})
+              <Radio size={15} color="var(--warn-text)" /> Live Mid-Quarter Schedule 13D / 13G Filings ({midQuarterAlerts.length})
             </h3>
             <p className="panel-subtitle">
               Real-time activist (13D) &amp; passive &ge;5% (13G) beneficial ownership filings by Elite-50 managers between 13F quarters (95-day window)

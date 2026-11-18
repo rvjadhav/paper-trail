@@ -15,6 +15,19 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
+    <script>
+      (function () {
+        try {
+          var saved = window.localStorage.getItem('paper-trail-theme');
+          var theme = saved === 'light' || saved === 'dark' ? saved : 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.style.colorScheme = theme;
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          document.documentElement.style.colorScheme = 'dark';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

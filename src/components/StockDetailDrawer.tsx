@@ -298,7 +298,7 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                     <div className="panel-header">
                       <div>
                         <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                          <Activity size={16} color="#0071e3" /> Institutional Quarter Cost-Basis
+                          <Activity size={16} color="var(--accent-primary)" /> Institutional Quarter Cost-Basis
                         </h3>
                         <p className="panel-subtitle">
                           {latestQuarterLabel} Est. Quarter VWAP &amp; High/Low vs. current price
@@ -385,7 +385,7 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                     <div className="panel-header">
                       <div>
                         <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                          <BarChart3 size={16} color="#0071e3" /> SEC XBRL Fundamentals
+                          <BarChart3 size={16} color="var(--accent-primary)" /> SEC XBRL Fundamentals
                         </h3>
                         <p className="panel-subtitle">Direct from SEC EDGAR CompanyFacts API</p>
                       </div>
@@ -466,7 +466,7 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                     <div className="panel-header">
                       <div>
                         <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                          <Radio size={15} color="#b25000" /> Live Mid-Quarter Schedule 13D / 13G Filings
+                          <Radio size={15} color="var(--warn-text)" /> Live Mid-Quarter Schedule 13D / 13G Filings
                         </h3>
                         <p className="panel-subtitle">
                           Elite-50 ≥5% beneficial ownership stakes filed ahead of quarterly 13F
@@ -512,7 +512,7 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                   <div className="panel-header">
                     <div>
                       <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                        <Building2 size={16} color="#0071e3" /> Institutional Holders ({filteredHolders.length} of {detail.holders.length})
+                        <Building2 size={16} color="var(--accent-primary)" /> Institutional Holders ({filteredHolders.length} of {detail.holders.length})
                       </h3>
                       <p className="panel-subtitle">
                         Click any manager to open their full 13F portfolio, risk profile &amp; equity curve
@@ -612,7 +612,7 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                     <div className="panel-header">
                       <div>
                         <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                          <Layers size={16} color="#0071e3" /> Latest QoQ Trading Activity ({detail.recentMoves.length})
+                          <Layers size={16} color="var(--accent-primary)" /> Latest QoQ Trading Activity ({detail.recentMoves.length})
                         </h3>
                         <p className="panel-subtitle">
                           All ±5%+ share-count changes &amp; exits across tracked 13F updates

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { Activity, Calendar, Database, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
 import type { PaperTrailSummaryDataset, ReturnMode, ReturnWindow } from './types/data';
 import { fetchSummary } from './utils/dataLoader';
@@ -10,8 +11,43 @@ import { UpdatesTab } from './components/UpdatesTab';
 import { FundDetailDrawer } from './components/FundDetailDrawer';
 import { UpdateDetailDrawer } from './components/UpdateDetailDrawer';
 import { StockDetailDrawer } from './components/StockDetailDrawer';
+import { ThemeToggle, type ThemeMode } from './components/ThemeToggle';
 
 type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'updates';
+
+const THEME_STORAGE_KEY = 'paper-trail-theme';
+
+interface ViewTransitionLike {
+  ready: Promise<void>;
+  finished: Promise<void>;
+  skipTransition?: () => void;
+}
+
+type DocumentWithViewTransition = Document & {
+  startViewTransition?: (update: () => void) => ViewTransitionLike;
+};
+
+function getInitialTheme(): ThemeMode {
+  try {
+    const attr = document.documentElement.getAttribute('data-theme');
+    if (attr === 'light' || attr === 'dark') return attr;
+    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {
+    // Ignore storage access errors and always default to dark mode
+  }
+  return 'dark';
+}
+
+function applyThemeToDocument(theme: ThemeMode): void {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.style.colorScheme = theme;
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Ignore storage write errors (e.g. restricted storage)
+  }
+}
 
 function parseHashState(): { tab: PrimaryTab; cik: string | null; stock: string | null } {
   const h = window.location.hash.replace(/^#/, '');
@@ -30,6 +66,12 @@ function parseHashState(): { tab: PrimaryTab; cik: string | null; stock: string 
 export function App() {
   const [dataset, setDataset] = useState<PaperTrailSummaryDataset | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
+  const [switchAnim, setSwitchAnim] = useState<{ seq: number; to: ThemeMode } | null>(null);
+  const switchSeqRef = useRef(0);
+  const switchTimerRef = useRef<number | null>(null);
+  const fallbackTimerRef = useRef<number | null>(null);
+  const activeTransitionRef = useRef<ViewTransitionLike | null>(null);
   const initial = useMemo(() => parseHashState(), []);
   const [activeTab, setActiveTabState] = useState<PrimaryTab>(initial.tab);
   const [windowSize, setWindowSize] = useState<ReturnWindow>('TTM');
@@ -40,6 +82,125 @@ export function App() {
   const [updateReturnToFund, setUpdateReturnToFund] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [homeResetKey, setHomeResetKey] = useState(0);
+
+  useEffect(() => {
+    applyThemeToDocument(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    return () => {
+      if (switchTimerRef.current !== null) {
+        window.clearTimeout(switchTimerRef.current);
+      }
+      if (fallbackTimerRef.current !== null) {
+        window.clearTimeout(fallbackTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleToggleTheme = useCallback(
+    (e: MouseEvent<HTMLButtonElement>) => {
+      const nextTheme: ThemeMode = theme === 'dark' ? 'light' : 'dark';
+      switchSeqRef.current += 1;
+      const nextAnim = { seq: switchSeqRef.current, to: nextTheme };
+
+      if (switchTimerRef.current !== null) {
+        window.clearTimeout(switchTimerRef.current);
+      }
+      switchTimerRef.current = window.setTimeout(() => {
+        setSwitchAnim(null);
+        switchTimerRef.current = null;
+      }, 680);
+
+      const prefersReducedMotion =
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      const docWithVt = document as DocumentWithViewTransition;
+      const startVt = docWithVt.startViewTransition;
+
+      if (!prefersReducedMotion && typeof startVt === 'function') {
+        if (activeTransitionRef.current?.skipTransition) {
+          try {
+            activeTransitionRef.current.skipTransition();
+          } catch {
+            // Ignore errors if already finished
+          }
+        }
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const isKeyboard = e.clientX === 0 && e.clientY === 0;
+        const x = isKeyboard ? rect.left + rect.width / 2 : e.clientX;
+        const y = isKeyboard ? rect.top + rect.height / 2 : e.clientY;
+        const endRadius = Math.hypot(
+          Math.max(x, window.innerWidth - x),
+          Math.max(y, window.innerHeight - y)
+        );
+
+        try {
+          const transition = startVt.call(document, () => {
+            applyThemeToDocument(nextTheme);
+            flushSync(() => {
+              setTheme(nextTheme);
+              setSwitchAnim(nextAnim);
+            });
+          });
+          activeTransitionRef.current = transition;
+
+          transition.ready
+            .then(() => {
+              document.documentElement.animate(
+                {
+                  clipPath: [
+                    `circle(0px at ${x}px ${y}px)`,
+                    `circle(${endRadius}px at ${x}px ${y}px)`,
+                  ],
+                },
+                {
+                  duration: 620,
+                  easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                  pseudoElement: '::view-transition-new(root)',
+                }
+              );
+            })
+            .catch(() => {
+              // Ignore aborted transitions on rapid toggles
+            });
+
+          transition.finished
+            .then(() => {
+              if (activeTransitionRef.current === transition) {
+                activeTransitionRef.current = null;
+              }
+            })
+            .catch(() => {
+              if (activeTransitionRef.current === transition) {
+                activeTransitionRef.current = null;
+              }
+            });
+          return;
+        } catch {
+          // Fall through to CSS transition fallback if browser rejects view transition
+        }
+      }
+
+      if (!prefersReducedMotion) {
+        document.documentElement.classList.add('theme-fallback-transition');
+        if (fallbackTimerRef.current !== null) {
+          window.clearTimeout(fallbackTimerRef.current);
+        }
+        fallbackTimerRef.current = window.setTimeout(() => {
+          document.documentElement.classList.remove('theme-fallback-transition');
+          fallbackTimerRef.current = null;
+        }, 460);
+      }
+
+      applyThemeToDocument(nextTheme);
+      setTheme(nextTheme);
+      setSwitchAnim(nextAnim);
+    },
+    [theme]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -295,23 +456,30 @@ export function App() {
             </span>
           </div>
 
-          <button
-            type="button"
-            className="status-link-btn"
-            onClick={() => setShowMethodology(true)}
-          >
-            <Info size={12} />
-            <span>Methodology &amp; Universe Funnel</span>
-            {funnel && (
-              <span
-                className="funnel-pill"
-                title={`Full-universe SEC Form 13F screening funnel: ${funnel.totalCiksScanned.toLocaleString()} CIKs → ${funnel.elite50Count} Elite / ${funnel.qualifiedFundsCount} Funds`}
-              >
-                <Database size={10} />
-                {funnel.totalCiksScanned.toLocaleString()} CIKs → {funnel.elite50Count}/{funnel.qualifiedFundsCount}
-              </span>
-            )}
-          </button>
+          <div className="status-actions">
+            <ThemeToggle
+              theme={theme}
+              switchAnim={switchAnim}
+              onToggle={handleToggleTheme}
+            />
+            <button
+              type="button"
+              className="status-link-btn"
+              onClick={() => setShowMethodology(true)}
+            >
+              <Info size={12} />
+              <span>Methodology &amp; Universe Funnel</span>
+              {funnel && (
+                <span
+                  className="funnel-pill"
+                  title={`Full-universe SEC Form 13F screening funnel: ${funnel.totalCiksScanned.toLocaleString()} CIKs → ${funnel.elite50Count} Elite / ${funnel.qualifiedFundsCount} Funds`}
+                >
+                  <Database size={10} />
+                  {funnel.totalCiksScanned.toLocaleString()} CIKs → {funnel.elite50Count}/{funnel.qualifiedFundsCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -585,7 +753,7 @@ export function App() {
                   <div className="universe-funnel-banner">
                     <div>
                       <div style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <Database size={15} color="#0071e3" />
+                        <Database size={15} color="var(--accent-primary)" />
                         {funnel.totalCiksScanned.toLocaleString()} SEC 13F CIKs Scanned → {funnel.elite50Count} Elite 50 / {funnel.qualifiedFundsCount} Qualified Funds
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>

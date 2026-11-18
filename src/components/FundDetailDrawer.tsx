@@ -341,27 +341,27 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
                     {
                       id: 'qe',
                       label: `${fund.name} (Quarter-End)`,
-                      color: '#0071e3',
+                      color: 'var(--accent-primary)',
                       points: shardDetail.equityCurve.quarter_end,
                     },
                     {
                       id: 'lag',
                       label: '45-Day Lag Copycat',
-                      color: '#00a388',
+                      color: 'var(--chart-teal)',
                       dashed: true,
                       points: shardDetail.equityCurve.filing_lag,
                     },
                     {
                       id: 'qqq',
                       label: 'QQQ',
-                      color: '#5856d6',
+                      color: 'var(--chart-indigo)',
                       dashed: true,
                       points: benchmarks.QQQ.curve,
                     },
                     {
                       id: 'spy',
                       label: 'SPY',
-                      color: '#8e8e93',
+                      color: 'var(--chart-gray)',
                       dashed: true,
                       points: benchmarks.SPY.curve,
                     },
@@ -377,7 +377,7 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
               <div className="panel-header">
                 <div>
                   <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                    <Radio size={15} color="#b25000" /> Mid-Quarter Schedule 13D / 13G Filings ({midQuarterAlerts.length})
+                    <Radio size={15} color="var(--warn-text)" /> Mid-Quarter Schedule 13D / 13G Filings ({midQuarterAlerts.length})
                   </h3>
                   <p className="panel-subtitle">Real-time ≥5% stakes filed between quarterly 13F reports</p>
                 </div>

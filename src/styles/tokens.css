@@ -1,12 +1,126 @@
-:root {
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Apple Human Interface Guidelines Palette — Graphite Dark & Translucent Surfaces */
+  --bg-page: #121315;
+  --bg-page-glow: radial-gradient(1200px 420px at 50% -140px, rgba(10, 132, 255, 0.075), transparent 70%);
+  --bg-surface: #1b1c1f;
+  --bg-surface-glass: rgba(23, 24, 27, 0.86);
+  --bg-surface-subtle: #25262b;
+  --bg-surface-hover: rgba(41, 151, 255, 0.06);
+  --bg-segmented: rgba(255, 255, 255, 0.055);
+  --seg-border: rgba(255, 255, 255, 0.08);
+  --seg-active-bg: #2e3035;
+  --seg-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.36);
+  --bg-dark-bar: rgba(16, 17, 20, 0.92);
+  --status-bar-border: rgba(255, 255, 255, 0.08);
+
+  --bg-action-btn: #24252a;
+  --bg-action-hover: #2e3036;
+  --border-action-hover: rgba(255, 255, 255, 0.24);
+  --bg-input: #242529;
+  --border-input: rgba(255, 255, 255, 0.08);
+  --bg-table-head: rgba(34, 35, 40, 0.95);
+  --bg-strip-subtle: rgba(255, 255, 255, 0.025);
+  --bg-close-hover: #33353c;
+  --backdrop-overlay: rgba(0, 0, 0, 0.62);
+
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --text-muted: #86868b;
+  --text-inverse: #1d1d1f;
+
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-hairline: rgba(255, 255, 255, 0.075);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --accent-primary: #2997ff;
+  --accent-solid: #0a84ff;
+  --accent-solid-hover: #2997ff;
+  --accent-primary-soft: rgba(41, 151, 255, 0.15);
+  --accent-primary-hover: #4da8ff;
+  --accent-border-soft: rgba(41, 151, 255, 0.28);
+  --accent-border-hover: rgba(41, 151, 255, 0.42);
+  --accent-ring: rgba(41, 151, 255, 0.24);
+  --active-col-head-bg: rgba(41, 151, 255, 0.14);
+  --active-col-cell-bg: rgba(41, 151, 255, 0.055);
+  --spotlight-bg: rgba(41, 151, 255, 0.08);
+  --spotlight-border: rgba(41, 151, 255, 0.18);
+
+  --tech-bg: rgba(41, 151, 255, 0.16);
+  --tech-text: #58a6ff;
+  --elite-bg: rgba(175, 82, 222, 0.18);
+  --elite-text: #c48aff;
+
+  --pos-text: #34d399;
+  --pos-bg: rgba(52, 211, 153, 0.14);
+  --pos-bar: #30d158;
+  --neg-text: #ff6961;
+  --neg-bg: rgba(255, 69, 58, 0.16);
+  --warn-text: #ffb340;
+  --warn-bg: rgba(255, 159, 10, 0.16);
+
+  --hedge-pill-bg: rgba(255, 159, 10, 0.12);
+  --hedge-pill-border: rgba(255, 159, 10, 0.26);
+  --hedge-pill-text: #ffd28a;
+  --val-pill-bg: rgba(129, 140, 248, 0.13);
+  --val-pill-border: rgba(129, 140, 248, 0.26);
+  --val-pill-text: #c7d2fe;
+  --shift-pill-bg: rgba(41, 151, 255, 0.11);
+  --shift-pill-border: rgba(41, 151, 255, 0.24);
+
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-baseline: rgba(255, 255, 255, 0.22);
+  --chart-teal: #2dd4bf;
+  --chart-indigo: #818cf8;
+  --chart-gray: #98989d;
+  --chart-amber: #fbbf24;
+
+  /* Apple Typography — SF Pro Display / Text & Plus Jakarta Sans / Inter */
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace;
+
+  /* Apple Radii & Diffused Elevation Shadows */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.28), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.34), 0 1px 3px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.44), 0 2px 6px rgba(0, 0, 0, 0.24);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.65), 0 4px 16px rgba(0, 0, 0, 0.38);
+
+  /* Layout */
+  --max-width: 1380px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
   /* Apple Human Interface Guidelines Palette — Cupertino Light & Translucent Surfaces */
   --bg-page: #f5f5f7;
+  --bg-page-glow: radial-gradient(1200px 420px at 50% -140px, rgba(0, 113, 227, 0.055), transparent 70%);
   --bg-surface: #ffffff;
   --bg-surface-glass: rgba(255, 255, 255, 0.82);
   --bg-surface-subtle: #f2f2f7;
   --bg-surface-hover: rgba(0, 113, 227, 0.038);
   --bg-segmented: rgba(118, 118, 128, 0.11);
+  --seg-border: transparent;
+  --seg-active-bg: #ffffff;
+  --seg-active-shadow: 0 2px 5px rgba(0, 0, 0, 0.08), 0 0.5px 1px rgba(0, 0, 0, 0.06);
   --bg-dark-bar: rgba(29, 29, 31, 0.92);
+  --status-bar-border: rgba(255, 255, 255, 0.08);
+
+  --bg-action-btn: #ffffff;
+  --bg-action-hover: #fafafa;
+  --border-action-hover: #b8b8bf;
+  --bg-input: #f2f2f7;
+  --border-input: transparent;
+  --bg-table-head: rgba(242, 242, 247, 0.94);
+  --bg-strip-subtle: rgba(245, 245, 247, 0.6);
+  --bg-close-hover: #e5e5ea;
+  --backdrop-overlay: rgba(29, 29, 31, 0.36);
 
   --text-primary: #1d1d1f;
   --text-secondary: #515154;
@@ -18,32 +132,51 @@
   --border-strong: #d2d2d7;
 
   --accent-primary: #0071e3;
+  --accent-solid: #0071e3;
+  --accent-solid-hover: #0077ed;
   --accent-primary-soft: rgba(0, 113, 227, 0.10);
   --accent-primary-hover: #0077ed;
+  --accent-border-soft: rgba(0, 113, 227, 0.24);
+  --accent-border-hover: rgba(0, 113, 227, 0.35);
+  --accent-ring: rgba(0, 113, 227, 0.14);
+  --active-col-head-bg: rgba(0, 113, 227, 0.07);
+  --active-col-cell-bg: rgba(0, 113, 227, 0.03);
+  --spotlight-bg: rgba(0, 113, 227, 0.045);
+  --spotlight-border: rgba(0, 113, 227, 0.12);
+
+  --tech-bg: rgba(0, 113, 227, 0.10);
+  --tech-text: #0066cc;
+  --elite-bg: rgba(175, 82, 222, 0.13);
+  --elite-text: #7c2ae8;
 
   --pos-text: #00823b;
   --pos-bg: rgba(52, 199, 89, 0.13);
+  --pos-bar: #28cd41;
   --neg-text: #d70015;
   --neg-bg: rgba(255, 59, 48, 0.11);
   --warn-text: #b25000;
   --warn-bg: rgba(255, 149, 0, 0.14);
 
-  /* Apple Typography — SF Pro Display / Text & Plus Jakarta Sans / Inter */
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono: 'SF Mono', ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace;
+  --hedge-pill-bg: rgba(255, 149, 0, 0.11);
+  --hedge-pill-border: rgba(255, 149, 0, 0.22);
+  --hedge-pill-text: #6f3300;
+  --val-pill-bg: rgba(88, 86, 214, 0.08);
+  --val-pill-border: rgba(88, 86, 214, 0.18);
+  --val-pill-text: #2f2d80;
+  --shift-pill-bg: rgba(0, 113, 227, 0.07);
+  --shift-pill-border: rgba(0, 113, 227, 0.14);
 
-  /* Apple Radii & Diffused Elevation Shadows */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
+  --chart-grid: #e5e5ea;
+  --chart-baseline: #c7c7cc;
+  --chart-teal: #00a388;
+  --chart-indigo: #5856d6;
+  --chart-gray: #8e8e93;
+  --chart-amber: #f59e0b;
+
   --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
   --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.045), 0 1px 3px rgba(0, 0, 0, 0.025);
   --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.065), 0 2px 6px rgba(0, 0, 0, 0.03);
   --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.16), 0 4px 16px rgba(0, 0, 0, 0.06);
-
-  /* Layout */
-  --max-width: 1380px;
 }
 
 * {
@@ -55,7 +188,7 @@ body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-page);
-  background-image: radial-gradient(1200px 420px at 50% -140px, rgba(0, 113, 227, 0.055), transparent 70%);
+  background-image: var(--bg-page-glow);
   background-repeat: no-repeat;
   color: var(--text-primary);
   font-family: var(--font-sans);

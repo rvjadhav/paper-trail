@@ -480,15 +480,15 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
 
                 <div className="sector-legend" style={{ marginTop: '0.55rem' }}>
                   <span>
-                    <span className="sector-dot" style={{ background: '#0071e3' }} />
+                    <span className="sector-dot" style={{ background: 'var(--accent-primary)' }} />
                     Common Equity
                   </span>
                   <span>
-                    <span className="sector-dot" style={{ background: '#00a388' }} />
+                    <span className="sector-dot" style={{ background: 'var(--chart-teal)' }} />
                     Call Options
                   </span>
                   <span>
-                    <span className="sector-dot" style={{ background: '#f59e0b' }} />
+                    <span className="sector-dot" style={{ background: 'var(--chart-amber)' }} />
                     Put Hedges
                   </span>
                 </div>

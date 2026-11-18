@@ -614,7 +614,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
             <Calculator size={14} /> {showRebalance ? 'Hide Rebalance Calc' : 'Rebalance Calculator'}
           </button>
           <button type="button" className="action-btn" onClick={handleSavePreset}>
-            {savedToast ? <Check size={14} color="#00823b" /> : <Save size={14} />}
+            {savedToast ? <Check size={14} color="var(--pos-text)" /> : <Save size={14} />}
             {savedToast ? 'Saved Preset' : 'Save Preset'}
           </button>
           {!isDefault && (
@@ -746,7 +746,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
           <div className="panel-header">
             <div>
               <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <Calculator size={16} color="#0071e3" /> Portfolio Rebalance Trade Calculator
+                <Calculator size={16} color="var(--accent-primary)" /> Portfolio Rebalance Trade Calculator
               </h3>
               <p className="panel-subtitle">
                 Paste current positions in USD or % (e.g. <code>NVDA 20000</code> or <code>MSFT 15%</code>) to generate exact BUY / ADD / TRIM / EXIT orders against your {activePositions.length}-name target model (${capitalUsd.toLocaleString()} capital).
@@ -947,27 +947,27 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                 {
                   id: 'ideal-lag',
                   label: 'Ideal Portfolio (45d Lag)',
-                  color: '#00a388',
+                  color: 'var(--chart-teal)',
                   points: idealPortfolio.backtest.filing_lag.curve,
                 },
                 {
                   id: 'ideal-qe',
                   label: 'Ideal Portfolio (QE)',
-                  color: '#0071e3',
+                  color: 'var(--accent-primary)',
                   dashed: true,
                   points: idealPortfolio.backtest.quarter_end.curve,
                 },
                 {
                   id: 'qqq',
                   label: 'QQQ',
-                  color: '#5856d6',
+                  color: 'var(--chart-indigo)',
                   dashed: true,
                   points: benchmarks.QQQ.curve,
                 },
                 {
                   id: 'spy',
                   label: 'SPY',
-                  color: '#8e8e93',
+                  color: 'var(--chart-gray)',
                   dashed: true,
                   points: benchmarks.SPY.curve,
                 },

@@ -10,26 +10,26 @@ export const RETURN_WINDOWS: Array<{ id: ReturnWindow; label: string; fullLabel:
 ];
 
 export const SECTOR_COLORS: Record<string, string> = {
-  Technology: '#0071e3',
+  Technology: 'var(--accent-primary)',
   'Communication Services': '#32ade6',
   'Consumer Cyclical': '#00c7be',
-  'Financial Services': '#5856d6',
+  'Financial Services': 'var(--chart-indigo)',
   Industrials: '#ff9500',
   Healthcare: '#34c759',
   Utilities: '#30b0c7',
   Energy: '#ff6b22',
-  'Consumer Defensive': '#8e8e93',
-  Semiconductors: '#0071e3',
-  'Enterprise Software': '#5856d6',
+  'Consumer Defensive': 'var(--chart-gray)',
+  Semiconductors: 'var(--accent-primary)',
+  'Enterprise Software': 'var(--chart-indigo)',
   'Platforms & Interactive': '#32ade6',
   'Platforms & Tech': '#32ade6',
-  'Hardware & IT Services': '#00a388',
+  'Hardware & IT Services': 'var(--chart-teal)',
   'Fintech & Payments': '#00c7be',
   Other: '#aeaeb2',
 };
 
 export function sectorColor(sector: string): string {
-  return SECTOR_COLORS[sector] ?? '#8e8e93';
+  return SECTOR_COLORS[sector] ?? 'var(--chart-gray)';
 }
 
 export function formatUsdCompact(val: number | null | undefined): string {
