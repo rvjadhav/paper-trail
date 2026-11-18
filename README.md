@@ -4,15 +4,15 @@ Institutional-grade quarterly SEC Form 13F tracker for **concentrated, technolog
 
 ## Features
 
-- **Ranking:** Ranks the top 10 concentrated tech/TMT funds across six performance horizons (`YTD`, `TTM`, `18M`, `2Y`, `3Y`, `5Y`) with a toggle between **Quarter-End Attribution** and **45-Day Filing-Lag Actionable** returns. Clicking any fund opens its full strategy overview, multi-year equity curve vs. `QQQ`/`SPY`, risk metrics, quarterly filing snapshots, and complete 13F holdings table.
+- **Ranking:** Evaluates all SEC Form 13F institutional investment managers (~11,400+ CIKs) and ranks the Top 100 concentrated tech/TMT funds across six performance horizons (`YTD`, `TTM`, `18M`, `2Y`, `3Y`, `5Y`) with a toggle between **Quarter-End Attribution** and **45-Day Filing-Lag Actionable** returns. Clicking any fund opens its full strategy overview, multi-year equity curve vs. `QQQ`/`SPY`, risk metrics, quarterly filing snapshots, and complete 13F holdings table.
 - **Holdings (Top 30):** Aggregates the top 30 consensus stocks held across all ranked funds across all windows, supporting both **Equal-Weight Average %** and **AUM-Weighted %** views, along with expandable fund-by-fund weight breakdowns and QoQ share deltas.
-- **Ideal Portfolio (≤50 Names):** Constructs a risk-capped (8% default ceiling) portfolio of up to 50 names from all ranked funds using multi-window performance rank, conviction weight, consensus ownership, and QoQ accumulation signals—complete with an out-of-sample quarterly backtest and interactive capital allocator.
+- **Ideal Portfolio (≤50 Names):** Constructs a risk-capped (8% default ceiling) portfolio of up to 50 names from all ranked funds using multi-window performance rank, conviction weight, Tech/TMT relevance, consensus ownership, and QoQ accumulation signals—complete with an out-of-sample quarterly backtest and interactive capital allocator.
 - **Quarterly Updates Digest:** Synthesizes quarter-over-quarter SEC Form `13F-HR` filings into scannable intelligence cards—capturing initiations, heavy adds, trims, full exits, put hedges, common-to-call shifts, and flat-share valuation markdowns/markups—with a full position-by-position diff drawer for diving deeper.
 
 ## Architecture & Automated Quarterly Updates
 
-- `pipeline/`: Python 3.11 SEC EDGAR (`13F-HR`, `13F-HR/A`, `EFTS` discovery) + OpenFIGI + Yahoo Finance daily split/dividend-adjusted price pipeline generating `src/data/portfolio_data.json`.
-- `.github/workflows/quarterly-13f-update.yml`: Scheduled GitHub Actions workflow running automatically during every quarterly 13F filing season (Feb, May, Aug, Nov) and weekly on Mondays to ingest new filings, update market prices, commit refreshed data, and redeploy to GitHub Pages.
+- `pipeline/`: Python 3.11 SEC EDGAR **Form 13F Bulk Data Sets + Post-Bulk Master Index** (`13F-HR`, `13F-HR/A`) + OpenFIGI + Yahoo Finance daily split/dividend-adjusted price pipeline generating `src/data/portfolio_data.json` without seed-pair or EFTS bias.
+- `.github/workflows/quarterly-13f-update.yml`: Scheduled GitHub Actions workflow running automatically during every quarterly 13F filing season (Feb, May, Aug, Nov) and off-peak Sundays to ingest new filings, update market prices, commit refreshed data, and redeploy to GitHub Pages.
 
 ## Local Development
 

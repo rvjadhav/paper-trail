@@ -6,6 +6,7 @@ enrichment, and historical daily adjusted-close price fetching.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 import urllib.error
@@ -20,14 +21,18 @@ from funds_config import TECH_TMT_EXTRA_TICKERS
 CACHE_ROOT = Path(__file__).resolve().parent / "cache"
 PRICE_CACHE_DIR = CACHE_ROOT / "prices"
 PRICE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+SEC_COMPANY_TICKERS_PATH = CACHE_ROOT / "sec" / "company_tickers.json"
 
 CUSIP_CACHE_PATH = Path(__file__).resolve().parent / "cusip_cache.json"
 TICKER_META_PATH = Path(__file__).resolve().parent / "ticker_meta_cache.json"
 
 YF_HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 FIGI_HEADERS = {"Content-Type": "application/json", "User-Agent": "PaperTrail13FResearch"}
+_openfigi_key = os.environ.get("OPENFIGI_API_KEY", "").strip()
+if _openfigi_key:
+    FIGI_HEADERS["X-OPENFIGI-APIKEY"] = _openfigi_key
 
-# Authoritative manual overrides for known tricky CUSIPs / share classes
+# Authoritative manual overrides for known tricky CUSIPs / share classes / recently delisted M&A
 MANUAL_CUSIP_OVERRIDES: dict[str, dict[str, str]] = {
     "02079K305": {"ticker": "GOOGL", "name": "Alphabet Inc. (Class A)"},
     "02079K107": {"ticker": "GOOG", "name": "Alphabet Inc. (Class C)"},
@@ -98,7 +103,112 @@ MANUAL_CUSIP_OVERRIDES: dict[str, dict[str, str]] = {
         "sector": "Consumer Defensive",
         "industry": "Household & Personal Products",
     },
+    "74736K101": {
+        "ticker": "QRVO",
+        "name": "Qorvo, Inc.",
+        "sector": "Technology",
+        "industry": "Semiconductors",
+    },
+    "934423104": {
+        "ticker": "WBD",
+        "name": "Warner Bros. Discovery, Inc.",
+        "sector": "Communication Services",
+        "industry": "Entertainment",
+    },
+    "49177J102": {
+        "ticker": "KVUE",
+        "name": "Kenvue Inc.",
+        "sector": "Consumer Defensive",
+        "industry": "Household & Personal Products",
+    },
+    "H50430232": {
+        "ticker": "LOGI",
+        "name": "Logitech International S.A.",
+        "sector": "Technology",
+        "industry": "Computer Hardware",
+    },
+    "G25839104": {
+        "ticker": "CCEP",
+        "name": "Coca-Cola Europacific Partners",
+        "sector": "Consumer Defensive",
+        "industry": "Beverages—Non-Alcoholic",
+    },
+    "053484101": {
+        "ticker": "AVB",
+        "name": "AvalonBay Communities, Inc.",
+        "sector": "Real Estate",
+        "industry": "REIT—Residential",
+    },
+    "530307305": {
+        "ticker": "LBRDK",
+        "name": "Liberty Broadband Corporation",
+        "sector": "Communication Services",
+        "industry": "Telecom Services",
+    },
 }
+
+_MALFORMED_FOREIGN_TICKER_RE = re.compile(r"-[A-Z0-9]{2,}$")
+_US_VALID_TICKER_RE = re.compile(r"^[A-Z]{1,5}(?:-[A-Z])?$")
+
+_13F_ABBREV_MAP = {
+    "CMNTYS": "COMMUNITIES",
+    "CMNTY": "COMMUNITY",
+    "PPTYS": "PROPERTIES",
+    "PPTY": "PROPERTY",
+    "HLDGS": "HOLDINGS",
+    "HLDG": "HOLDING",
+    "INTL": "INTERNATIONAL",
+    "SVCS": "SERVICES",
+    "SVC": "SERVICE",
+    "SYS": "SYSTEMS",
+    "TECH": "TECHNOLOGIES",
+    "ENTMT": "ENTERTAINMENT",
+    "COS": "COMPANIES",
+    "FINL": "FINANCIAL",
+    "AMER": "AMERICAN",
+    "NATL": "NATIONAL",
+    "INDS": "INDUSTRIES",
+    "INDL": "INDUSTRIAL",
+    "PHARMA": "PHARMACEUTICALS",
+    "THERAP": "THERAPEUTICS",
+    "COMM": "COMMUNICATIONS",
+    "COMMUN": "COMMUNICATIONS",
+    "MFG": "MANUFACTURING",
+}
+
+_LEGAL_SUFFIX_RE = re.compile(
+    r"\b(INCORPORATED|INC|CORPORATION|CORP|LIMITED|LTD|PLC|LP|LLC|LLP|NV|SA|AG|SE|"
+    r"HOLDINGS|HOLDING|GROUP|COMPANY|CO|CLASS [A-C]|CL [A-C]|CAP STK|COM|ORD|SHS|NEW|THE)\b\.?",
+    re.I,
+)
+
+
+def _normalize_legal_name(name: str) -> str:
+    txt = re.sub(r"[^A-Za-z0-9\s]", " ", (name or "").upper())
+    tokens = [_13F_ABBREV_MAP.get(tok, tok) for tok in txt.split()]
+    expanded = " ".join(tokens)
+    stripped = _LEGAL_SUFFIX_RE.sub(" ", expanded)
+    return re.sub(r"\s+", " ", stripped).strip()
+
+
+def _load_sec_company_name_map() -> dict[str, str]:
+    """Build normalized unique company name -> US ticker lookup from SEC company_tickers.json."""
+    if not SEC_COMPANY_TICKERS_PATH.exists():
+        return {}
+    try:
+        raw = json.loads(SEC_COMPANY_TICKERS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    by_norm: dict[str, set[str]] = {}
+    for entry in raw.values():
+        sym = normalize_yf_ticker(str(entry.get("ticker") or ""))
+        title = str(entry.get("title") or "")
+        if not sym or not _US_VALID_TICKER_RE.fullmatch(sym):
+            continue
+        norm = _normalize_legal_name(title)
+        if len(norm) >= 5:
+            by_norm.setdefault(norm, set()).add(sym)
+    return {k: next(iter(v)) for k, v in by_norm.items() if len(v) == 1}
 
 
 def load_json_dict(path: Path) -> dict[str, Any]:
@@ -118,8 +228,9 @@ def normalize_yf_ticker(ticker: str) -> str:
     if not ticker:
         return ""
     t = ticker.strip().upper()
-    # Yahoo uses '-' for class shares like BRK-B instead of BRK.B or BRK/B
-    t = t.replace(".", "-").replace("/", "-")
+    # Yahoo uses '-' ONLY for US single-letter share classes like BRK.B -> BRK-B or BRK/B -> BRK-B.
+    # Never mangle multi-character foreign exchange suffixes (.TW, .HM, .TI, .SG) into hyphens.
+    t = re.sub(r"[./]([A-Z])$", r"-\1", t)
     return t
 
 
@@ -172,21 +283,27 @@ def _pick_best_figi(candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
         return None
     us_codes = {"US", "UN", "UQ", "UW", "UA", "UP", "UR"}
     preferred_types = ("Common Stock", "Depositary Receipt", "ETP", "REIT", "Preference")
-    us_matches = [c for c in candidates if c.get("exchCode") in us_codes and c.get("ticker")]
-    pool = us_matches or [c for c in candidates if c.get("ticker")]
+    us_matches = [
+        c for c in candidates
+        if c.get("exchCode") in us_codes
+        and c.get("ticker")
+        and _US_VALID_TICKER_RE.fullmatch(normalize_yf_ticker(str(c.get("ticker") or "")))
+    ]
+    if not us_matches:
+        return None
     for st in preferred_types:
-        for c in pool:
+        for c in us_matches:
             if c.get("securityType2") == st or c.get("securityType") == st:
                 return c
-    return pool[0] if pool else None
+    return us_matches[0]
 
 
 US_YAHOO_EXCHANGES = {"NMS", "NYQ", "NGM", "NCM", "ASE", "PCX", "BTS", "NAS", "NYS"}
 
 
-def _yahoo_search(query: str, strict_us_cusip: bool = False) -> dict[str, Any] | None:
+def _yahoo_search(query: str, strict_us_cusip: bool = False, us_only: bool = False) -> dict[str, Any] | None:
     q = urllib.parse.quote(query)
-    url = f"https://query1.finance.yahoo.com/v1/finance/search?q={q}&quotesCount=6&newsCount=0"
+    url = f"https://query1.finance.yahoo.com/v1/finance/search?q={q}&quotesCount=6&newsCount=0&region=US&lang=en-US"
     for attempt in range(3):
         req = urllib.request.Request(url, headers=YF_HEADERS)
         try:
@@ -196,16 +313,17 @@ def _yahoo_search(query: str, strict_us_cusip: bool = False) -> dict[str, Any] |
                 return None
             q_up = query.strip().upper()
             all_equities = [x for x in quotes if x.get("quoteType") in ("EQUITY", "ETF")]
-            if strict_us_cusip:
-                us_strict = [
-                    x for x in all_equities
-                    if x.get("exchange") in US_YAHOO_EXCHANGES
-                    and "." not in x.get("symbol", "")
-                    and re.fullmatch(r"[A-Z]{1,5}(?:-[A-Z])?", (x.get("symbol") or "").upper())
-                ]
+            us_strict = [
+                x for x in all_equities
+                if x.get("exchange") in US_YAHOO_EXCHANGES
+                and "." not in x.get("symbol", "")
+                and _US_VALID_TICKER_RE.fullmatch((x.get("symbol") or "").upper())
+            ]
+            if strict_us_cusip or us_only:
                 if not us_strict:
                     return None
-                best = us_strict[0]
+                exact_us = [x for x in us_strict if x.get("symbol", "").upper() == q_up]
+                best = exact_us[0] if exact_us else us_strict[0]
                 return {
                     "ticker": best.get("symbol", "").upper(),
                     "name": best.get("longname") or best.get("shortname") or "",
@@ -213,10 +331,9 @@ def _yahoo_search(query: str, strict_us_cusip: bool = False) -> dict[str, Any] |
                     "industry": best.get("industry") or "",
                 }
 
-            # General search: prefer exact US equity/ETF without dot suffix
-            us_equities = [x for x in all_equities if "." not in x.get("symbol", "")]
-            exact = [x for x in us_equities if x.get("symbol", "").upper() == q_up]
-            pool = exact or us_equities or all_equities
+            # General symbol lookup: prefer US exchanges first, fall back to clean non-regional tickers
+            exact = [x for x in us_strict if x.get("symbol", "").upper() == q_up]
+            pool = exact or us_strict or [x for x in all_equities if "." not in x.get("symbol", "")]
             if not pool:
                 return None
             best = pool[0]
@@ -239,13 +356,19 @@ def _yahoo_search(query: str, strict_us_cusip: bool = False) -> dict[str, Any] |
     return None
 
 
-def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]:
+def resolve_cusips(
+    cusip_to_issuer: dict[str, str],
+    cusip_priority: dict[str, float] | None = None,
+    max_openfigi_batches: int | None = None,
+) -> dict[str, dict[str, Any]]:
     """
-    Resolve all CUSIPs to ticker, canonical name, sector, industry, isTechTmt.
-    Uses persistent cusip_cache.json + fast US Yahoo search + OpenFIGI + issuer fallback.
+    Resolve all CUSIPs to US ticker, canonical name, sector, industry, isTechTmt.
+    Uses persistent cusip_cache.json + SEC company_tickers match + fast US Yahoo CUSIP lookup
+    + materiality-prioritized OpenFIGI US mapping + US-only Yahoo issuer fallback.
     """
     cache = load_json_dict(CUSIP_CACHE_PATH)
     ticker_meta = load_json_dict(TICKER_META_PATH)
+    sec_name_map = _load_sec_company_name_map()
 
     # Apply manual overrides
     for c, ov in MANUAL_CUSIP_OVERRIDES.items():
@@ -273,19 +396,54 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                 "metaChecked": True,
             }
 
+    # Invalidate previously mangled foreign-exchange hyphen tickers (-HM, -TI, -SG, -SW, etc.) on active CUSIPs
+    repaired_bad = 0
+    for c in cusip_to_issuer:
+        if c in MANUAL_CUSIP_OVERRIDES:
+            continue
+        ent = cache.get(c)
+        if ent:
+            t_cur = ent.get("ticker", "")
+            if t_cur and not t_cur.startswith("CUSIP:") and _MALFORMED_FOREIGN_TICKER_RE.search(t_cur):
+                cache.pop(c, None)
+                repaired_bad += 1
+    if repaired_bad:
+        print(f"[resolver] Scheduled repair for {repaired_bad} malformed foreign-suffix CUSIP entries.", flush=True)
+
     missing_ticker = [c for c in cusip_to_issuer if c not in cache or not cache[c].get("ticker")]
+    if cusip_priority:
+        missing_ticker.sort(key=lambda c: cusip_priority.get(c, 0.0), reverse=True)
     print(f"[resolver] Total CUSIPs: {len(cusip_to_issuer)}, missing ticker resolution: {len(missing_ticker)}", flush=True)
 
-    # Step 1a: Fast parallel strict-US Yahoo CUSIP lookup (resolves ~85-90% of US equities w/ sector metadata in 1 call)
     if missing_ticker:
+        # Step 1a-0: Instant offline exact SEC normalized company_tickers.json match
+        after_sec: list[str] = []
+        sec_hits = 0
+        for c in missing_ticker:
+            norm_iss = _normalize_legal_name(cusip_to_issuer.get(c, ""))
+            sym = sec_name_map.get(norm_iss) if norm_iss else None
+            if sym:
+                cache[c] = {
+                    "ticker": sym,
+                    "name": cusip_to_issuer.get(c, sym),
+                    "sector": ticker_meta.get(sym, {}).get("sector", ""),
+                    "industry": ticker_meta.get(sym, {}).get("industry", ""),
+                }
+                sec_hits += 1
+            else:
+                after_sec.append(c)
+        if sec_hits:
+            print(f"[resolver] Offline SEC name master matched {sec_hits} CUSIPs immediately.", flush=True)
+
+        # Step 1a: Fast parallel strict-US Yahoo CUSIP lookup
         figi_candidates: list[str] = []
-        if len(missing_ticker) > 25:
+        if len(after_sec) > 25:
             def _fast_us_lookup(c: str) -> tuple[str, dict[str, Any] | None]:
                 return c, _yahoo_search(c, strict_us_cusip=True)
 
             resolved_fast = 0
             with ThreadPoolExecutor(max_workers=8) as ex:
-                futs = [ex.submit(_fast_us_lookup, c) for c in missing_ticker]
+                futs = [ex.submit(_fast_us_lookup, c) for c in after_sec]
                 for idx_done, fut in enumerate(as_completed(futs), 1):
                     c, hit = fut.result()
                     if hit and hit.get("ticker"):
@@ -311,16 +469,31 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                     if idx_done % 500 == 0:
                         save_json_dict(CUSIP_CACHE_PATH, cache)
                         save_json_dict(TICKER_META_PATH, ticker_meta)
-                        print(f"[resolver] Fast US lookup progress {idx_done}/{len(missing_ticker)} ({resolved_fast} hits)...", flush=True)
+                        print(f"[resolver] Fast US lookup progress {idx_done}/{len(after_sec)} ({resolved_fast} hits)...", flush=True)
             save_json_dict(CUSIP_CACHE_PATH, cache)
             save_json_dict(TICKER_META_PATH, ticker_meta)
-            print(f"[resolver] Fast US lookup resolved {resolved_fast}/{len(missing_ticker)} CUSIPs; {len(figi_candidates)} queued for OpenFIGI", flush=True)
+            print(f"[resolver] Fast US lookup resolved {resolved_fast}/{len(after_sec)} CUSIPs; {len(figi_candidates)} queued for OpenFIGI", flush=True)
         else:
-            figi_candidates = list(missing_ticker)
+            figi_candidates = list(after_sec)
 
-        # Step 1b: Authoritative OpenFIGI US mapping in batches of 10 for foreign ADRs / Cayman CINS / edge CUSIPs
-        still_missing: list[str] = []
+        if cusip_priority and figi_candidates:
+            figi_candidates.sort(key=lambda c: cusip_priority.get(c, 0.0), reverse=True)
+
+        # Step 1b: Authoritative OpenFIGI US mapping (capped to bound runtime cleanly on huge universes)
+        if max_openfigi_batches is None:
+            env_cap = os.environ.get("MAX_OPENFIGI_BATCHES", "30").strip()
+            max_openfigi_batches = int(env_cap) if env_cap.isdigit() else 30
+        figi_limit = max_openfigi_batches * 10
+        if len(figi_candidates) > figi_limit:
+            print(f"[resolver] Capping OpenFIGI to top {figi_limit}/{len(figi_candidates)} most material CUSIPs ({max_openfigi_batches} batches); remaining queued for issuer fallback.", flush=True)
+            overflow = figi_candidates[figi_limit:]
+            figi_candidates = figi_candidates[:figi_limit]
+        else:
+            overflow = []
+
+        still_missing: list[str] = list(overflow)
         total_batches = (len(figi_candidates) + 9) // 10
+        sleep_cycle = 0.30 if _openfigi_key else 2.50
         for i in range(0, len(figi_candidates), 10):
             t0 = time.monotonic()
             batch_num = (i // 10) + 1
@@ -339,23 +512,41 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                     }
                 else:
                     still_missing.append(c)
-            # OpenFIGI unauthenticated cap is 25 req/min (~2.4s/req); 2.55s cycle avoids 429 penalties
             if batch_num % 10 == 0 or batch_num == total_batches:
                 save_json_dict(CUSIP_CACHE_PATH, cache)
                 print(f"[resolver] OpenFIGI batch {batch_num}/{total_batches} saved ({len(cache)} cached)", flush=True)
             if i + 10 < len(figi_candidates):
                 elapsed = time.monotonic() - t0
-                if elapsed < 2.55:
-                    time.sleep(2.55 - elapsed)
+                if elapsed < sleep_cycle:
+                    time.sleep(sleep_cycle - elapsed)
         save_json_dict(CUSIP_CACHE_PATH, cache)
 
-        # Step 2: Yahoo issuer-name fallback for CUSIPs not resolved by OpenFIGI US
+        # Step 2: US-exchange-only Yahoo issuer-name fallback for top 250 material CUSIPs
         if still_missing:
-            print(f"[resolver] Falling back to Yahoo issuer search for {len(still_missing)} CUSIPs...", flush=True)
+            if cusip_priority:
+                still_missing.sort(key=lambda c: cusip_priority.get(c, 0.0), reverse=True)
+            http_fallback = still_missing[:250]
+            dust_tail = still_missing[250:]
+            if dust_tail:
+                print(f"[resolver] Falling back to US Yahoo issuer search for top {len(http_fallback)}/{len(still_missing)} CUSIPs ({len(dust_tail)} immaterial tail marked unpriced)...", flush=True)
+                for c in dust_tail:
+                    raw_name = cusip_to_issuer.get(c, "")
+                    fallback_sym = re.sub(r"[^A-Z0-9]", "", raw_name.upper())[:6] or c[:6]
+                    cache[c] = {
+                        "ticker": f"CUSIP:{c}",
+                        "displaySymbol": fallback_sym,
+                        "name": raw_name or c,
+                        "sector": "Other",
+                        "industry": "",
+                        "unpriced": True,
+                    }
+            else:
+                print(f"[resolver] Falling back to US Yahoo issuer search for {len(http_fallback)} CUSIPs...", flush=True)
+
             def _resolve_one(c: str) -> tuple[str, dict[str, Any]]:
                 raw_name = cusip_to_issuer.get(c, "")
-                cleaned = re.sub(r"\b(INC|CORP|LTD|PLC|LP|LLC|NV|SA|AG|SE|HLDG|HLDGS|HOLDINGS|CLASS [A-C]|CL [A-C]|COM|ORD)\b\.?", "", raw_name, flags=re.I).strip()
-                hit = _yahoo_search(cleaned) if len(cleaned) >= 3 else None
+                cleaned = _normalize_legal_name(raw_name)
+                hit = _yahoo_search(cleaned, us_only=True) if len(cleaned) >= 3 else None
                 if hit and hit.get("ticker"):
                     t_norm = normalize_yf_ticker(hit["ticker"])
                     sec_val = hit.get("sector") or ("Technology" if t_norm in TECH_TMT_EXTRA_TICKERS else "Other")
@@ -365,7 +556,6 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                         "sector": sec_val,
                         "industry": hit.get("industry") or "",
                     }
-                # Unresolvable (e.g. delisted / private / foreign OTC without US ticker)
                 fallback_sym = re.sub(r"[^A-Z0-9]", "", raw_name.upper())[:6] or c[:6]
                 return c, {
                     "ticker": f"CUSIP:{c}",
@@ -376,14 +566,15 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                     "unpriced": True,
                 }
 
-            with ThreadPoolExecutor(max_workers=8) as ex:
-                futs = [ex.submit(_resolve_one, c) for c in still_missing]
+            with ThreadPoolExecutor(max_workers=12) as ex:
+                futs = [ex.submit(_resolve_one, c) for c in http_fallback]
                 for idx_done, fut in enumerate(as_completed(futs), 1):
                     c, entry = fut.result()
                     cache[c] = entry
-                    if idx_done % 250 == 0:
+                    if idx_done % 125 == 0:
                         save_json_dict(CUSIP_CACHE_PATH, cache)
-                        print(f"[resolver] Issuer fallback progress {idx_done}/{len(still_missing)}...", flush=True)
+                        print(f"[resolver] Issuer fallback progress {idx_done}/{len(http_fallback)}...", flush=True)
+            save_json_dict(CUSIP_CACHE_PATH, cache)
 
     # Step 3: Enrich sector/industry/name via Yahoo search for resolved tickers not yet metadata-checked
     need_meta_tickers = sorted({
@@ -417,7 +608,7 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
                 "metaChecked": True,
             }
 
-        with ThreadPoolExecutor(max_workers=8) as ex:
+        with ThreadPoolExecutor(max_workers=12) as ex:
             futs = [ex.submit(_fetch_meta, t) for t in need_meta_tickers]
             for idx_done, fut in enumerate(as_completed(futs), 1):
                 t, meta = fut.result()
@@ -450,7 +641,7 @@ def resolve_cusips(cusip_to_issuer: dict[str, str]) -> dict[str, dict[str, Any]]
     return cache
 
 
-def fetch_daily_prices(ticker: str, start_ts: int = 1609459200, max_age_hours: float = 8.0) -> dict[str, float] | None:
+def fetch_daily_prices(ticker: str, start_ts: int = 1609459200, max_age_hours: float = 20.0) -> dict[str, float] | None:
     """
     Fetch daily split- and dividend-adjusted close prices (YYYY-MM-DD -> adjclose)
     from Yahoo Finance v8 chart API.
@@ -512,7 +703,7 @@ def fetch_all_prices(tickers: list[str]) -> dict[str, dict[str, float]]:
     clean_tickers = sorted({t for t in tickers if t and not t.startswith("CUSIP:")})
     print(f"[prices] Fetching daily adjusted prices for {len(clean_tickers)} tickers...", flush=True)
     prices: dict[str, dict[str, float]] = {}
-    with ThreadPoolExecutor(max_workers=12) as ex:
+    with ThreadPoolExecutor(max_workers=16) as ex:
         fut_map = {ex.submit(fetch_daily_prices, t): t for t in clean_tickers}
         for idx_done, fut in enumerate(as_completed(fut_map), 1):
             t = fut_map[fut]

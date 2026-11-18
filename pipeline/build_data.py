@@ -1,31 +1,30 @@
 """
 End-to-end Paper Trail 13F data pipeline:
-1. Fetches 2021-present SEC EDGAR 13F-HR / 13F-HR/A filings for curated + discovered funds
-2. Resolves CUSIPs -> tickers + GICS sectors + daily adjusted-close prices
-3. Qualifies genuinely Tech/TMT-focused concentrated portfolios
+1. Scans 100% of SEC Form 13F managers via quarterly Bulk Data Sets + post-bulk master.idx .txt submissions
+2. Resolves CUSIPs -> US tickers + GICS sectors + daily split/dividend-adjusted close prices
+3. Qualifies genuinely Tech/TMT-focused concentrated funds (excluding operating corps, banks, pensions, SPVs)
 4. Reconstructs daily buy-and-hold equity curves for both Quarter-End and 45-Day Lag modes
 5. Computes rankings across YTD, TTM, 18M, 2Y, 3Y, 5Y windows
 6. Builds Top 30 Consensus Holdings, Ideal Portfolio (<= 50 names), and QoQ Fund Updates Digest
-7. Writes src/data/portfolio_data.json for static frontend & GitHub Pages deployment
+7. Writes src/data/portfolio_data.json with full-universe funnel telemetry for static deployment
 """
 
 from __future__ import annotations
 
 import json
 import math
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from funds_config import CURATED_FUNDS, DISCOVERY_SEED_PAIRS, NON_STOCK_ETFS
-from sec_client import (
-    build_clean_quarterly_filings,
-    discover_emerging_tech_funds,
-    list_13f_filings,
-    parse_13f_filing,
+from funds_config import CURATED_FUNDS, DUAL_CLASS_CANONICAL, NON_STOCK_ETFS
+from sec_bulk import (
+    discover_universe_via_bulk,
+    filter_operating_entities,
+    ingest_target_histories,
+    sync_bulk_zips,
 )
 from security_resolver import (
     CUSIP_CACHE_PATH,
@@ -89,9 +88,32 @@ def build_aligned_price_matrix(
                 arr[i] = last_val
             else:
                 last_val = arr[i]
+        # Sanitize unrecorded reverse/forward split discontinuities in historical series
+        for i in range(first_idx + 1, last_idx + 1):
+            prev_px = arr[i - 1]
+            cur_px = arr[i]
+            if prev_px <= 0 or cur_px <= 0:
+                continue
+            r = cur_px / prev_px
+            if r >= 8.0 or r <= 0.125:
+                prev_win = arr[max(first_idx, i - 10) : i]
+                next_win = arr[i : min(last_idx + 1, i + 10)]
+                if len(prev_win) >= 3 and len(next_win) >= 3:
+                    med_prev = float(np.median(prev_win))
+                    med_next = float(np.median(next_win))
+                    if med_prev > 0 and med_next > 0:
+                        med_ratio = med_next / med_prev
+                        if (r >= 8.0 and med_ratio >= 5.0) or (r <= 0.125 and med_ratio <= 0.2):
+                            arr[first_idx:i] *= r
+                            print(
+                                f"  [prices] Sanitized unrecorded split boundary for {ticker} at {cal_dates[i]} "
+                                f"({prev_px:.4f} -> {cur_px:.4f}, factor {r:.2f}x).",
+                                flush=True,
+                            )
         # Freeze at last known price after delisting/end
+        end_val = float(arr[last_idx])
         for i in range(last_idx + 1, n):
-            arr[i] = last_val
+            arr[i] = end_val
         aligned[ticker] = (arr, first_idx, last_idx)
     return aligned
 
@@ -302,6 +324,7 @@ def extract_equity_weights(
     """
     Return (ticker_weights_dict, equity_aum_usd, total_reported_usd,
             equity_pos_count, top10_weight_pct, tech_tmt_pct)
+    after normalizing dual-class share lines (e.g. GOOG -> GOOGL).
     """
     total_reported = sum(r["valueUsd"] for r in filing["rows"])
     eq_rows = [r for r in filing["rows"] if r["secType"] == "EQUITY" and r["valueUsd"] > 0]
@@ -313,7 +336,8 @@ def extract_equity_weights(
     tech_val = 0.0
     for r in eq_rows:
         meta = cusip_meta.get(r["cusip"], {})
-        ticker = meta.get("ticker") or f"CUSIP:{r['cusip']}"
+        raw_t = meta.get("ticker") or f"CUSIP:{r['cusip']}"
+        ticker = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
         by_ticker[ticker] = by_ticker.get(ticker, 0.0) + r["valueUsd"]
         if meta.get("isTechTmt"):
             tech_val += r["valueUsd"]
@@ -362,14 +386,26 @@ def compute_ideal_portfolio_weights(
     cusip_meta: dict[str, dict[str, Any]],
     max_names: int = 40,
     cap_pct: float = 8.0,
+    aligned_prices: dict[str, tuple[Any, int, int]] | None = None,
+    n_dates: int = 0,
 ) -> tuple[dict[str, float], dict[str, dict[str, Any]]]:
     """
-    Score stocks across ranked funds by multi-window performance rank, conviction weight,
+    Score actively traded US stocks across ranked funds by steep multi-window
+    performance rank (rank^1.5), sqrt(portfolio weight), Tech/TMT specialist relevance,
     multi-fund consensus, and QoQ net accumulation.
     Returns (weights_0_to_1, stock_scoring_details).
     """
     if not funds_subset:
         return {}, {}
+
+    canon_meta_by_ticker: dict[str, dict[str, Any]] = {}
+    canon_cusip_by_ticker: dict[str, str] = {}
+    for c_key, m_val in cusip_meta.items():
+        tk = m_val.get("ticker", "")
+        if tk and not tk.startswith("CUSIP:"):
+            if tk not in canon_meta_by_ticker or m_val.get("sector"):
+                canon_meta_by_ticker[tk] = m_val
+                canon_cusip_by_ticker[tk] = c_key
 
     # Compute percentile rank per window for each fund
     win_weights = {"TTM": 0.25, "3Y": 0.25, "2Y": 0.20, "18M": 0.15, "YTD": 0.10, "5Y": 0.05}
@@ -395,24 +431,58 @@ def compute_ideal_portfolio_weights(
                 den += ww
         fund_scores[cik] = (num / den) if den > 0 else 0.5
 
-    # Aggregate stock signals across the funds
+    # Aggregate stock signals across funds (pre-merging dual share classes per fund)
     stock_agg: dict[str, dict[str, Any]] = {}
     for f in funds_subset:
         cik = f["cik"]
         fscore = fund_scores[cik]
+        fund_merged: dict[str, dict[str, Any]] = {}
         for h in f["holdings"]:
             if h["securityType"] != "EQUITY" or h["weightPct"] <= 0:
                 continue
-            t = h["ticker"]
-            if t.startswith("CUSIP:") or t in NON_STOCK_ETFS:
+            raw_t = cusip_meta.get(h["cusip"], {}).get("ticker") or h["ticker"]
+            if not raw_t or raw_t.startswith("CUSIP:"):
                 continue
+            canon_t = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
+            if canon_t in NON_STOCK_ETFS:
+                continue
+            if aligned_prices is not None and n_dates > 0:
+                pdata = aligned_prices.get(canon_t)
+                if pdata is None or pdata[2] < n_dates - 7 or (pdata[2] - pdata[1]) < 20:
+                    continue
+            slot = fund_merged.get(canon_t)
+            if slot is None:
+                c_meta = canon_meta_by_ticker.get(canon_t, {})
+                fund_merged[canon_t] = {
+                    "ticker": canon_t,
+                    "cusip": h["cusip"] if raw_t == canon_t else (canon_cusip_by_ticker.get(canon_t) or h["cusip"]),
+                    "name": (c_meta.get("name") or h["name"]) if raw_t != canon_t else h["name"],
+                    "sector": c_meta.get("sector") or h["sector"] if raw_t != canon_t else h["sector"],
+                    "industry": c_meta.get("industry") or h["industry"] if raw_t != canon_t else h["industry"],
+                    "isTechTmt": bool(h.get("isTechTmt") or c_meta.get("isTechTmt")),
+                    "weightPct": float(h["weightPct"]),
+                    "maxLegVal": float(h["valueUsd"]),
+                    "status": h["status"],
+                }
+            else:
+                slot["weightPct"] += float(h["weightPct"])
+                slot["isTechTmt"] = slot["isTechTmt"] or bool(h.get("isTechTmt"))
+                if float(h["valueUsd"]) > slot["maxLegVal"]:
+                    slot["maxLegVal"] = float(h["valueUsd"])
+                    slot["status"] = h["status"]
+                    if raw_t == canon_t:
+                        slot["cusip"] = h["cusip"]
+                        slot["name"] = h["name"]
+
+        for t, hm in fund_merged.items():
             if t not in stock_agg:
                 stock_agg[t] = {
                     "ticker": t,
-                    "cusip": h["cusip"],
-                    "name": h["name"],
-                    "sector": h["sector"],
-                    "industry": h["industry"],
+                    "cusip": hm["cusip"],
+                    "name": hm["name"],
+                    "sector": hm["sector"],
+                    "industry": hm["industry"],
+                    "isTechTmt": hm["isTechTmt"],
                     "convSum": 0.0,
                     "weights": [],
                     "backers": [],
@@ -420,22 +490,24 @@ def compute_ideal_portfolio_weights(
                     "netTrim": 0,
                 }
             rec = stock_agg[t]
-            w_dec = h["weightPct"] / 100.0
-            rec["convSum"] += fscore * math.sqrt(w_dec)
-            rec["weights"].append(h["weightPct"])
+            rec["isTechTmt"] = rec["isTechTmt"] or hm["isTechTmt"]
+            w_pct = round(hm["weightPct"], 2)
+            w_dec = hm["weightPct"] / 100.0
+            rec["convSum"] += (fscore ** 1.5) * math.sqrt(w_dec)
+            rec["weights"].append(w_pct)
             rec["backers"].append({
                 "cik": cik,
                 "fundName": f["name"],
-                "weightPct": h["weightPct"],
-                "status": h["status"],
+                "weightPct": w_pct,
+                "status": hm["status"],
                 "fscore": fscore,
             })
-            if h["status"] in ("NEW", "ADDED"):
+            if hm["status"] in ("NEW", "ADDED"):
                 rec["netBuy"] += 1
-            elif h["status"] == "TRIMMED":
+            elif hm["status"] == "TRIMMED":
                 rec["netTrim"] += 1
 
-    # Filter out single-fund sub-1.5% noise unless backed by >=2 funds or >=4% conviction by a top fund
+    # Require multi-fund backing (>=2) or top high-conviction anchor (>=4.5%)
     qualified: dict[str, float] = {}
     for t, rec in stock_agg.items():
         cnt = len(rec["backers"])
@@ -445,7 +517,8 @@ def compute_ideal_portfolio_weights(
         consensus_mult = 1.0 + 0.18 * math.log(max(1, cnt))
         mom_delta = (rec["netBuy"] - rec["netTrim"]) / max(1, cnt)
         mom_mult = 1.0 + 0.08 * max(-0.5, min(1.0, mom_delta))
-        score = rec["convSum"] * consensus_mult * mom_mult
+        tech_mult = 1.0 if rec["isTechTmt"] else 0.68
+        score = rec["convSum"] * consensus_mult * mom_mult * tech_mult
         rec["rawScore"] = score
         qualified[t] = score
 
@@ -1182,346 +1255,26 @@ def build_updates_overview(fund_updates: list[dict[str, Any]], total_eligible: i
     }
 
 
-def build_discovery_watchlist(
-    funds_out: list[dict[str, Any]],
-    ranked_ciks: list[str],
-    top_holdings: list[dict[str, Any]],
-    ideal_positions: list[dict[str, Any]],
-    aligned_prices: dict[str, tuple[np.ndarray, int, int]],
-    ttm_start_idx: int,
-) -> dict[str, Any]:
-    """
-    Audit current 13F holdings against DISCOVERY_SEED_PAIRS to flag emerging
-    disruptive Tech/TMT "must-hold" stocks surging across Top-100 funds that are not yet
-    seeded in SEC EDGAR EFTS discovery queries (plus any stale/acquired seed tickers).
-    """
-    seeded_tickers: set[str] = set()
-    for ta, _ca, tb, _cb, _theme in DISCOVERY_SEED_PAIRS:
-        if ta:
-            seeded_tickers.add(ta.upper())
-        if tb:
-            seeded_tickers.add(tb.upper())
-    if "GOOGL" in seeded_tickers:
-        seeded_tickers.add("GOOG")
-
-    ranked_set = set(ranked_ciks)
-    top30_rank_map = {h["ticker"]: h["rank"] for h in top_holdings}
-    ideal_rank_map = {p["ticker"]: p["rank"] for p in ideal_positions}
-    non_seedable = {"SPCX"} | NON_STOCK_ETFS
-
-    stock_stats: dict[str, dict[str, Any]] = {}
-    for f in funds_out:
-        is_rnk = f["cik"] in ranked_set
-        for h in f["holdings"]:
-            if h["securityType"] != "EQUITY" or h["weightPct"] <= 0:
-                continue
-            t = h["ticker"]
-            c = (h.get("cusip") or "").strip().upper()
-            if not t or t.startswith("CUSIP:") or t in non_seedable or len(c) != 9:
-                continue
-            if not h.get("isTechTmt") or h.get("pricePerShare") is None:
-                continue
-
-            rec = stock_stats.get(t)
-            if rec is None:
-                rec = {
-                    "ticker": t,
-                    "name": h["name"],
-                    "sector": h["sector"] or "Other",
-                    "industry": h.get("industry") or "",
-                    "cusipUsd": {},
-                    "allHolders": 0,
-                    "rankedHolders": 0,
-                    "newRanked": 0,
-                    "heavyAddRanked": 0,
-                    "highConvRanked": 0,
-                    "rankedUsd": 0.0,
-                }
-                stock_stats[t] = rec
-
-            rec["cusipUsd"][c] = rec["cusipUsd"].get(c, 0.0) + float(h["valueUsd"])
-            rec["allHolders"] += 1
-            if is_rnk:
-                rec["rankedHolders"] += 1
-                rec["rankedUsd"] += float(h["valueUsd"])
-                if h["weightPct"] >= 2.0:
-                    rec["highConvRanked"] += 1
-                if h["status"] == "NEW":
-                    rec["newRanked"] += 1
-                elif h["status"] == "ADDED" and (
-                    (h.get("qoqSharesChangePct") or 0.0) >= 25.0
-                    or (h.get("qoqWeightDeltaPct") or 0.0) >= 0.5
-                ):
-                    rec["heavyAddRanked"] += 1
-
-    # Audit stale/delisted/acquired active seeds
-    stale_seeds: list[dict[str, Any]] = []
-    for t in sorted(seeded_tickers - {"GOOG"}):
-        rec = stock_stats.get(t)
-        rnk_h = rec["rankedHolders"] if rec else 0
-        all_h = rec["allHolders"] if rec else 0
-        if rnk_h < 5 and all_h < 10:
-            stale_seeds.append({
-                "ticker": t,
-                "rankedHolders": rnk_h,
-                "allQualifiedHolders": all_h,
-                "note": f"Only {rnk_h} Top-100 / {all_h} qualified holders — verify ticker or M&A status",
-            })
-
-    # Score unseeded Tech/TMT breakout stocks
-    flagged: list[dict[str, Any]] = []
-    for t, rec in stock_stats.items():
-        if t in seeded_tickers:
-            continue
-        rnk_h = rec["rankedHolders"]
-        new_r = rec["newRanked"]
-        hadd_r = rec["heavyAddRanked"]
-        hi_c = rec["highConvRanked"]
-        if rnk_h < 8 or hi_c < 3:
-            continue
-
-        surge_cnt = new_r + hadd_r
-        surge_ratio = surge_cnt / max(1, rnk_h)
-        surge_pct = round(surge_ratio * 100.0, 1)
-        t30_rank = top30_rank_map.get(t)
-        id_rank = ideal_rank_map.get(t)
-
-        qual_surge = new_r >= 5 and surge_pct >= 42.0
-        qual_consensus = (id_rank is not None or (t30_rank is not None and t30_rank <= 25)) and surge_pct >= 35.0
-        if not (qual_surge or qual_consensus):
-            continue
-
-        ttm_pct = None
-        if t in aligned_prices:
-            arr, first_i, last_i = aligned_prices[t]
-            if first_i <= ttm_start_idx + 5:
-                s_i = max(ttm_start_idx, first_i)
-                ttm_pct = clean_num(((arr[last_i] / arr[s_i]) - 1.0) * 100.0, 1)
-
-        perf_mult = 1.0
-        if ttm_pct is not None:
-            if ttm_pct >= 50.0:
-                perf_mult = 1.25
-            elif ttm_pct >= 15.0:
-                perf_mult = 1.12
-            elif ttm_pct < -15.0:
-                perf_mult = 0.72
-
-        ideal_bonus = 1.35 if (id_rank and id_rank <= 25) else (1.15 if id_rank else 1.0)
-        t30_bonus = 1.20 if t30_rank else 1.0
-        raw_score = (
-            (new_r * 3.2 + hadd_r * 1.8 + hi_c * 1.5)
-            * (0.55 + min(1.0, surge_ratio))
-            * (1.0 + 0.12 * math.log1p(rnk_h))
-            * perf_mult
-            * ideal_bonus
-            * t30_bonus
-        )
-
-        primary_cusip = max(rec["cusipUsd"].items(), key=lambda x: x[1])[0]
-        ind_low = rec["industry"].lower()
-        is_saas = any(k in ind_low for k in ("software", "internet", "interactive")) and "infrastructure" not in ind_low
-        anchor_t, anchor_c = ("MSFT", "594918104") if is_saas else ("NVDA", "67066G104")
-        theme_label = f"Emerging {rec['industry'] or rec['sector']} & {anchor_t}"
-        suggested_pair = f"{t}+{anchor_t}"
-
-        reasons: list[str] = []
-        if t30_rank is not None:
-            reasons.append(f"Top-30 Consensus #{t30_rank}")
-        if id_rank is not None:
-            reasons.append(f"Ideal Portfolio #{id_rank}")
-        reasons.append(f"{new_r} new + {hadd_r} heavy adds ({surge_pct:.0f}% surge)")
-        if hi_c >= 5:
-            reasons.append(f"{hi_c} funds >=2% conviction")
-
-        alert_tier = (
-            "URGENT"
-            if (raw_score >= 140.0 or (id_rank is not None and id_rank <= 25) or (t30_rank is not None and t30_rank <= 25))
-            else "WATCH"
-        )
-        copy_tuple = f'("{t}", "{primary_cusip}", "{anchor_t}", "{anchor_c}", "{theme_label}"),'
-
-        flagged.append({
-            "ticker": t,
-            "cusip": primary_cusip,
-            "name": rec["name"],
-            "sector": rec["sector"],
-            "industry": rec["industry"],
-            "holderCount": rnk_h,
-            "allQualifiedHolders": rec["allHolders"],
-            "newInitiationsCount": new_r,
-            "heavyAddsCount": hadd_r,
-            "highConvictionCount": hi_c,
-            "surgePct": surge_pct,
-            "rankedBookValueUsd": round(rec["rankedUsd"], 2),
-            "stockTtmPct": ttm_pct,
-            "idealRank": id_rank,
-            "consensusRank": t30_rank,
-            "breakoutScore": round(raw_score, 1),
-            "alertTier": alert_tier,
-            "suggestedPair": suggested_pair,
-            "anchorTicker": anchor_t,
-            "anchorCusip": anchor_c,
-            "copyTuple": copy_tuple,
-            "triggerReason": " · ".join(reasons),
-        })
-
-    flagged.sort(key=lambda x: x["breakoutScore"], reverse=True)
-    top_flagged = flagged[:10]
-    urgent_cnt = sum(1 for c in top_flagged if c["alertTier"] == "URGENT")
-
-    return {
-        "seedPairCount": len(DISCOVERY_SEED_PAIRS),
-        "activeSeedTickers": sorted(seeded_tickers - {"GOOG"}),
-        "watchlistRuleSummary": (
-            "Flags public Tech/TMT equities absent from DISCOVERY_SEED_PAIRS with >=8 Top-100 holders, "
-            ">=3 positions sized >=2%, and either >=5 new initiations (>=42% book surge) or Top-25 Ideal/Consensus standing."
-        ),
-        "urgentCount": urgent_cnt,
-        "totalFlaggedCount": len(flagged),
-        "emergingSeedCandidates": top_flagged,
-        "staleSeeds": stale_seeds,
-    }
-
-
-def _merge_period_filings(period_filings: list[dict[str, Any]]) -> dict[str, Any] | None:
-    parsed_group: list[dict[str, Any]] = []
-    for f in sorted(period_filings, key=lambda x: (x["filingDate"], x["accessionNumber"])):
-        parsed = parse_13f_filing(f)
-        if parsed:
-            parsed_group.append(parsed)
-    if not parsed_group:
-        return None
-    merged: dict[tuple[str, str], dict[str, Any]] = {}
-    meta: dict[str, Any] | None = None
-    for parsed in parsed_group:
-        if parsed["form"] == "13F-HR" or parsed["amendmentType"] == "RESTATEMENT" or meta is None:
-            merged = {(r["cusip"], r["secType"]): dict(r) for r in parsed["rows"]}
-            meta = {
-                "cik": parsed["cik"],
-                "entityName": parsed["entityName"],
-                "reportDate": parsed["reportDate"],
-                "filingDate": parsed["filingDate"],
-                "accessionNumber": parsed["accessionNumber"],
-            }
-        else:
-            for r in parsed["rows"]:
-                k = (r["cusip"], r["secType"])
-                if k not in merged:
-                    merged[k] = dict(r)
-                else:
-                    merged[k]["valueUsd"] += r["valueUsd"]
-                    merged[k]["shares"] += r["shares"]
-    if meta and merged:
-        meta["rows"] = sorted(merged.values(), key=lambda x: x["valueUsd"], reverse=True)
-        return meta
-    return None
-
-
 def main() -> None:
     print("=== Paper Trail 13F Pipeline Starting ===")
-    known_ciks = {f["cik"] for f in CURATED_FUNDS}
-    print(f"[universe] Curated funds: {len(CURATED_FUNDS)}. Scanning EDGAR for up to 1,000 emerging tech funds...")
-    discovered = discover_emerging_tech_funds(known_ciks, max_candidates=1000)
-    print(f"[universe] Discovered {len(discovered)} pre-screened candidate funds via SEC EDGAR EFTS.")
-
-    all_candidates: list[dict[str, Any]] = []
-    for f in CURATED_FUNDS:
-        item = dict(f)
-        item["source"] = "Curated Core"
-        all_candidates.append(item)
-    all_candidates.extend(discovered)
-
     today_date = datetime.now(timezone.utc).date()
+    known_ciks = {f["cik"] for f in CURATED_FUNDS}
 
-    # Stage 1: Concurrent Latest-Filing Ingestion & Size / Concentration Pre-Screening
-    print(f"[stage-1] Inspecting latest 13F filings across {len(all_candidates)} total candidates (8 workers)...", flush=True)
-    stage1_results: dict[str, dict[str, Any]] = {}
-    fetch_errors: list[tuple[str, str]] = []
-
-    def _stage1_one(cand: dict[str, Any]) -> tuple[str, dict[str, Any] | None, str | None]:
-        cik = cand["cik"]
-        is_curated = cand.get("source") == "Curated Core"
-        try:
-            raw_list = list_13f_filings(cik, min_report_date="2020-12-31")
-            if not raw_list:
-                return cik, None, "no valid 13F holdings found"
-            by_period: dict[str, list[dict[str, Any]]] = {}
-            for fl in raw_list:
-                by_period.setdefault(fl["reportDate"], []).append(fl)
-            periods_desc = sorted(by_period.keys(), reverse=True)
-            latest_raw_rd = periods_desc[0]
-
-            latest_filing = None
-            for rd in periods_desc[:3]:
-                latest_filing = _merge_period_filings(by_period[rd])
-                if latest_filing:
-                    break
-            if not latest_filing:
-                return cik, None, "no valid 13F holdings found"
-
-            latest_rd = latest_filing["reportDate"]
-            if latest_raw_rd > latest_rd and (
-                datetime.strptime(latest_raw_rd, "%Y-%m-%d").date() - datetime.strptime(latest_rd, "%Y-%m-%d").date()
-            ).days > 100:
-                return cik, None, f"latest filing {latest_raw_rd} reported $0/no holdings (last populated {latest_rd})"
-
-            age_days = (today_date - datetime.strptime(latest_rd, "%Y-%m-%d").date()).days
-            if age_days > 210:
-                return cik, None, f"stale latest period {latest_rd} ({age_days}d old)"
-
-            rep_aum = sum(r["valueUsd"] for r in latest_filing["rows"])
-            eq_rows = [r for r in latest_filing["rows"] if r["secType"] == "EQUITY" and r["valueUsd"] > 0]
-            eq_aum = sum(r["valueUsd"] for r in eq_rows)
-            raw_qtrs = len(periods_desc)
-
-            qual_ok = raw_qtrs >= 4 and rep_aum >= 200_000_000 and eq_aum >= 100_000_000
-            update_only_ok = is_curated and raw_qtrs >= 2 and rep_aum >= 200_000_000
-            if not (qual_ok or update_only_ok):
-                return cik, None, f"below $200M/$100M/qtrs gate (rep=${rep_aum/1e6:.0f}M eq=${eq_aum/1e6:.0f}M qtrs={raw_qtrs})"
-
-            # Safe concentration pre-filter for non-curated funds before CUSIP ticker merging
-            if not is_curated and eq_aum > 0:
-                raw_by_c: dict[str, float] = {}
-                for r in eq_rows:
-                    raw_by_c[r["cusip"]] = raw_by_c.get(r["cusip"], 0.0) + r["valueUsd"]
-                raw_pos = len(raw_by_c)
-                raw_top10 = sum(sorted(raw_by_c.values(), reverse=True)[:10]) / eq_aum * 100.0
-                if not (raw_top10 >= 30.0 or raw_pos <= 115):
-                    return cik, None, f"unconcentrated (rawPos={raw_pos}, rawTop10={raw_top10:.1f}%)"
-
-            return cik, {
-                "cand": cand,
-                "latest": latest_filing,
-                "eqRows": eq_rows,
-                "eqAum": eq_aum,
-                "repAum": rep_aum,
-                "qualOk": qual_ok,
-                "updateOnlyOk": update_only_ok and not qual_ok,
-            }, None
-        except Exception as e:
-            return cik, None, f"ERROR: {e}"
-
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futs = [ex.submit(_stage1_one, c) for c in all_candidates]
-        for done_cnt, fut in enumerate(as_completed(futs), 1):
-            cik, res, reason = fut.result()
-            if res is not None:
-                stage1_results[cik] = res
-            elif reason and reason.startswith("ERROR:"):
-                cand_nm = next((c["name"] for c in all_candidates if c["cik"] == cik), cik)
-                fetch_errors.append((f"{cand_nm} ({cik})", reason))
-            if done_cnt % 150 == 0 or done_cnt == len(all_candidates):
-                print(f"  [stage-1] {done_cnt}/{len(all_candidates)} inspected ({len(stage1_results)} passed size/recency gate)", flush=True)
+    # Stage 1: Sync SEC Form 13F Bulk Data Sets (2021-present) & scan 100% of Form 13F CIKs
+    bulk_paths = sync_bulk_zips()
+    all_candidates, stage1_results, funnel_counts, post_bulk_by_cik = discover_universe_via_bulk(
+        CURATED_FUNDS,
+        bulk_paths,
+        today_date,
+        min_history_report_date="2020-12-31",
+    )
 
     if len(stage1_results) < 25:
-        sample = "; ".join(f"{k}: {v}" for k, v in fetch_errors[:3])
         raise RuntimeError(
-            f"Aborting build_data.py before modifying output: only {len(stage1_results)} candidates passed Stage 1 "
-            f"({len(fetch_errors)} fetch errors). Sample errors: {sample}"
+            f"Aborting build_data.py before modifying output: only {len(stage1_results)} candidates passed Stage 1."
         )
 
-    # Stage 1b: Mathematical Tech/TMT >= 20% bound check + Material & Borderline CUSIP resolution
+    # Stage 1b: Mathematical Tech/TMT >= 35% bound check + Materiality-prioritized CUSIP resolution
     def _build_cached_lookup() -> tuple[dict[str, Any], dict[str, Any]]:
         cc = load_json_dict(CUSIP_CACHE_PATH)
         tm = load_json_dict(TICKER_META_PATH)
@@ -1549,6 +1302,7 @@ def main() -> None:
     cc, tm = _build_cached_lookup()
     pre_prune_ciks: list[str] = []
     material_stage1_cusips: dict[str, str] = {}
+    material_stage1_priority: dict[str, float] = {}
 
     for cand in all_candidates:
         cik = cand["cik"]
@@ -1565,7 +1319,7 @@ def main() -> None:
                 if _cached_tech_state(r["cusip"], cc, tm) is False:
                     known_non_tech += r["valueUsd"]
         max_possible_tech = (1.0 - known_non_tech / eq_aum) * 100.0 if eq_aum > 0 else 0.0
-        if not is_curated and max_possible_tech < 20.0:
+        if not is_curated and max_possible_tech < 35.0:
             continue
 
         pre_prune_ciks.append(cik)
@@ -1574,13 +1328,19 @@ def main() -> None:
                 c_id = r["cusip"]
                 if c_id not in material_stage1_cusips:
                     material_stage1_cusips[c_id] = r["issuer"]
+                material_stage1_priority[c_id] = material_stage1_priority.get(c_id, 0.0) + float(r["valueUsd"])
 
-    print(f"[stage-1b] {len(pre_prune_ciks)} candidates cleared mathematical Tech/TMT ceiling; resolving {len(material_stage1_cusips)} latest-filing CUSIPs...", flush=True)
+    print(
+        f"[stage-1b] {len(pre_prune_ciks)} candidates cleared mathematical Tech/TMT >=35% ceiling; "
+        f"resolving {len(material_stage1_cusips)} latest-filing CUSIPs...",
+        flush=True,
+    )
     if material_stage1_cusips:
-        resolve_cusips(material_stage1_cusips)
+        resolve_cusips(material_stage1_cusips, cusip_priority=material_stage1_priority)
 
     cc, tm = _build_cached_lookup()
     borderline_cusips: dict[str, str] = {}
+    borderline_priority: dict[str, float] = {}
     stage1_survivors_raw: list[dict[str, Any]] = []
 
     for cik in pre_prune_ciks:
@@ -1604,26 +1364,31 @@ def main() -> None:
                 known_non_tech += r["valueUsd"]
         min_tech = (known_tech / eq_aum) * 100.0 if eq_aum > 0 else 0.0
         max_tech = (1.0 - known_non_tech / eq_aum) * 100.0 if eq_aum > 0 else 0.0
-        if max_tech < 20.0:
+        if max_tech < 35.0:
             continue
         stage1_survivors_raw.append(info)
-        if min_tech < 20.0:
+        if min_tech < 35.0:
             for r in eq_rows:
                 c_id = r["cusip"]
-                if _cached_tech_state(c_id, cc, tm) is None and c_id not in borderline_cusips:
-                    borderline_cusips[c_id] = r["issuer"]
+                if _cached_tech_state(c_id, cc, tm) is None:
+                    if c_id not in borderline_cusips:
+                        borderline_cusips[c_id] = r["issuer"]
+                    borderline_priority[c_id] = borderline_priority.get(c_id, 0.0) + float(r["valueUsd"])
 
     if borderline_cusips:
-        print(f"[stage-1b] Resolving {len(borderline_cusips)} tail equity CUSIPs for borderline Tech/TMT >= 20% funds...", flush=True)
-        resolve_cusips(borderline_cusips)
+        print(
+            f"[stage-1b] Resolving {len(borderline_cusips)} tail equity CUSIPs for borderline Tech/TMT >= 35% funds...",
+            flush=True,
+        )
+        resolve_cusips(borderline_cusips, cusip_priority=borderline_priority)
 
     cc, tm = _build_cached_lookup()
-    stage2_targets: list[dict[str, Any]] = []
+    stage2_targets_raw: list[dict[str, Any]] = []
     for info in stage1_survivors_raw:
         cand = info["cand"]
         is_curated = cand.get("source") == "Curated Core"
         if is_curated:
-            stage2_targets.append(cand)
+            stage2_targets_raw.append(cand)
             continue
         eq_aum = info["eqAum"]
         eq_rows = info["eqRows"]
@@ -1633,101 +1398,101 @@ def main() -> None:
             if _cached_tech_state(r["cusip"], cc, tm) is True
         )
         exact_tech_pct = (tech_val / eq_aum * 100.0) if eq_aum > 0 else 0.0
-        if exact_tech_pct >= 20.0:
-            stage2_targets.append(cand)
+        if exact_tech_pct >= 35.0:
+            stage2_targets_raw.append(cand)
 
-    # Stage 2: Concurrent Historical 13F Ingestion for Qualified & Curated Candidates
-    print(f"\n[stage-2] Fetching full historical 13F filings (2021-present) for {len(stage2_targets)} surviving funds (8 workers)...", flush=True)
-    raw_fund_filings: dict[str, list[dict[str, Any]]] = {}
-    all_cusips: dict[str, str] = {}
+    # Verify SEC entityType/SIC on non-curated Stage 2 survivors to exclude operating corps
+    excluded_ops = filter_operating_entities([c["cik"] for c in stage2_targets_raw], known_ciks)
+    if excluded_ops:
+        print(f"[universe] Excluded {len(excluded_ops)} operating companies verified via SEC submissions metadata.", flush=True)
+        funnel_counts["excludedInstitutionsCount"] += len(excluded_ops)
+        funnel_counts["nonExcludedManagerCount"] = max(0, funnel_counts["nonExcludedManagerCount"] - len(excluded_ops))
+        funnel_counts["fourPlusQuartersCount"] = max(0, funnel_counts["fourPlusQuartersCount"] - len(excluded_ops))
+        funnel_counts["sizeAndEquityPassCount"] = max(0, funnel_counts["sizeAndEquityPassCount"] - len(excluded_ops))
+        funnel_counts["concentrationPassCount"] = max(0, funnel_counts["concentrationPassCount"] - len(excluded_ops))
+    stage2_targets = [c for c in stage2_targets_raw if c["cik"] not in excluded_ops]
+    funnel_counts["techFloorPassCount"] = len(stage2_targets)
 
-    def _stage2_one(cand: dict[str, Any]) -> tuple[str, list[dict[str, Any]] | None, str | None]:
-        cik = cand["cik"]
-        try:
-            raw_list = list_13f_filings(cik, min_report_date="2020-12-31")
-            filings = build_clean_quarterly_filings(cik, min_report_date="2020-12-31")
-            if not filings:
-                return cik, None, "no valid 13F holdings found"
-            latest_rd = filings[-1]["reportDate"]
-            latest_raw_rd = raw_list[-1]["reportDate"] if raw_list else latest_rd
-            if latest_raw_rd > latest_rd and (
-                datetime.strptime(latest_raw_rd, "%Y-%m-%d").date() - datetime.strptime(latest_rd, "%Y-%m-%d").date()
-            ).days > 100:
-                return cik, None, f"latest filing {latest_raw_rd} reported $0/no holdings (last populated {latest_rd})"
-            age_days = (today_date - datetime.strptime(latest_rd, "%Y-%m-%d").date()).days
-            if age_days > 210:
-                return cik, None, f"stale latest period {latest_rd} ({age_days}d old)"
-            return cik, filings, None
-        except Exception as e:
-            return cik, None, str(e)
-
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futs = [ex.submit(_stage2_one, c) for c in stage2_targets]
-        for done_cnt, fut in enumerate(as_completed(futs), 1):
-            cik, filings, err_msg = fut.result()
-            cand_nm = stage1_results[cik]["cand"]["name"] if cik in stage1_results else cik
-            if filings:
-                raw_fund_filings[cik] = filings
-                for idx_fl, fl in enumerate(filings):
-                    is_recent_q = idx_fl >= len(filings) - 2
-                    for row in fl["rows"]:
-                        if row["secType"] == "EQUITY" or is_recent_q:
-                            if row["cusip"] not in all_cusips:
-                                all_cusips[row["cusip"]] = row["issuer"]
-            elif err_msg:
-                fetch_errors.append((f"{cand_nm} ({cik})", err_msg))
-            if done_cnt % 50 == 0 or done_cnt == len(stage2_targets):
-                print(f"  [stage-2] {done_cnt}/{len(stage2_targets)} funds fetched ({len(raw_fund_filings)} valid histories)", flush=True)
+    # Stage 2: Offline Bulk Data Set historical extraction + Post-Bulk .txt XML ingestion
+    print(f"\n[stage-2] Assembling full 2021-present histories for {len(stage2_targets)} surviving funds...", flush=True)
+    raw_fund_filings, pb_stats = ingest_target_histories(
+        target_ciks=[c["cik"] for c in stage2_targets],
+        bulk_paths=bulk_paths,
+        post_bulk_by_cik=post_bulk_by_cik,
+        today_date=today_date,
+        min_report_date="2020-12-31",
+    )
+    funnel_counts["postBulkFilingsCount"] = pb_stats["postBulkFilingsCount"]
 
     if len(raw_fund_filings) < 25:
-        sample = "; ".join(f"{k}: {v}" for k, v in fetch_errors[:3])
         raise RuntimeError(
-            f"Aborting build_data.py before modifying output: only {len(raw_fund_filings)} funds ingested "
-            f"({len(fetch_errors)} fetch errors). Sample errors: {sample}"
+            f"Aborting build_data.py before modifying output: only {len(raw_fund_filings)} funds assembled in Stage 2."
         )
 
+    all_cusips: dict[str, str] = {}
+    all_cusip_priority: dict[str, float] = {}
+    for filings in raw_fund_filings.values():
+        for idx_fl, fl in enumerate(filings):
+            is_recent_q = idx_fl >= len(filings) - 2
+            for row in fl["rows"]:
+                if row["secType"] == "EQUITY" or is_recent_q:
+                    c_id = row["cusip"]
+                    if c_id not in all_cusips:
+                        all_cusips[c_id] = row["issuer"]
+                    all_cusip_priority[c_id] = all_cusip_priority.get(c_id, 0.0) + float(row["valueUsd"])
+
     # Step 2: Resolve all historical equity + recent option CUSIPs -> Tickers, Sectors, Industries
-    cusip_meta = resolve_cusips(all_cusips)
+    cusip_meta = resolve_cusips(all_cusips, cusip_priority=all_cusip_priority, max_openfigi_batches=10)
 
     # Step 3: Exact Tech-Focused & Concentrated qualification audit on each fund's latest filing
-    qualified_cands: list[dict[str, Any]] = []
-    update_cands: list[dict[str, Any]] = []
+    strict_pass_cands: list[dict[str, Any]] = []
+    prelim_update_cands: list[dict[str, Any]] = []
     needed_tickers: set[str] = {"QQQ", "SPY", "XLK"}
 
-    print("\n=== Fund Qualification Audit (Tech/TMT >= 20%, $200M+ Reported / $100M+ Equity, Top10 >= 35% or Pos <= 100) ===")
+    print(
+        "\n=== Fund Qualification Audit (Tech >= 35% Disc / >= 30% Curated, $200M+ Rep / $100M+ Eq, "
+        "Pos >= 5, EffN >= 1.5 Disc, <= 120 Pos or <= 250 w/ Top10 >= 55%, Qtrs >= 4) ==="
+    )
     for cand in stage2_targets:
         cik = cand["cik"]
         if cik not in raw_fund_filings:
             continue
         filings = raw_fund_filings[cik]
         latest = filings[-1]
+        is_curated = cand.get("source") == "Curated Core"
         weights, eq_aum, rep_aum, pos_cnt, top10_pct, tech_pct = extract_equity_weights(latest, cusip_meta)
 
-        is_tech = tech_pct >= 20.0
-        is_conc = top10_pct >= 35.0 or pos_cnt <= 100
+        tech_floor = 30.0 if is_curated else 35.0
+        is_tech = tech_pct >= tech_floor
+        hhi = sum(w * w for w in weights.values())
+        eff_n = (1.0 / hhi) if hhi > 0 else float(pos_cnt)
+        min_pos_ok = pos_cnt >= 5 and (is_curated or eff_n >= 1.5)
+        is_conc = min_pos_ok and (pos_cnt <= 120 or (pos_cnt <= 250 and top10_pct >= 55.0))
         is_size = rep_aum >= 200_000_000 and eq_aum >= 100_000_000
-        # Require at least 4 quarters of filings so TTM works in Rankings
         has_hist = len(filings) >= 4
 
         status_str = "PASS" if (is_tech and is_conc and is_size and has_hist) else "FILTERED"
-        if cand.get("source") == "Curated Core" or status_str == "PASS":
+        if is_curated or status_str == "PASS":
             print(
                 f"  {status_str:8s} | {cand['name'][:28]:28s} | {cand.get('source', '')[:7]:7s} | "
                 f"Eq=${eq_aum/1e9:6.2f}B | Rep=${rep_aum/1e9:6.2f}B | "
                 f"pos={pos_cnt:3d} | top10={top10_pct:5.1f}% | techTMT={tech_pct:5.1f}% | qtrs={len(filings):2d}"
             )
         if status_str == "PASS":
-            qualified_cands.append(cand)
-            update_cands.append(cand)
+            strict_pass_cands.append(cand)
             for fl in filings:
                 for row in fl["rows"]:
                     if row["secType"] == "EQUITY":
-                        t = cusip_meta.get(row["cusip"], {}).get("ticker", "")
-                        if t and not t.startswith("CUSIP:"):
-                            needed_tickers.add(t)
-        elif cand.get("source") == "Curated Core" and len(filings) >= 2 and rep_aum >= 200_000_000:
+                        raw_t = cusip_meta.get(row["cusip"], {}).get("ticker", "")
+                        if raw_t and not raw_t.startswith("CUSIP:"):
+                            needed_tickers.add(raw_t)
+                            canon_t = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
+                            needed_tickers.add(canon_t)
+        elif is_curated and len(filings) >= 2 and rep_aum >= 200_000_000:
             # Include emerging / option-heavy Curated funds in Quarterly Updates feed
-            update_cands.append(cand)
+            prelim_update_cands.append(cand)
+
+    funnel_counts["strictQualificationCount"] = len(strict_pass_cands)
 
     # Step 5: Fetch historical daily adjusted prices
     raw_prices = fetch_all_prices(sorted(needed_tickers))
@@ -1742,6 +1507,40 @@ def main() -> None:
     as_of_date = cal_dates[-1]
     print(f"\n[calendar] Trading days: {len(cal_dates)} ({cal_dates[0]} .. {as_of_date})")
     print(f"[windows]  { {w: cal_dates[idx] for w, idx in win_indices.items()} }")
+
+    # Post-Price Active Equity Coverage Gate (>= $100M and >= 50% of latest equity book actively priced >= 15d)
+    qualified_cands: list[dict[str, Any]] = []
+    update_cands: list[dict[str, Any]] = []
+    for cand in strict_pass_cands:
+        cik = cand["cik"]
+        filings = raw_fund_filings[cik]
+        latest = filings[-1]
+        is_curated = cand.get("source") == "Curated Core"
+        eq_rows = [r for r in latest["rows"] if r["secType"] == "EQUITY" and r["valueUsd"] > 0]
+        eq_aum_lat = sum(r["valueUsd"] for r in eq_rows)
+        rep_aum_lat = sum(r["valueUsd"] for r in latest["rows"])
+        priced_eq_aum = 0.0
+        for r in eq_rows:
+            raw_t = cusip_meta.get(r["cusip"], {}).get("ticker") or ""
+            canon_t = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
+            pdata = aligned_prices.get(canon_t) or aligned_prices.get(raw_t)
+            if pdata is not None and (pdata[2] - pdata[1]) >= 15:
+                priced_eq_aum += r["valueUsd"]
+        priced_cov = (priced_eq_aum / eq_aum_lat) if eq_aum_lat > 0 else 0.0
+        if priced_eq_aum >= 100_000_000 and priced_cov >= 0.50:
+            qualified_cands.append(cand)
+            update_cands.append(cand)
+        else:
+            print(
+                f"  [post-price DROP] {cand['name'][:30]:30s} | eq=${eq_aum_lat/1e9:.2f}B "
+                f"priced=${priced_eq_aum/1e9:.2f}B ({priced_cov*100:.1f}%)",
+                flush=True,
+            )
+            if is_curated and len(filings) >= 2 and rep_aum_lat >= 200_000_000:
+                update_cands.append(cand)
+
+    update_cands.extend(prelim_update_cands)
+    funnel_counts["pricedHistoryPassCount"] = len(qualified_cands)
 
     qqq_nav = aligned_prices["QQQ"][0] / aligned_prices["QQQ"][0][0] * 100.0
     spy_nav = aligned_prices["SPY"][0] / aligned_prices["SPY"][0][0] * 100.0
@@ -1767,7 +1566,6 @@ def main() -> None:
     # Step 6: Simulate every qualified fund across both modes
     funds_out: list[dict[str, Any]] = []
     fund_navs: dict[str, dict[str, np.ndarray]] = {"quarter_end": {}, "filing_lag": {}}
-    fund_equity_weights: dict[str, dict[str, float]] = {}
 
     for cand in qualified_cands:
         cik = cand["cik"]
@@ -1840,14 +1638,12 @@ def main() -> None:
 
         # Previous quarter aggregated shares/weights across all security types (Equity + Options + Notes)
         prev_agg_rows: dict[tuple[str, str], dict[str, Any]] = {}
-        prev_eq_weights: dict[str, float] = {}
         prev_rep_aum = 0.0
+        prev_eq_aum = 0.0
         if prev:
-            p_weights, _, _, _, _, _ = extract_equity_weights(prev, cusip_meta)
-            prev_eq_weights = p_weights
-            prev_agg_rows, prev_rep_aum, _ = aggregate_filing_positions(prev, cusip_meta)
+            prev_agg_rows, prev_rep_aum, prev_eq_aum = aggregate_filing_positions(prev, cusip_meta)
 
-        # Aggregate latest rows by (ticker, secType) so multi-bucket rows combine cleanly
+        # Aggregate latest rows by (rawTicker, secType) so individual share classes preserve exact shares/deltas
         combined_rows: dict[tuple[str, str], dict[str, Any]] = {}
         for r in latest["rows"]:
             meta = cusip_meta.get(r["cusip"], {})
@@ -1899,15 +1695,16 @@ def main() -> None:
                     elif diff_pct < -2.0:
                         status = "TRIMMED"
                 if is_eq:
-                    pw = prev_eq_weights.get(rt, 0.0) * 100.0
+                    pw = (float(p_row["valueUsd"]) / prev_eq_aum * 100.0) if (p_row and prev_eq_aum > 0) else 0.0
                     qoq_w_delta = clean_num(w_eq - pw, 2)
                 else:
                     pw_rep = (float(p_row["valueUsd"]) / prev_rep_aum * 100.0) if (p_row and prev_rep_aum > 0) else 0.0
                     qoq_w_delta = clean_num(w_rep - pw_rep, 2)
 
+            px_t = rt if rt in aligned_prices else DUAL_CLASS_CANONICAL.get(rt, rt)
             px_last = None
-            if rt in aligned_prices:
-                arr, _, last_i = aligned_prices[rt]
+            if px_t in aligned_prices:
+                arr, _, last_i = aligned_prices[px_t]
                 px_last = clean_num(float(arr[last_i]), 2)
 
             holdings_list.append({
@@ -1997,7 +1794,17 @@ def main() -> None:
 
     fund_by_cik = {f["cik"]: f for f in funds_out}
 
-    # Step 8: Build Top 30 Consensus Holdings per mode (across ranked union funds)
+    # Precompute canonical metadata lookup for merged share classes (e.g. GOOG -> GOOGL)
+    canon_meta_by_ticker: dict[str, dict[str, Any]] = {}
+    canon_cusip_by_ticker: dict[str, str] = {}
+    for c_key, m_val in cusip_meta.items():
+        tk = m_val.get("ticker", "")
+        if tk and not tk.startswith("CUSIP:"):
+            if tk not in canon_meta_by_ticker or m_val.get("sector"):
+                canon_meta_by_ticker[tk] = m_val
+                canon_cusip_by_ticker[tk] = c_key
+
+    # Step 8: Build Top 30 Consensus Holdings per mode (across ranked union funds, pre-merged per fund)
     top_holdings_out: dict[str, list[dict[str, Any]]] = {}
     for mode in MODES:
         pool_ciks = ranked_union_ciks[mode] or [f["cik"] for f in funds_out]
@@ -2008,21 +1815,57 @@ def main() -> None:
         stock_map: dict[str, dict[str, Any]] = {}
         for f in pool_funds:
             cik = f["cik"]
+            fund_merged: dict[str, dict[str, Any]] = {}
             for h in f["holdings"]:
                 if h["securityType"] != "EQUITY" or h["weightPct"] <= 0:
                     continue
-                t = h["ticker"]
-                if t.startswith("CUSIP:") or t in NON_STOCK_ETFS:
+                raw_t = cusip_meta.get(h["cusip"], {}).get("ticker") or h["ticker"]
+                if not raw_t or raw_t.startswith("CUSIP:"):
                     continue
+                canon_t = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
+                if canon_t in NON_STOCK_ETFS:
+                    continue
+                slot = fund_merged.get(canon_t)
+                if slot is None:
+                    c_meta = canon_meta_by_ticker.get(canon_t, {})
+                    fund_merged[canon_t] = {
+                        "ticker": canon_t,
+                        "cusip": h["cusip"] if raw_t == canon_t else (canon_cusip_by_ticker.get(canon_t) or h["cusip"]),
+                        "name": (c_meta.get("name") or h["name"]) if raw_t != canon_t else h["name"],
+                        "sector": c_meta.get("sector") or h["sector"] if raw_t != canon_t else h["sector"],
+                        "industry": c_meta.get("industry") or h["industry"] if raw_t != canon_t else h["industry"],
+                        "isTechTmt": bool(h.get("isTechTmt") or c_meta.get("isTechTmt")),
+                        "priceUsd": h["pricePerShare"],
+                        "weightPct": float(h["weightPct"]),
+                        "valueUsd": float(h["valueUsd"]),
+                        "maxLegVal": float(h["valueUsd"]),
+                        "status": h["status"],
+                        "qoqSharesChangePct": h["qoqSharesChangePct"],
+                    }
+                else:
+                    slot["weightPct"] += float(h["weightPct"])
+                    slot["valueUsd"] += float(h["valueUsd"])
+                    slot["isTechTmt"] = slot["isTechTmt"] or bool(h.get("isTechTmt"))
+                    if float(h["valueUsd"]) > slot["maxLegVal"]:
+                        slot["maxLegVal"] = float(h["valueUsd"])
+                        slot["status"] = h["status"]
+                        slot["qoqSharesChangePct"] = h["qoqSharesChangePct"]
+                        if raw_t == canon_t:
+                            slot["cusip"] = h["cusip"]
+                            slot["name"] = h["name"]
+                    if slot["priceUsd"] is None and h["pricePerShare"] is not None:
+                        slot["priceUsd"] = h["pricePerShare"]
+
+            for t, hm in fund_merged.items():
                 if t not in stock_map:
                     stock_map[t] = {
                         "ticker": t,
-                        "cusip": h["cusip"],
-                        "name": h["name"],
-                        "sector": h["sector"],
-                        "industry": h["industry"],
-                        "isTechTmt": h["isTechTmt"],
-                        "priceUsd": h["pricePerShare"],
+                        "cusip": hm["cusip"],
+                        "name": hm["name"],
+                        "sector": hm["sector"],
+                        "industry": hm["industry"],
+                        "isTechTmt": hm["isTechTmt"],
+                        "priceUsd": hm["priceUsd"],
                         "sumWeightPct": 0.0,
                         "sumValueUsd": 0.0,
                         "netBuyers": 0,
@@ -2030,19 +1873,20 @@ def main() -> None:
                         "holders": [],
                     }
                 rec = stock_map[t]
-                rec["sumWeightPct"] += h["weightPct"]
-                rec["sumValueUsd"] += h["valueUsd"]
-                if h["status"] in ("NEW", "ADDED"):
+                rec["isTechTmt"] = rec["isTechTmt"] or hm["isTechTmt"]
+                rec["sumWeightPct"] += hm["weightPct"]
+                rec["sumValueUsd"] += hm["valueUsd"]
+                if hm["status"] in ("NEW", "ADDED"):
                     rec["netBuyers"] += 1
-                elif h["status"] == "TRIMMED":
+                elif hm["status"] == "TRIMMED":
                     rec["netTrimmers"] += 1
                 rec["holders"].append({
                     "cik": cik,
                     "fundName": f["name"],
-                    "weightPct": h["weightPct"],
-                    "valueUsd": h["valueUsd"],
-                    "status": h["status"],
-                    "qoqSharesChangePct": h["qoqSharesChangePct"],
+                    "weightPct": round(hm["weightPct"], 2),
+                    "valueUsd": round(hm["valueUsd"], 2),
+                    "status": hm["status"],
+                    "qoqSharesChangePct": hm["qoqSharesChangePct"],
                     "rankedWindows": fund_top100_windows[mode].get(cik, []),
                 })
 
@@ -2053,11 +1897,13 @@ def main() -> None:
             avg_holder_w = rec["sumWeightPct"] / max(1, len(holders_sorted))
             aum_agg = (rec["sumValueUsd"] / total_pool_aum * 100.0) if total_pool_aum > 0 else 0.0
 
-            # Compute stock YTD and TTM returns
+            # Compute stock price, YTD, and TTM returns
             ytd_ret = None
             ttm_ret = None
+            px_usd = rec["priceUsd"]
             if t in aligned_prices:
                 arr, first_i, last_i = aligned_prices[t]
+                px_usd = clean_num(float(arr[last_i]), 2)
                 if first_i <= win_indices["YTD"] + 5:
                     s_i = max(win_indices["YTD"], first_i)
                     ytd_ret = clean_num(((arr[last_i] / arr[s_i]) - 1.0) * 100.0, 2)
@@ -2076,7 +1922,7 @@ def main() -> None:
                 "sector": rec["sector"],
                 "industry": rec["industry"],
                 "isTechTmt": rec["isTechTmt"],
-                "priceUsd": rec["priceUsd"],
+                "priceUsd": px_usd,
                 "stockYtdPct": ytd_ret,
                 "stockTtmPct": ttm_ret,
                 "holderCount": len(holders_sorted),
@@ -2099,14 +1945,31 @@ def main() -> None:
             item["rank"] = idx + 1
         top_holdings_out[mode] = top30
 
-    # Step 9: Build Ideal Portfolio (<= 50 names, default 40 names, 8% cap) + Historical Backtest
+    # Step 9: Build Ideal Portfolio (<= 50 names, default 40 names, 8% cap) + Independent Historical Backtests
     ideal_pool_ciks = ranked_union_ciks["quarter_end"] or [f["cik"] for f in funds_out]
     ideal_pool_funds = [fund_by_cik[c] for c in ideal_pool_ciks]
     ideal_weights, ideal_stock_agg = compute_ideal_portfolio_weights(
-        ideal_pool_funds, mode="quarter_end", cusip_meta=cusip_meta, max_names=40, cap_pct=8.0
+        ideal_pool_funds,
+        mode="quarter_end",
+        cusip_meta=cusip_meta,
+        max_names=40,
+        cap_pct=8.0,
+        aligned_prices=aligned_prices,
+        n_dates=n_dates,
     )
 
-    core_thresh = max(12, len(ideal_pool_funds) // 5)
+    holder_counts_sel = sorted(len(ideal_stock_agg[t]["backers"]) for t in ideal_weights)
+    core_q75 = holder_counts_sel[int(0.75 * max(0, len(holder_counts_sel) - 1))] if holder_counts_sel else 12
+    core_thresh = max(10, len(ideal_pool_funds) // 6, core_q75)
+    top_fscore_by_t = {
+        t: max(b["fscore"] for b in ideal_stock_agg[t]["backers"])
+        for t in ideal_weights
+    }
+    fscore_q60 = (
+        sorted(top_fscore_by_t.values())[int(0.60 * max(0, len(top_fscore_by_t) - 1))]
+        if top_fscore_by_t
+        else 0.82
+    )
     max_raw_score = max((ideal_stock_agg[t]["rawScore"] for t in ideal_weights), default=1.0)
     ideal_positions: list[dict[str, Any]] = []
     ideal_sector_totals: dict[str, dict[str, Any]] = {}
@@ -2118,13 +1981,14 @@ def main() -> None:
         backers_sorted = sorted(rec["backers"], key=lambda x: x["weightPct"], reverse=True)
         avg_fw = sum(rec["weights"]) / len(rec["weights"])
         max_fw = max(rec["weights"])
+        top_fs = top_fscore_by_t.get(t, 0.0)
 
         if len(backers_sorted) >= core_thresh:
             tag = "Core Consensus"
-        elif backers_sorted[0]["fscore"] >= 0.85 and max_fw >= 6.0:
-            tag = "Top-Decile Alpha"
-        elif rec["netBuy"] >= max(2, len(backers_sorted) // 2):
+        elif rec["netBuy"] > rec["netTrim"] and rec["netBuy"] >= max(2, len(backers_sorted) // 2):
             tag = "Active Accumulation"
+        elif top_fs >= fscore_q60 and max_fw >= 4.5:
+            tag = "Top-Decile Alpha"
         else:
             tag = "High-Conviction Specialist"
 
@@ -2175,85 +2039,121 @@ def main() -> None:
         diff = round(100.0 - sum(p["idealWeightPct"] for p in ideal_positions), 2)
         ideal_positions[0]["idealWeightPct"] = round(ideal_positions[0]["idealWeightPct"] + diff, 2)
 
-    # Ideal Portfolio out-of-sample quarterly backtest (rebalanced each quarter from 2021-Q4 onward)
+    # Ideal Portfolio independent point-in-time quarterly backtests (QE vs 45-Day Filing-Lag)
+    ticker_is_tech: dict[str, bool] = {}
+    for m_val in cusip_meta.values():
+        tk = m_val.get("ticker", "")
+        if tk and not tk.startswith("CUSIP:") and m_val.get("isTechTmt"):
+            ticker_is_tech[DUAL_CLASS_CANONICAL.get(tk, tk)] = True
+
     all_quarters = sorted({fl["reportDate"] for f in funds_out for fl in raw_fund_filings[f["cik"]]})
-    bt_segments: dict[str, list[tuple[int, dict[str, float]]]] = {"quarter_end": [], "filing_lag": []}
 
-    for qd in all_quarters:
-        if qd < "2021-09-30":
-            continue
-        q_idx = find_idx_on_or_after(cal_dates, qd)
-        if q_idx is None:
-            continue
-        # Rank funds using blended multi-horizon trailing NAV up to q_idx (no look-ahead)
-        horizons = [
-            (126, 0.30),
-            (252, 0.40),
-            (504, 0.30),
-        ]
-        scored_funds: list[tuple[str, float, dict[str, float]]] = []
-        for f in funds_out:
-            cik = f["cik"]
-            # Find filing at or immediately before qd
-            fls = [fl for fl in raw_fund_filings[cik] if fl["reportDate"] <= qd]
-            if not fls:
+    def _run_ideal_backtest(bt_mode: str) -> list[tuple[int, dict[str, float]]]:
+        segs: list[tuple[int, dict[str, float]]] = []
+        horizons = [(126, 0.30), (252, 0.40), (504, 0.30)]
+
+        for qd in all_quarters:
+            if qd < "2021-09-30":
                 continue
-            fl = fls[-1]
-            # Require filing within last 180 days so stale funds don't leak
-            if (datetime.strptime(qd, "%Y-%m-%d") - datetime.strptime(fl["reportDate"], "%Y-%m-%d")).days > 180:
-                continue
-            w_dict, _, _, _, _, _ = extract_equity_weights(fl, cusip_meta)
-            nav_arr = fund_navs["quarter_end"][cik]
-            score_num = 0.0
-            score_den = 0.0
-            if not math.isnan(nav_arr[q_idx]):
-                for lb_days, hw in horizons:
-                    lb_idx = max(0, q_idx - lb_days)
-                    if q_idx - lb_idx >= 60 and not math.isnan(nav_arr[lb_idx]) and nav_arr[lb_idx] > 0:
-                        ret_h = (nav_arr[q_idx] / nav_arr[lb_idx]) - 1.0
-                        # Annualize for cross-horizon comparability
-                        ann_h = ((1.0 + max(-0.95, ret_h)) ** (252.0 / (q_idx - lb_idx))) - 1.0
-                        score_num += hw * ann_h
-                        score_den += hw
-            trailing_score = (score_num / score_den) if score_den > 0 else 0.0
-            scored_funds.append((cik, trailing_score, w_dict))
-
-        if len(scored_funds) < 5:
-            continue
-        scored_funds.sort(key=lambda x: x[1], reverse=True)
-        top_slice = scored_funds[:max(12, min(25, len(scored_funds) // 3))]
-
-        # Score stocks across top_slice
-        s_scores: dict[str, float] = {}
-        s_counts: dict[str, int] = {}
-        for rank_i, (_, _, w_dict) in enumerate(top_slice):
-            f_sc = 1.0 - 0.65 * (rank_i / max(1, len(top_slice) - 1))
-            for t, w_val in w_dict.items():
-                if t.startswith("CUSIP:") or t in NON_STOCK_ETFS or w_val <= 0:
+            qd_dt = datetime.strptime(qd, "%Y-%m-%d")
+            if bt_mode == "filing_lag":
+                rebal_dt = (qd_dt + timedelta(days=46)).strftime("%Y-%m-%d")
+                if rebal_dt > as_of_date:
                     continue
-                s_scores[t] = s_scores.get(t, 0.0) + f_sc * math.sqrt(w_val)
-                s_counts[t] = s_counts.get(t, 0) + 1
+            else:
+                rebal_dt = qd
 
-        filt_scores = {
-            t: sc * (1.0 + 0.18 * math.log(max(1, s_counts[t])))
-            for t, sc in s_scores.items()
-            if s_counts[t] >= 2
-        }
-        top40 = dict(sorted(filt_scores.items(), key=lambda x: x[1], reverse=True)[:40])
-        bt_w = waterfill_capped_weights(top40, cap=0.08)
-        if not bt_w:
-            continue
+            rebal_idx = find_idx_on_or_after(cal_dates, rebal_dt)
+            if rebal_idx is None:
+                continue
 
-        if not bt_segments["quarter_end"] or q_idx > bt_segments["quarter_end"][-1][0]:
-            bt_segments["quarter_end"].append((q_idx, bt_w))
+            scored_funds: list[tuple[str, float, dict[str, float], dict[str, float]]] = []
+            for f in funds_out:
+                cik = f["cik"]
+                if bt_mode == "filing_lag":
+                    fls = [fl for fl in raw_fund_filings[cik] if fl["filingDate"] <= rebal_dt]
+                else:
+                    fls = [fl for fl in raw_fund_filings[cik] if fl["reportDate"] <= qd]
+                if not fls:
+                    continue
+                fl = fls[-1]
+                # Require quarter period within 180d of qd so stale/defunct managers cannot anchor
+                if (qd_dt - datetime.strptime(fl["reportDate"], "%Y-%m-%d")).days > 180:
+                    continue
 
-        lag_dt = (datetime.strptime(qd, "%Y-%m-%d") + timedelta(days=46)).strftime("%Y-%m-%d")
-        lag_idx = find_idx_on_or_after(cal_dates, lag_dt)
-        if lag_idx is not None and (not bt_segments["filing_lag"] or lag_idx > bt_segments["filing_lag"][-1][0]):
-            bt_segments["filing_lag"].append((lag_idx, bt_w))
+                w_dict, _, _, _, _, _ = extract_equity_weights(fl, cusip_meta)
+                if not w_dict:
+                    continue
+                prev_fl = fls[-2] if len(fls) >= 2 else None
+                prev_w_dict = extract_equity_weights(prev_fl, cusip_meta)[0] if prev_fl else {}
 
-    ideal_nav_qe = simulate_nav_series(bt_segments["quarter_end"], aligned_prices, n_dates)
-    ideal_nav_lag = simulate_nav_series(bt_segments["filing_lag"], aligned_prices, n_dates)
+                nav_arr = fund_navs[bt_mode][cik]
+                score_num = 0.0
+                score_den = 0.0
+                if not math.isnan(nav_arr[rebal_idx]):
+                    for lb_days, hw in horizons:
+                        lb_idx = max(0, rebal_idx - lb_days)
+                        if rebal_idx - lb_idx >= 60 and not math.isnan(nav_arr[lb_idx]) and nav_arr[lb_idx] > 0:
+                            ret_h = (nav_arr[rebal_idx] / nav_arr[lb_idx]) - 1.0
+                            ann_h = ((1.0 + max(-0.95, ret_h)) ** (252.0 / (rebal_idx - lb_idx))) - 1.0
+                            score_num += hw * ann_h
+                            score_den += hw
+                trailing_score = (score_num / score_den) if score_den > 0 else 0.0
+                scored_funds.append((cik, trailing_score, w_dict, prev_w_dict))
+
+            if len(scored_funds) < 5:
+                continue
+            scored_funds.sort(key=lambda x: x[1], reverse=True)
+            n_top = max(12, min(25, len(scored_funds) // 3))
+            top_slice = scored_funds[:n_top]
+
+            s_scores: dict[str, float] = {}
+            s_counts: dict[str, int] = {}
+            s_buys: dict[str, int] = {}
+            s_trims: dict[str, int] = {}
+            for rank_i, (_, _, w_dict, prev_w_dict) in enumerate(top_slice):
+                f_sc = (1.0 - 0.75 * (rank_i / max(1, n_top - 1))) ** 1.5
+                for t, w_val in w_dict.items():
+                    if t.startswith("CUSIP:") or t in NON_STOCK_ETFS or w_val <= 0:
+                        continue
+                    pdata = aligned_prices.get(t)
+                    if pdata is None or pdata[1] > rebal_idx + 5 or pdata[2] <= rebal_idx:
+                        continue
+                    s_scores[t] = s_scores.get(t, 0.0) + f_sc * math.sqrt(w_val)
+                    s_counts[t] = s_counts.get(t, 0) + 1
+                    if prev_w_dict:
+                        pw = prev_w_dict.get(t, 0.0)
+                        if pw <= 0 or w_val >= pw * 1.20:
+                            s_buys[t] = s_buys.get(t, 0) + 1
+                        elif w_val <= pw * 0.80:
+                            s_trims[t] = s_trims.get(t, 0) + 1
+
+            filt_scores: dict[str, float] = {}
+            for t, sc in s_scores.items():
+                cnt = s_counts[t]
+                if cnt < 2:
+                    continue
+                cons_m = 1.0 + 0.18 * math.log(max(1, cnt))
+                mom_d = (s_buys.get(t, 0) - s_trims.get(t, 0)) / max(1, cnt)
+                mom_m = 1.0 + 0.08 * max(-0.5, min(1.0, mom_d))
+                tech_m = 1.0 if ticker_is_tech.get(t, False) else 0.68
+                filt_scores[t] = sc * cons_m * mom_m * tech_m
+
+            top40 = dict(sorted(filt_scores.items(), key=lambda x: x[1], reverse=True)[:40])
+            bt_w = waterfill_capped_weights(top40, cap=0.08)
+            if not bt_w:
+                continue
+            if not segs or rebal_idx > segs[-1][0]:
+                segs.append((rebal_idx, bt_w))
+            elif rebal_idx == segs[-1][0]:
+                segs[-1] = (rebal_idx, bt_w)
+        return segs
+
+    bt_segments_qe = _run_ideal_backtest("quarter_end")
+    bt_segments_lag = _run_ideal_backtest("filing_lag")
+
+    ideal_nav_qe = simulate_nav_series(bt_segments_qe, aligned_prices, n_dates)
+    ideal_nav_lag = simulate_nav_series(bt_segments_lag, aligned_prices, n_dates)
     ideal_rets_qe, ideal_met_qe = compute_returns_and_metrics(ideal_nav_qe, qqq_nav, win_indices)
     ideal_rets_lag, ideal_met_lag = compute_returns_and_metrics(ideal_nav_lag, qqq_nav, win_indices)
 
@@ -2267,9 +2167,9 @@ def main() -> None:
         "effectivePositions": round(ideal_eff_n, 1),
         "top10WeightPct": round(sum(p["idealWeightPct"] for p in ideal_positions[:10]), 2),
         "methodologySummary": (
-            f"Constructed from all holdings of the {len(ideal_pool_funds)} funds ranked Top 100 across at least one window "
-            f"(TTM/3Y/2Y/18M/YTD/5Y). Each position is scored by manager multi-window percentile rank × √(portfolio weight) "
-            f"× multi-fund consensus multiplier × QoQ accumulation factor, then water-filled with an 8.0% single-stock cap."
+            f"Constructed from active US equity holdings across {len(ideal_pool_funds)} Top-100 ranked funds "
+            f"(TTM/3Y/2Y/18M/YTD/5Y). Each position is scored by manager percentile rank^1.5 × √(portfolio weight) "
+            f"× Tech/TMT specialist relevance × multi-fund consensus × QoQ accumulation, water-filled with an 8.0% cap."
         ),
         "sectorBreakdown": [
             {"sector": v["sector"], "weightPct": round(v["weightPct"], 2), "stockCount": v["stockCount"]}
@@ -2321,14 +2221,6 @@ def main() -> None:
         reverse=True,
     )
     updates_overview = build_updates_overview(fund_updates_out, total_eligible=len(update_cands))
-    discovery_watchlist = build_discovery_watchlist(
-        funds_out=funds_out,
-        ranked_ciks=ranked_union_ciks["quarter_end"],
-        top_holdings=top_holdings_out["quarter_end"],
-        ideal_positions=ideal_positions,
-        aligned_prices=aligned_prices,
-        ttm_start_idx=win_indices["TTM"],
-    )
 
     # Sort funds by TTM performance by default
     funds_out.sort(key=lambda f: f["returns"]["quarter_end"]["TTM"] or -999.0, reverse=True)
@@ -2349,9 +2241,9 @@ def main() -> None:
                     reverse=True,
                 )
         else:
-            if len(f["holdings"]) > 35:
-                opts = [h for h in f["holdings"] if h["securityType"] != "EQUITY"][:12]
-                eqs = [h for h in f["holdings"] if h["securityType"] == "EQUITY"][:30]
+            if len(f["holdings"]) > 22:
+                opts = [h for h in f["holdings"] if h["securityType"] != "EQUITY"][:6]
+                eqs = [h for h in f["holdings"] if h["securityType"] == "EQUITY"][:20]
                 seen_k = {(h["cusip"], h["securityType"]) for h in eqs}
                 f["holdings"] = sorted(
                     eqs + [h for h in opts if (h["cusip"], h["securityType"]) not in seen_k],
@@ -2361,7 +2253,7 @@ def main() -> None:
             for m_key in ("quarter_end", "filing_lag"):
                 pts = f["equityCurve"][m_key]
                 if len(pts) > 40:
-                    thinned = [pts[i] for i in range(0, len(pts), 2)]
+                    thinned = [pts[i] for i in range(0, len(pts), 3)]
                     if thinned[-1] is not pts[-1]:
                         thinned.append(pts[-1])
                     f["equityCurve"][m_key] = thinned
@@ -2385,7 +2277,7 @@ def main() -> None:
                         and max(m["currBookPct"], m["prevBookPct"]) >= (0.25 if m["action"] == "UNCHANGED" else 0.12)
                     )
                 ]
-        elif len(u["allMoves"]) > 32:
+        elif len(u["allMoves"]) > 20:
             keep_keys: set[tuple[str, str]] = set()
             kept: list[dict[str, Any]] = []
             for bucket in (u["topNew"], u["topAdded"], u["topTrimmed"], u["topExited"], u["valuationShifts"]):
@@ -2396,28 +2288,40 @@ def main() -> None:
                         kept.append(m)
             for m in u["allMoves"]:
                 if (
-                    (m["securityType"] in ("CALL", "PUT") and max(m["currBookPct"], m["prevBookPct"]) >= 0.25)
+                    (m["securityType"] in ("CALL", "PUT") and max(m["currBookPct"], m["prevBookPct"]) >= 0.5)
                     or m["valuationShiftType"] is not None
                 ):
                     k = (m["cusip"], m["securityType"])
                     if k not in keep_keys:
                         keep_keys.add(k)
                         kept.append(m)
-                    if len(kept) >= 34:
+                    if len(kept) >= 22:
                         break
             for m in u["allMoves"]:
-                if len(kept) >= 32 or (len(kept) >= 26 and (m["action"] == "UNCHANGED" or max(m["currBookPct"], m["prevBookPct"]) < 0.40)):
+                if len(kept) >= 20 or (len(kept) >= 16 and (m["action"] == "UNCHANGED" or max(m["currBookPct"], m["prevBookPct"]) < 0.50)):
                     continue
                 k = (m["cusip"], m["securityType"])
                 if k not in keep_keys:
                     keep_keys.add(k)
                     kept.append(m)
-                if len(kept) >= 32:
+                if len(kept) >= 20:
                     break
-            u["allMoves"] = sorted(kept, key=lambda x: max(x["currValueUsd"], x["prevValueUsd"]), reverse=True)
+            u["allMoves"] = sorted(kept, key=lambda x: max(x["currValueUsd"], x["prevValueUsd"]), reverse=True)[:20]
 
     latest_q_overall = max(f["latestQuarterLabel"] for f in funds_out) if funds_out else "2026 Q3"
     total_filings_cnt = sum(len(raw_fund_filings[f["cik"]]) for f in funds_out)
+
+    curated_qual_cnt = sum(1 for f in funds_out if f.get("source") == "Curated Core")
+    disc_qual_cnt = len(funds_out) - curated_qual_cnt
+    funnel_counts.update({
+        "qualifiedFundsCount": len(funds_out),
+        "curatedQualifiedCount": curated_qual_cnt,
+        "discoveredQualifiedCount": disc_qual_cnt,
+        "rankedUnionQeCount": len(ranked_union_ciks["quarter_end"]),
+        "rankedUnionLagCount": len(ranked_union_ciks["filing_lag"]),
+        "updatesCardsCount": len(fund_updates_out),
+        "idealPortfolioCount": len(ideal_positions),
+    })
 
     # Compute next 13F filing deadline season label
     now_dt = datetime.now(timezone.utc)
@@ -2435,17 +2339,17 @@ def main() -> None:
             "generatedAt": now_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "asOfDate": as_of_date,
             "latestQuarterCovered": latest_q_overall,
-            "fundsEvaluatedCount": len(all_candidates),
+            "fundsEvaluatedCount": funnel_counts["totalCiksScanned"],
             "qualifiedFundsCount": len(funds_out),
             "rankedFundsUnionCount": len(ranked_any_ciks),
             "total13fFilingsProcessed": total_filings_cnt,
             "next13fSeasonLabel": next_season,
             "dataSources": [
-                "SEC EDGAR Form 13F-HR / 13F-HR/A XML Filings",
+                "SEC EDGAR Form 13F Bulk Data Sets (2021-Present) & 13F-HR / 13F-HR/A Filings",
                 "OpenFIGI CUSIP Security Master",
                 "Yahoo Finance Daily Split & Dividend Adjusted Closes",
             ],
-            "discoveryWatchlist": discovery_watchlist,
+            "universeFunnel": funnel_counts,
         },
         "benchmarks": benchmarks,
         "funds": funds_out,
@@ -2483,22 +2387,17 @@ def main() -> None:
     size_kb = OUTPUT_JSON.stat().st_size / 1024.0
     print(f"\n=== Pipeline Complete ===")
     print(f"Wrote {OUTPUT_JSON} ({size_kb:.1f} KB)")
+    print(
+        f"Universe Funnel: {funnel_counts['totalCiksScanned']} CIKs -> {funnel_counts['activeRecentCount']} active -> "
+        f"{funnel_counts['nonExcludedManagerCount']} focused managers -> {funnel_counts['concentrationPassCount']} concentrated -> "
+        f"{funnel_counts['techFloorPassCount']} tech floor -> {funnel_counts['strictQualificationCount']} strict -> "
+        f"{funnel_counts['qualifiedFundsCount']} verified ({curated_qual_cnt} Curated + {disc_qual_cnt} Discovered)"
+    )
     print(f"Qualified Funds: {len(funds_out)} | Ranked Union: {len(ranked_union_ciks['quarter_end'])} | Fund Updates: {len(fund_updates_out)}")
-    print(f"Ideal Portfolio: {len(ideal_positions)} names | TTM QE Return: {ideal_rets_qe['TTM']}% | QQQ TTM: {benchmarks['QQQ']['returns']['TTM']}%")
-
-    wl_cands = discovery_watchlist["emergingSeedCandidates"]
-    if wl_cands:
-        print(
-            f"\n[SEED WATCHLIST ALERT] {len(wl_cands)} unseeded breakout Tech/TMT stocks detected "
-            f"({discovery_watchlist['urgentCount']} urgent) — consider adding to DISCOVERY_SEED_PAIRS in pipeline/funds_config.py:"
-        )
-        for item in wl_cands:
-            print(
-                f"  [{item['alertTier']:6s}] {item['ticker']:6s} ({item['cusip']}) | holders={item['holderCount']:2d}/{item['allQualifiedHolders']:3d} | "
-                f"{item['triggerReason']} -> add {item['copyTuple']}"
-            )
-    if discovery_watchlist["staleSeeds"]:
-        print(f"[SEED WATCHLIST STALE] {len(discovery_watchlist['staleSeeds'])} low-coverage seeds: {discovery_watchlist['staleSeeds']}")
+    print(
+        f"Ideal Portfolio: {len(ideal_positions)} names | TTM QE Return: {ideal_rets_qe['TTM']}% | "
+        f"TTM 45d-Lag Return: {ideal_rets_lag['TTM']}% | QQQ TTM: {benchmarks['QQQ']['returns']['TTM']}%"
+    )
 
 
 if __name__ == "__main__":
