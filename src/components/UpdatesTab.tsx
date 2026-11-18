@@ -20,7 +20,10 @@ import { fetchStockDetail } from '../utils/dataLoader';
 import {
   compactShares,
   formatSignedPct,
+  formatSignedUsd,
   formatUsdCompact,
+  returnClass,
+  stakeStatusChipClass,
   tierChipClass,
 } from '../utils/format';
 import { UpdateSummaryContent } from './UpdateSummaryContent';
@@ -73,12 +76,18 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
   const [filter, setFilter] = useState<UpdateFilter>('ALL');
   const [sortBy, setSortBy] = useState<UpdateSort>('latest');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [visibleLimit, setVisibleLimit] = useState<number>(40);
   const [loadedStockState, setLoadedStockState] = useState<{
     ticker: string;
     detail: StockDetail | null;
   } | null>(null);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(search), 180);
+    return () => window.clearTimeout(id);
+  }, [search]);
 
   const trimmedQuery = search.trim();
   const resolvedExactTicker = useMemo(() => {
@@ -88,11 +97,18 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
     return null;
   }, [selectedTicker, trimmedQuery, stocksIndex]);
 
+  const fetchTargetTicker = useMemo(() => {
+    if (selectedTicker) return selectedTicker.toUpperCase();
+    const dqu = debouncedSearch.trim().toUpperCase();
+    if (dqu && stocksIndex[dqu]) return dqu;
+    return null;
+  }, [selectedTicker, debouncedSearch, stocksIndex]);
+
   useEffect(() => {
-    if (!resolvedExactTicker || !stocksIndex[resolvedExactTicker]) {
+    if (!fetchTargetTicker || !stocksIndex[fetchTargetTicker]) {
       return;
     }
-    const reqTicker = resolvedExactTicker;
+    const reqTicker = fetchTargetTicker;
     let cancelled = false;
     fetchStockDetail(reqTicker, stocksIndex)
       .then((res) => {
@@ -104,7 +120,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [resolvedExactTicker, stocksIndex]);
+  }, [fetchTargetTicker, stocksIndex]);
 
   const activeStockDetail =
     resolvedExactTicker && loadedStockState?.ticker === resolvedExactTicker ? loadedStockState.detail : null;
@@ -255,7 +271,9 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
             ? `${compactShares(m.prevShares)} → ${compactShares(m.currShares)} sh (${m.sharesDeltaPct > 0 ? '+' : ''}${m.sharesDeltaPct.toFixed(1)}%)`
             : `${compactShares(m.prevShares)} → ${compactShares(m.currShares)} sh`,
         sharesDeltaPct: m.sharesDeltaPct,
-        valueLabel: `${formatUsdCompact(m.prevValueUsd)} → ${formatUsdCompact(m.currValueUsd)} (${m.currBookPct.toFixed(2)}% book)`,
+        valueLabel: `${formatUsdCompact(m.prevValueUsd)} → ${formatUsdCompact(m.currValueUsd)} (${m.currBookPct.toFixed(2)}% book)${
+          m.estFlowUsd != null ? ` · Est. flow ${formatSignedUsd(m.estFlowUsd)}` : ''
+        }`,
         tagNote: m.tagNote,
       });
     };
@@ -336,10 +354,15 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Disclosed Put Hedges</div>
+          <div
+            className="metric-label"
+            title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+          >
+            13F Disclosed Put Fair Value
+          </div>
           <div className="metric-value">{formatUsdCompact(overview.totalPutNotionalUsd)}</div>
           <div className="metric-sub">
-            Active protection across {overview.fundsWithPutHedgesCount} filers
+            Reported option fair value (not notional) · {overview.fundsWithPutHedgesCount} filers
           </div>
         </div>
 
@@ -347,7 +370,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
           <div className="metric-label">Mid-Quarter 13D / 13G Alerts</div>
           <div className="metric-value">{midQuarterAlerts.length}</div>
           <div className="metric-sub">
-            Elite-50 &ge;5% stakes · {formatUsdCompact(overview.totalCallNotionalUsd)} calls in {overview.latestQuarterLabel}
+            Elite-50 &ge;5% stakes · {formatUsdCompact(overview.totalCallNotionalUsd)} call fair value in {overview.latestQuarterLabel}
           </div>
         </div>
       </div>
@@ -371,6 +394,9 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
               <div key={al.id} className="alert-row-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                   <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
+                  {al.stakeStatus && (
+                    <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>{al.stakeStatus}</span>
+                  )}
                   <button
                     type="button"
                     className="fund-link-btn"
@@ -391,11 +417,19 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
                   ) : al.ticker ? (
                     <span className="ticker-badge">{al.ticker}</span>
                   ) : null}
+                  {al.percentOfClass != null && (
+                    <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
+                  )}
+                  {al.sharesOwned != null && al.sharesOwned > 0 && (
+                    <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                      {compactShares(al.sharesOwned)} sh
+                    </span>
+                  )}
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{al.issuerName}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                   <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {al.filingDate}
+                    {al.eventDate ? `Event ${al.eventDate} · ` : ''}{al.filingDate}
                   </span>
                   <a
                     href={al.edgarUrl}
@@ -497,17 +531,18 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
                 const isActive =
                   selectedTicker === item.ticker ||
                   (!selectedTicker && trimmedQuery.toUpperCase() === item.ticker);
+                const flow = item.totalEstFlowUsd ?? item.totalDeltaUsd;
                 return (
                   <div key={`add-${item.ticker}`} className="pulse-pill-group">
                     <button
                       type="button"
                       className={`pulse-ticker-btn ${isActive ? 'active' : ''}`}
                       onClick={() => togglePulseTicker(item.ticker)}
-                      title={`${item.name} — Added by ${item.fundCount} funds`}
+                      title={`${item.name} — Added by ${item.fundCount} funds (${formatSignedUsd(flow)} est. Q-VWAP net flow)`}
                     >
                       <strong className="mono">{item.ticker}</strong>
-                      <span className="pulse-meta mono">
-                        {item.fundCount}f · {formatUsdCompact(Math.abs(item.totalDeltaUsd))}
+                      <span className={`pulse-meta mono ${isActive ? '' : returnClass(flow)}`}>
+                        {item.fundCount}f · {formatSignedUsd(flow)}
                       </span>
                     </button>
                     {stocksIndex[item.ticker] && (
@@ -537,17 +572,18 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
                 const isActive =
                   selectedTicker === item.ticker ||
                   (!selectedTicker && trimmedQuery.toUpperCase() === item.ticker);
+                const flow = item.totalEstFlowUsd ?? item.totalDeltaUsd;
                 return (
                   <div key={`trim-${item.ticker}`} className="pulse-pill-group">
                     <button
                       type="button"
                       className={`pulse-ticker-btn ${isActive ? 'active' : ''}`}
                       onClick={() => togglePulseTicker(item.ticker)}
-                      title={`${item.name} — Trimmed/Exited by ${item.fundCount} funds`}
+                      title={`${item.name} — Trimmed/Exited by ${item.fundCount} funds (${formatSignedUsd(flow)} est. Q-VWAP net flow)`}
                     >
                       <strong className="mono">{item.ticker}</strong>
-                      <span className="pulse-meta mono">
-                        {item.fundCount}f · -{formatUsdCompact(Math.abs(item.totalDeltaUsd))}
+                      <span className={`pulse-meta mono ${isActive ? '' : returnClass(flow)}`}>
+                        {item.fundCount}f · {formatSignedUsd(flow)}
                       </span>
                     </button>
                     {stocksIndex[item.ticker] && (
@@ -737,8 +773,12 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
                   </div>
 
                   <div className="fund-meta-line" style={{ marginTop: '0.28rem' }}>
-                    <span>{u.manager}</span>
-                    <span>·</span>
+                    {u.manager && u.manager !== 'SEC EDGAR Discovered' && (
+                      <>
+                        <span>{u.manager}</span>
+                        <span>·</span>
+                      </>
+                    )}
                     <span>{u.styleTag}</span>
                     <span>·</span>
                     <span className="mono">

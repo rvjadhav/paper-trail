@@ -1,9 +1,8 @@
-import { useMemo, useState, type FC } from 'react';
-import { Calculator, Check, Download, RotateCcw, Save } from 'lucide-react';
+import { useEffect, useMemo, useState, type FC } from 'react';
+import { Calculator, Check, Download, Info, RotateCcw, Save } from 'lucide-react';
 import type {
   BenchmarkSeries,
   IdealPortfolioData,
-  IdealPortfolioPosition,
   ReturnMode,
   StockIndexEntry,
 } from '../types/data';
@@ -12,9 +11,20 @@ import {
   entryZoneChipClass,
   formatPct,
   formatSignedPct,
+  formatSignedUsd,
   formatUsdCompact,
   returnClass,
 } from '../utils/format';
+import {
+  buildConstrainedPortfolio,
+  computeRebalancePlan,
+  parseHoldingsInput,
+  type DynamicPosition,
+  type RebalanceMode,
+  type SectorCapOption,
+  type SignalMode,
+  type UniverseFilter,
+} from '../utils/portfolioMath';
 import { EquityCurveChart, SectorBreakdownBar } from './SvgCharts';
 
 interface IdealPortfolioTabProps {
@@ -27,9 +37,14 @@ interface IdealPortfolioTabProps {
   onSelectStock: (ticker: string) => void;
 }
 
-type UniverseFilter = 'ALL' | 'EX_MEGA' | 'EMERGING';
-type SignalMode = 'rawScore' | 'inflectionScore';
-type SectorCapOption = null | 35 | 25;
+type IdealEntryFilter = 'ALL' | 'VALUE' | 'EXTENDED';
+type IdealSortKey =
+  | 'idealWeightPct'
+  | 'revYoY'
+  | 'fcfMargin'
+  | 'convictionScore'
+  | 'holderCount'
+  | 'stockTtmPct';
 
 interface SavedBuilderPreset {
   universeFilter: UniverseFilter;
@@ -40,7 +55,16 @@ interface SavedBuilderPreset {
   capitalUsd: number;
 }
 
+interface SavedRebalanceState {
+  showRebalance: boolean;
+  holdingsText: string;
+  rebalanceMode: RebalanceMode;
+  newCashUsd: number;
+  driftTolerancePct: number;
+}
+
 const PRESET_STORAGE_KEY = 'paper-trail-builder-preset-v1';
+const REBALANCE_STORAGE_KEY = 'paper-trail-rebalance-state-v1';
 
 function loadSavedPreset(): Partial<SavedBuilderPreset> {
   try {
@@ -52,270 +76,14 @@ function loadSavedPreset(): Partial<SavedBuilderPreset> {
   }
 }
 
-interface DynamicPosition extends IdealPortfolioPosition {
-  dynamicWeightPct: number;
-  weightVsDefaultPct: number | null;
-}
-
-function buildConstrainedPortfolio(
-  candidatePool: IdealPortfolioPosition[],
-  universeFilter: UniverseFilter,
-  signalMode: SignalMode,
-  maxNames: number,
-  capPct: number,
-  sectorCapPct: SectorCapOption,
-  defaultWeightMap: Map<string, number>
-): { positions: DynamicPosition[]; constraintNote: string | null } {
-  const filtered = candidatePool.filter((p) => {
-    if (universeFilter === 'EX_MEGA') {
-      return p.marketCapTier === 'Large $30B-$200B' || p.marketCapTier === 'Emerging <$30B';
-    }
-    if (universeFilter === 'EMERGING') {
-      return p.marketCapTier === 'Emerging <$30B';
-    }
-    return true;
-  });
-
-  const sorted = [...filtered].sort((a, b) => {
-    const sa = signalMode === 'inflectionScore' ? b.inflectionScore : b.rawScore;
-    const sb = signalMode === 'inflectionScore' ? a.inflectionScore : a.rawScore;
-    return sa - sb;
-  });
-
-  if (sorted.length === 0) {
-    return {
-      positions: [],
-      constraintNote: 'No stocks in the Top-80 candidate pool match this market-cap filter.',
-    };
+function loadSavedRebalanceState(): Partial<SavedRebalanceState> {
+  try {
+    const raw = window.localStorage.getItem(REBALANCE_STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Partial<SavedRebalanceState>;
+  } catch {
+    return {};
   }
-
-  const targetN = Math.min(maxNames, sorted.length);
-  const effStockCap =
-    capPct * targetN >= 100 - 1e-6
-      ? capPct
-      : Math.ceil((100 / targetN + 0.05) * 10) / 10;
-
-  let sliced: IdealPortfolioPosition[];
-  if (sectorCapPct !== null) {
-    const primary: IdealPortfolioPosition[] = [];
-    const deferred: IdealPortfolioPosition[] = [];
-    const secCounts = new Map<string, number>();
-
-    for (const p of sorted) {
-      const key = p.subSector || p.sector;
-      const cnt = secCounts.get(key) ?? 0;
-      // Only take another name from a sub-sector in Pass 1 if it adds capacity toward the sub-sector cap
-      if (cnt * effStockCap < sectorCapPct - 1e-6 && primary.length < targetN) {
-        primary.push(p);
-        secCounts.set(key, cnt + 1);
-      } else {
-        deferred.push(p);
-      }
-    }
-    sliced = [...primary, ...deferred].slice(0, targetN);
-  } else {
-    sliced = sorted.slice(0, targetN);
-  }
-
-  const notes: string[] = [];
-  if (sliced.length < maxNames) {
-    notes.push(`Universe filter matched ${sliced.length} eligible stocks (target ${maxNames}).`);
-  }
-  if (effStockCap > capPct + 1e-6) {
-    notes.push(
-      `With ${sliced.length} positions, single-stock cap lifted from ${capPct}% to ${effStockCap.toFixed(1)}% to invest 100%.`
-    );
-  }
-
-  const secCounts = new Map<string, number>();
-  for (const p of sliced) {
-    const key = p.subSector || p.sector;
-    secCounts.set(key, (secCounts.get(key) ?? 0) + 1);
-  }
-
-  let effSectorCap: number | null = sectorCapPct;
-  if (effSectorCap !== null) {
-    const maxFeasible = Array.from(secCounts.values()).reduce(
-      (sum, cnt) => sum + Math.min(effSectorCap!, cnt * effStockCap),
-      0
-    );
-    if (maxFeasible < 100 - 1e-6) {
-      let relaxed = effSectorCap;
-      while (relaxed < 100) {
-        relaxed += 1;
-        const capSum = Array.from(secCounts.values()).reduce(
-          (sum, cnt) => sum + Math.min(relaxed, cnt * effStockCap),
-          0
-        );
-        if (capSum >= 100 - 1e-6) break;
-      }
-      effSectorCap = relaxed;
-      notes.push(
-        `Available sub-sector breadth required lifting the sub-sector cap from ${sectorCapPct}% to ${effSectorCap}% to invest 100% within ${effStockCap.toFixed(1)}% single-stock caps.`
-      );
-    }
-  }
-
-  const rawScores = sliced.map((p) =>
-    Math.max(0.01, signalMode === 'inflectionScore' ? p.inflectionScore : p.rawScore)
-  );
-  const sumRaw = rawScores.reduce((a, b) => a + b, 0) || 1;
-  const weights = rawScores.map((s) => (s / sumRaw) * 100);
-
-  for (let iter = 0; iter < 80; iter++) {
-    // 1. Single-stock cap projection
-    for (let i = 0; i < weights.length; i++) {
-      if (weights[i] > effStockCap) weights[i] = effStockCap;
-    }
-
-    // 2. Sub-sector cap projection
-    if (effSectorCap !== null) {
-      const secSums = new Map<string, number>();
-      sliced.forEach((p, idx) => {
-        const key = p.subSector || p.sector;
-        secSums.set(key, (secSums.get(key) ?? 0) + weights[idx]);
-      });
-      sliced.forEach((p, idx) => {
-        const key = p.subSector || p.sector;
-        const tot = secSums.get(key) ?? 0;
-        if (tot > effSectorCap + 1e-6) {
-          weights[idx] *= effSectorCap / tot;
-        }
-      });
-    }
-
-    // 3. Reallocate remaining budget only to positions with both stock & sector headroom
-    const currentSum = weights.reduce((a, b) => a + b, 0);
-    const deficit = 100 - currentSum;
-    if (Math.abs(deficit) < 1e-5) break;
-
-    if (deficit > 0) {
-      const secSums = new Map<string, number>();
-      if (effSectorCap !== null) {
-        sliced.forEach((p, idx) => {
-          const key = p.subSector || p.sector;
-          secSums.set(key, (secSums.get(key) ?? 0) + weights[idx]);
-        });
-      }
-      const eligibleIndices: number[] = [];
-      let eligScoreSum = 0;
-      for (let i = 0; i < sliced.length; i++) {
-        if (weights[i] >= effStockCap - 1e-6) continue;
-        if (effSectorCap !== null) {
-          const sk = sliced[i].subSector || sliced[i].sector;
-          if ((secSums.get(sk) ?? 0) >= effSectorCap - 1e-6) continue;
-        }
-        eligibleIndices.push(i);
-        eligScoreSum += rawScores[i];
-      }
-      if (eligibleIndices.length === 0 || eligScoreSum <= 0) break;
-
-      for (const idx of eligibleIndices) {
-        const sk = sliced[idx].subSector || sliced[idx].sector;
-        const sectorRoom =
-          effSectorCap !== null ? Math.max(0, effSectorCap - (secSums.get(sk) ?? 0)) : Infinity;
-        const stockRoom = Math.max(0, effStockCap - weights[idx]);
-        const add = Math.min(stockRoom, sectorRoom, (rawScores[idx] / eligScoreSum) * deficit);
-        weights[idx] += add;
-        if (effSectorCap !== null) {
-          secSums.set(sk, (secSums.get(sk) ?? 0) + add);
-        }
-      }
-    }
-  }
-
-  // Sort descending & round to 2 decimals without breaching stock or sector caps
-  const indexed = sliced
-    .map((pos, idx) => ({
-      pos,
-      exact: Math.min(effStockCap, weights[idx]),
-      w: Math.min(effStockCap, Math.round(weights[idx] * 100) / 100),
-      sec: pos.subSector || pos.sector,
-    }))
-    .sort((a, b) => b.exact - a.exact || b.pos.rawScore - a.pos.rawScore);
-
-  const secRoundedSums = new Map<string, number>();
-  for (const item of indexed) {
-    secRoundedSums.set(item.sec, (secRoundedSums.get(item.sec) ?? 0) + item.w);
-  }
-
-  let remBps = Math.round((100 - indexed.reduce((s, x) => s + x.w, 0)) * 100);
-  let safety = 0;
-  while (remBps !== 0 && safety < 500) {
-    safety += 1;
-    const step = remBps > 0 ? 0.01 : -0.01;
-    let moved = false;
-    // Prefer items farthest from ceiling (when adding) or largest weight (when trimming)
-    const order = [...indexed].sort((a, b) =>
-      step > 0 ? (b.exact - b.w) - (a.exact - a.w) : (a.exact - a.w) - (b.exact - b.w)
-    );
-    for (const item of order) {
-      if (step > 0) {
-        const curSec = secRoundedSums.get(item.sec) ?? 0;
-        const canAddSec = effSectorCap === null || curSec + 0.01 <= effSectorCap + 1e-9;
-        if (item.w + 0.01 <= effStockCap + 1e-9 && canAddSec) {
-          item.w = Math.round((item.w + 0.01) * 100) / 100;
-          secRoundedSums.set(item.sec, curSec + 0.01);
-          remBps -= 1;
-          moved = true;
-          break;
-        }
-      } else if (item.w - 0.01 >= 0.01 - 1e-9) {
-        item.w = Math.round((item.w - 0.01) * 100) / 100;
-        secRoundedSums.set(item.sec, (secRoundedSums.get(item.sec) ?? 0) - 0.01);
-        remBps += 1;
-        moved = true;
-        break;
-      }
-    }
-    if (!moved) break;
-  }
-
-  indexed.sort((a, b) => b.w - a.w || b.pos.rawScore - a.pos.rawScore);
-
-  const out: DynamicPosition[] = indexed.map(({ pos, w }, idx) => {
-    const defW = defaultWeightMap.get(pos.ticker);
-    return {
-      ...pos,
-      rank: idx + 1,
-      dynamicWeightPct: w,
-      weightVsDefaultPct: defW !== undefined ? Math.round((w - defW) * 100) / 100 : null,
-    };
-  });
-
-  return { positions: out, constraintNote: notes.length > 0 ? notes.join(' ') : null };
-}
-
-const DUAL_ALIAS_MAP: Record<string, string> = {
-  GOOG: 'GOOGL',
-  FOXA: 'FOX',
-  NWSA: 'NWS',
-  BRKB: 'BRK.B',
-  'BRK-B': 'BRK.B',
-};
-
-function parseHoldingsInput(rawText: string, capitalUsd: number): Map<string, number> {
-  const out = new Map<string, number>();
-  if (!rawText.trim()) return out;
-
-  const chunks = rawText
-    .split(/\n|;|,(?=\s*[A-Za-z])/g)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  for (const chunk of chunks) {
-    const m = chunk.match(/^([A-Za-z][A-Za-z0-9.-]{0,9})[\s:=]+(\$?[\d,]+(?:\.\d+)?%?)$/);
-    if (!m) continue;
-    let sym = m[1].toUpperCase();
-    sym = DUAL_ALIAS_MAP[sym] ?? sym;
-    const rawVal = m[2];
-    const isPct = rawVal.endsWith('%');
-    const num = Number(rawVal.replace(/[$,%]/g, ''));
-    if (!Number.isFinite(num) || num < 0) continue;
-    const usd = isPct ? (num / 100) * capitalUsd : num;
-    out.set(sym, (out.get(sym) ?? 0) + usd);
-  }
-  return out;
 }
 
 export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
@@ -328,6 +96,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   onSelectStock,
 }) => {
   const initialPreset = useMemo(() => loadSavedPreset(), []);
+  const initialRebalance = useMemo(() => loadSavedRebalanceState(), []);
   const defaultMaxNames = Math.min(40, idealPortfolio.positions.length || 40);
 
   const [universeFilter, setUniverseFilter] = useState<UniverseFilter>(
@@ -344,8 +113,40 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   const [capitalUsd, setCapitalUsd] = useState<number>(initialPreset.capitalUsd ?? 100000);
   const [savedToast, setSavedToast] = useState(false);
 
-  const [showRebalance, setShowRebalance] = useState(false);
-  const [holdingsText, setHoldingsText] = useState('');
+  const [showRebalance, setShowRebalance] = useState<boolean>(
+    initialRebalance.showRebalance ?? false
+  );
+  const [holdingsText, setHoldingsText] = useState<string>(
+    initialRebalance.holdingsText ?? ''
+  );
+  const [rebalanceMode, setRebalanceMode] = useState<RebalanceMode>(
+    initialRebalance.rebalanceMode ?? 'full'
+  );
+  const [newCashUsd, setNewCashUsd] = useState<number>(
+    initialRebalance.newCashUsd ?? 10000
+  );
+  const [driftTolerancePct, setDriftTolerancePct] = useState<number>(
+    initialRebalance.driftTolerancePct ?? 0.5
+  );
+
+  const [entryFilter, setEntryFilter] = useState<IdealEntryFilter>('ALL');
+  const [sortBy, setSortBy] = useState<IdealSortKey>('idealWeightPct');
+  const [sortAsc, setSortAsc] = useState(false);
+
+  useEffect(() => {
+    try {
+      const payload: SavedRebalanceState = {
+        showRebalance,
+        holdingsText,
+        rebalanceMode,
+        newCashUsd,
+        driftTolerancePct,
+      };
+      window.localStorage.setItem(REBALANCE_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [showRebalance, holdingsText, rebalanceMode, newCashUsd, driftTolerancePct]);
 
   const defaultWeightMap = useMemo(
     () => new Map(idealPortfolio.positions.map((p) => [p.ticker, p.idealWeightPct])),
@@ -420,73 +221,85 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
 
   const bt = idealPortfolio.backtest[mode];
 
-  const rebalancePlan = useMemo(() => {
-    const currentMap = parseHoldingsInput(holdingsText, capitalUsd);
-    if (currentMap.size === 0) return null;
+  const knownTickers = useMemo(() => {
+    const s = new Set(Object.keys(stocksIndex));
+    (idealPortfolio.candidatePool ?? idealPortfolio.positions).forEach((p) => s.add(p.ticker));
+    idealPortfolio.positions.forEach((p) => s.add(p.ticker));
+    return s;
+  }, [stocksIndex, idealPortfolio.candidatePool, idealPortfolio.positions]);
 
-    const targetMap = new Map<string, DynamicPosition>(
-      activePositions.map((p) => [p.ticker, p])
-    );
-    const allTickers = new Set<string>([
-      ...Array.from(currentMap.keys()),
-      ...Array.from(targetMap.keys()),
-    ]);
+  const parsedHoldings = useMemo(
+    () => parseHoldingsInput(holdingsText, capitalUsd, knownTickers),
+    [holdingsText, capitalUsd, knownTickers]
+  );
 
-    const rows = Array.from(allTickers).map((ticker) => {
-      const currUsd = currentMap.get(ticker) ?? 0;
-      const targetPos = targetMap.get(ticker);
-      const targetWeight = targetPos?.dynamicWeightPct ?? 0;
-      const targetUsd = (capitalUsd * targetWeight) / 100;
-      const deltaUsd = targetUsd - currUsd;
-      const priceUsd = targetPos?.priceUsd ?? stocksIndex[ticker]?.priceUsd ?? null;
-      const estSharesDelta =
-        priceUsd && priceUsd > 0 ? Math.round(deltaUsd / priceUsd) : null;
-      const threshold = Math.max(50, capitalUsd * 0.0025);
+  const rebalancePlan = useMemo(
+    () =>
+      computeRebalancePlan({
+        holdingsMap: parsedHoldings.holdings,
+        activePositions,
+        stocksIndex,
+        capitalUsd,
+        mode: rebalanceMode,
+        newCashUsd,
+        driftTolerancePct,
+      }),
+    [
+      parsedHoldings.holdings,
+      activePositions,
+      stocksIndex,
+      capitalUsd,
+      rebalanceMode,
+      newCashUsd,
+      driftTolerancePct,
+    ]
+  );
 
-      let action: 'BUY' | 'ADD' | 'TRIM' | 'EXIT' | 'HOLD';
-      if (currUsd <= 0 && targetUsd > 0) action = 'BUY';
-      else if (targetUsd <= 0 && currUsd > 0) action = 'EXIT';
-      else if (Math.abs(deltaUsd) < threshold) action = 'HOLD';
-      else if (deltaUsd > 0) action = 'ADD';
-      else action = 'TRIM';
-
-      return {
-        ticker,
-        name: targetPos?.name ?? stocksIndex[ticker]?.name ?? ticker,
-        action,
-        currUsd,
-        currPct: capitalUsd > 0 ? (currUsd / capitalUsd) * 100 : 0,
-        targetUsd,
-        targetPct: targetWeight,
-        deltaUsd,
-        estSharesDelta,
-      };
+  const displayedPositions = useMemo<DynamicPosition[]>(() => {
+    const filtered = activePositions.filter((p) => {
+      if (entryFilter === 'ALL') return true;
+      if (entryFilter === 'VALUE') {
+        return p.entryZoneStatus === 'Discount to Q-Avg' || p.entryZoneStatus === 'Near Q-Avg';
+      }
+      return p.entryZoneStatus === 'Extended' || p.entryZoneStatus === 'Chasing (+30%+)';
     });
-
-    const actionPriority: Record<string, number> = {
-      BUY: 0,
-      EXIT: 1,
-      ADD: 2,
-      TRIM: 3,
-      HOLD: 4,
+    if (sortBy === 'idealWeightPct' && !sortAsc) return filtered;
+    const cmpNullable = (a: number | null | undefined, b: number | null | undefined): number => {
+      const an = a == null || !Number.isFinite(a) ? null : a;
+      const bn = b == null || !Number.isFinite(b) ? null : b;
+      if (an === null && bn === null) return 0;
+      if (an === null) return 1;
+      if (bn === null) return -1;
+      return sortAsc ? an - bn : bn - an;
     };
-    rows.sort(
-      (a, b) =>
-        actionPriority[a.action] - actionPriority[b.action] ||
-        Math.abs(b.deltaUsd) - Math.abs(a.deltaUsd)
-    );
+    return [...filtered].sort((a, b) => {
+      if (sortBy === 'revYoY') {
+        return cmpNullable(a.fundamentals?.revenueGrowthYoYPct, b.fundamentals?.revenueGrowthYoYPct);
+      }
+      if (sortBy === 'fcfMargin') {
+        return cmpNullable(a.fundamentals?.fcfMarginPct, b.fundamentals?.fcfMarginPct);
+      }
+      if (sortBy === 'convictionScore') {
+        return cmpNullable(a.convictionScore, b.convictionScore);
+      }
+      if (sortBy === 'holderCount') {
+        return cmpNullable(a.holderCount, b.holderCount);
+      }
+      if (sortBy === 'stockTtmPct') {
+        return cmpNullable(a.stockTtmPct, b.stockTtmPct);
+      }
+      return cmpNullable(a.dynamicWeightPct, b.dynamicWeightPct);
+    });
+  }, [activePositions, entryFilter, sortBy, sortAsc]);
 
-    const totalCurrentUsd = Array.from(currentMap.values()).reduce((a, b) => a + b, 0);
-    const totalBuyUsd = rows.filter((r) => r.deltaUsd > 0).reduce((s, r) => s + r.deltaUsd, 0);
-    const totalSellUsd = rows.filter((r) => r.deltaUsd < 0).reduce((s, r) => s + Math.abs(r.deltaUsd), 0);
-    return {
-      rows,
-      totalCurrentUsd,
-      totalBuyUsd,
-      totalSellUsd,
-      cashDeltaUsd: capitalUsd - totalCurrentUsd,
-    };
-  }, [holdingsText, capitalUsd, activePositions, stocksIndex]);
+  const toggleSort = (col: IdealSortKey) => {
+    if (sortBy === col) {
+      setSortAsc((v) => !v);
+    } else {
+      setSortBy(col);
+      setSortAsc(false);
+    }
+  };
 
   const handleSavePreset = () => {
     try {
@@ -533,7 +346,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
 
   const handleExport = () => {
     downloadCsv(
-      `paper-trail-ideal-portfolio-${universeFilter.toLowerCase()}-${signalMode}-${activePositions.length}names.csv`,
+      `paper-trail-ideal-portfolio-${universeFilter.toLowerCase()}-${signalMode}-${displayedPositions.length}names.csv`,
       [
         'Rank',
         'Ticker',
@@ -548,14 +361,15 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         'Entry Zone',
         'XBRL Rev YoY (%)',
         'XBRL Op Margin (%)',
+        'XBRL FCF Margin (%)',
         'Conviction Score',
         'Ranked Holders',
         'Avg Fund Weight (%)',
         'Signal Tag',
         'Top Backers',
       ],
-      activePositions.map((p, idx) => [
-        idx + 1,
+      displayedPositions.map((p) => [
+        p.rank,
         p.ticker,
         p.name,
         p.subSector || p.sector,
@@ -568,6 +382,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         p.entryZoneStatus ?? '',
         p.fundamentals?.revenueGrowthYoYPct ?? '',
         p.fundamentals?.operatingMarginPct ?? '',
+        p.fundamentals?.fcfMarginPct ?? '',
         p.convictionScore,
         p.holderCount,
         p.avgFundWeightPct,
@@ -580,9 +395,10 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   const handleExportRebalance = () => {
     if (!rebalancePlan) return;
     downloadCsv(
-      `paper-trail-rebalance-trades-${activePositions.length}names.csv`,
-      ['Action', 'Ticker', 'Company', 'Current (USD)', 'Current (%)', 'Target (USD)', 'Target (%)', 'Trade Delta (USD)', 'Est. Shares'],
+      `paper-trail-rebalance-${rebalanceMode}-trades-${activePositions.length}names.csv`,
+      ['Mode', 'Action', 'Ticker', 'Company', 'Current (USD)', 'Current (%)', 'Target (USD)', 'Target (%)', 'Trade Delta (USD)', 'Est. Shares'],
       rebalancePlan.rows.map((r) => [
+        rebalanceMode === 'buyOnly' ? 'Buy-Only' : 'Full',
         r.action,
         r.ticker,
         r.name,
@@ -749,7 +565,9 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                 <Calculator size={16} color="var(--accent-primary)" /> Portfolio Rebalance Trade Calculator
               </h3>
               <p className="panel-subtitle">
-                Paste current positions in USD or % (e.g. <code>NVDA 20000</code> or <code>MSFT 15%</code>) to generate exact BUY / ADD / TRIM / EXIT orders against your {activePositions.length}-name target model (${capitalUsd.toLocaleString()} capital).
+                {rebalanceMode === 'buyOnly'
+                  ? `Tax-aware Cash Flow Buy-Only mode: deploys $${Math.max(0, newCashUsd).toLocaleString()} fresh cash into your most underweight target positions without generating sells.`
+                  : `Paste current positions in USD or % (e.g. NVDA 20000 or MSFT 15%) to generate exact BUY / ADD / TRIM / EXIT orders against your ${activePositions.length}-name target model ($${capitalUsd.toLocaleString()} capital).`}
               </p>
             </div>
             <div className="controls-row">
@@ -764,30 +582,135 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
             </div>
           </div>
 
-          <div style={{ padding: '1rem 1.25rem', display: 'grid', gridTemplateColumns: 'minmax(240px, 320px) 1fr', gap: '1.15rem', alignItems: 'start' }}>
+          <div style={{ padding: '1rem 1.25rem', display: 'grid', gridTemplateColumns: 'minmax(260px, 345px) 1fr', gap: '1.15rem', alignItems: 'start' }}>
             <div>
+              <div className="rebalance-mode-grid">
+                <div>
+                  <span className="builder-ctrl-label" style={{ display: 'block', marginBottom: '0.28rem' }}>
+                    Rebalance Mode
+                  </span>
+                  <div className="segmented-group" role="group" aria-label="Rebalance mode">
+                    <button
+                      type="button"
+                      id="rebalance-mode-full"
+                      className={`seg-btn ${rebalanceMode === 'full' ? 'active' : ''}`}
+                      onClick={() => setRebalanceMode('full')}
+                    >
+                      Full Rebalance
+                    </button>
+                    <button
+                      type="button"
+                      id="rebalance-mode-buyonly"
+                      className={`seg-btn ${rebalanceMode === 'buyOnly' ? 'active' : ''}`}
+                      onClick={() => setRebalanceMode('buyOnly')}
+                    >
+                      Buy-Only Cash Flow
+                    </button>
+                  </div>
+                </div>
+
+                {rebalanceMode === 'buyOnly' && (
+                  <div>
+                    <label
+                      htmlFor="rebalance-new-cash"
+                      className="builder-ctrl-label"
+                      style={{ display: 'block', marginBottom: '0.28rem' }}
+                    >
+                      New Cash ($)
+                    </label>
+                    <input
+                      id="rebalance-new-cash"
+                      type="number"
+                      min={0}
+                      step={500}
+                      value={newCashUsd}
+                      onChange={(e) => setNewCashUsd(Math.max(0, Number(e.target.value) || 0))}
+                      className="search-input mono"
+                      style={{ width: '120px', minWidth: '100px', padding: '0.3rem 0.5rem' }}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <span className="builder-ctrl-label" style={{ display: 'block', marginBottom: '0.28rem' }}>
+                    Drift Tolerance
+                  </span>
+                  <div className="segmented-group" role="group" aria-label="Drift tolerance percentage">
+                    {[0.25, 0.5, 1.0, 2.0].map((tol) => (
+                      <button
+                        key={tol}
+                        type="button"
+                        className={`seg-btn ${driftTolerancePct === tol ? 'active' : ''}`}
+                        onClick={() => setDriftTolerancePct(tol)}
+                      >
+                        {tol.toFixed(tol === 0.25 ? 2 : 1)}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <label htmlFor="rebalance-input" style={{ display: 'block', fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
                 Your Current Holdings (one per line or comma-separated)
               </label>
               <textarea
                 id="rebalance-input"
-                rows={7}
+                rows={6}
                 className="rebalance-textarea mono"
                 placeholder={`NVDA 22000\nMSFT 16000\nMETA 12%\nINTC 8000`}
                 value={holdingsText}
                 onChange={(e) => setHoldingsText(e.target.value)}
               />
+
+              {(parsedHoldings.normalizedAliases.length > 0 ||
+                parsedHoldings.unknownTickers.length > 0 ||
+                parsedHoldings.unparsedLines.length > 0) && (
+                <div className="rebalance-warn-box" role="status">
+                  {parsedHoldings.normalizedAliases.length > 0 && (
+                    <div>
+                      <strong>Share-class normalized:</strong>{' '}
+                      {parsedHoldings.normalizedAliases.map((a) => `${a.from}→${a.to}`).join(', ')}
+                    </div>
+                  )}
+                  {parsedHoldings.unknownTickers.length > 0 && (
+                    <div>
+                      <strong>Not in tracked 13F tech index:</strong>{' '}
+                      {parsedHoldings.unknownTickers.join(', ')}{' '}
+                      {rebalanceMode === 'full' ? '(flagged as EXIT)' : '(kept untouched)'}
+                    </div>
+                  )}
+                  {parsedHoldings.unparsedLines.length > 0 && (
+                    <div>
+                      <strong>Ignored unparsed lines:</strong>{' '}
+                      {parsedHoldings.unparsedLines.join(' | ')} (expected format: <code>NVDA 20000</code> or <code>MSFT 15%</code>)
+                    </div>
+                  )}
+                </div>
+              )}
+
               {rebalancePlan && (
                 <div className="mono" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                   <span>Current Invested: <strong>{formatUsdCompact(rebalancePlan.totalCurrentUsd)}</strong></span>
-                  <span className="ret-pos">Total Buys / Adds: <strong>+{formatUsdCompact(rebalancePlan.totalBuyUsd)}</strong></span>
-                  <span className="ret-neg">Total Sells / Trims: <strong>-{formatUsdCompact(rebalancePlan.totalSellUsd)}</strong></span>
+                  {rebalanceMode === 'buyOnly' && (
+                    <span>
+                      Post-Deploy Portfolio: <strong>{formatUsdCompact(rebalancePlan.postDeployUsd)}</strong>
+                    </span>
+                  )}
+                  <span className="ret-pos">
+                    Total Buys / Adds: <strong>{formatSignedUsd(rebalancePlan.totalBuyUsd)}</strong>
+                  </span>
+                  {rebalanceMode === 'buyOnly' ? (
+                    <span className="ret-muted">
+                      Total Sells / Trims: <strong>$0 (Buy-Only)</strong>
+                    </span>
+                  ) : (
+                    <span className="ret-neg">
+                      Total Sells / Trims: <strong>{formatSignedUsd(-rebalancePlan.totalSellUsd)}</strong>
+                    </span>
+                  )}
                   <span>
-                    Net Cash Needed:{' '}
-                    <strong>
-                      {rebalancePlan.cashDeltaUsd >= 0 ? '+' : '-'}
-                      {formatUsdCompact(Math.abs(rebalancePlan.cashDeltaUsd))}
-                    </strong>
+                    {rebalanceMode === 'buyOnly' ? 'Fresh Cash Deployed:' : 'Net Cash Needed:'}{' '}
+                    <strong>{formatSignedUsd(rebalancePlan.cashDeltaUsd)}</strong>
                   </span>
                 </div>
               )}
@@ -795,7 +718,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
 
             <div>
               {rebalancePlan ? (
-                <div className="table-scroll" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                <div className="table-scroll" style={{ maxHeight: '360px', overflowY: 'auto' }}>
                   <table className="data-table compact">
                     <thead>
                       <tr>
@@ -843,8 +766,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                             {formatUsdCompact(r.targetUsd)} ({r.targetPct.toFixed(1)}%)
                           </td>
                           <td className={`num mono ${returnClass(r.deltaUsd)}`}>
-                            {r.deltaUsd >= 0 ? '+' : '-'}
-                            {formatUsdCompact(Math.abs(r.deltaUsd))}
+                            {formatSignedUsd(r.deltaUsd)}
                           </td>
                           <td className={`num mono ${returnClass(r.estSharesDelta)}`}>
                             {r.estSharesDelta != null
@@ -921,6 +843,12 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
               <p className="panel-subtitle">
                 Survivorship-free baseline simulation (Default 40-stock 8%-capped Elite-50 model vs. QQQ &amp; SPY)
               </p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.35rem', marginTop: '0.3rem', fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+                <Info size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span>
+                  Curve tracks the canonical 40-stock 8%-capped Elite-50 baseline; builder filters customize today&apos;s live allocation weights.
+                </span>
+              </div>
             </div>
             <div className="segmented-group">
               <button
@@ -1005,15 +933,35 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         <div className="panel-header">
           <div>
             <h3 className="panel-title">
-              Ideal Portfolio Allocation ({activePositions.length} Positions · 100.00%)
+              Ideal Portfolio Allocation ({displayedPositions.length} of {activePositions.length} Positions · 100.00%)
             </h3>
             <p className="panel-subtitle">
               Click any stock ticker for full Q-VWAP &amp; XBRL Stock Dossier, or click any backing fund to inspect its 13F book
             </p>
           </div>
-          <button type="button" className="action-btn" onClick={handleExport}>
-            <Download size={14} /> Export Ideal Portfolio CSV
-          </button>
+          <div className="controls-row">
+            <div className="segmented-group" role="group" aria-label="Entry zone filter">
+              {(
+                [
+                  { id: 'ALL', label: 'All Zones' },
+                  { id: 'VALUE', label: 'Discount / Near Q-Avg' },
+                  { id: 'EXTENDED', label: 'Extended' },
+                ] as const
+              ).map((z) => (
+                <button
+                  key={z.id}
+                  type="button"
+                  className={`seg-btn ${entryFilter === z.id ? 'active' : ''}`}
+                  onClick={() => setEntryFilter(z.id)}
+                >
+                  {z.label}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="action-btn" onClick={handleExport}>
+              <Download size={14} /> Export Ideal Portfolio CSV
+            </button>
+          </div>
         </div>
 
         <div className="table-scroll">
@@ -1023,26 +971,39 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                 <th>#</th>
                 <th>Stock</th>
                 <th>Sub-Sector</th>
-                <th className="num">Ideal Weight</th>
+                <th className="num sortable" onClick={() => toggleSort('idealWeightPct')}>
+                  Ideal Weight {sortBy === 'idealWeightPct' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
                 <th className="num">Target ($)</th>
                 <th>Entry Zone (Q-VWAP)</th>
-                <th className="num">XBRL Rev / OpM</th>
-                <th className="num">Conviction</th>
+                <th className="num sortable" onClick={() => toggleSort('revYoY')}>
+                  XBRL Rev / OpM {sortBy === 'revYoY' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th className="num sortable" onClick={() => toggleSort('fcfMargin')}>
+                  FCF Mgn {sortBy === 'fcfMargin' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th className="num sortable" onClick={() => toggleSort('convictionScore')}>
+                  Conviction {sortBy === 'convictionScore' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
                 <th>Signal Driver</th>
-                <th className="num">Holders</th>
-                <th className="num">TTM</th>
+                <th className="num sortable" onClick={() => toggleSort('holderCount')}>
+                  Holders {sortBy === 'holderCount' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th className="num sortable" onClick={() => toggleSort('stockTtmPct')}>
+                  TTM {sortBy === 'stockTtmPct' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
                 <th>Top Backing Funds</th>
               </tr>
             </thead>
             <tbody>
-              {activePositions.map((p, idx) => {
+              {displayedPositions.map((p) => {
                 const targetUsd = (capitalUsd * p.dynamicWeightPct) / 100;
                 const estShares =
                   p.priceUsd && p.priceUsd > 0 ? Math.floor(targetUsd / p.priceUsd) : null;
                 return (
                   <tr key={p.ticker}>
                     <td>
-                      <span className={`rank-badge ${idx < 3 ? 'top3' : ''}`}>#{idx + 1}</span>
+                      <span className={`rank-badge ${p.rank <= 3 ? 'top3' : ''}`}>#{p.rank}</span>
                     </td>
                     <td style={{ minWidth: '185px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
@@ -1133,6 +1094,11 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                         <span className="ret-muted">—</span>
                       )}
                     </td>
+                    <td className={`num mono ${returnClass(p.fundamentals?.fcfMarginPct)}`} style={{ fontSize: '0.79rem' }}>
+                      {p.fundamentals?.fcfMarginPct != null
+                        ? `${p.fundamentals.fcfMarginPct.toFixed(1)}%`
+                        : '—'}
+                    </td>
                     <td className="num mono">
                       <strong>{p.convictionScore.toFixed(0)}</strong>
                       <span style={{ color: 'var(--text-muted)' }}>/100</span>
@@ -1179,10 +1145,12 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                   </tr>
                 );
               })}
-              {activePositions.length === 0 && (
+              {displayedPositions.length === 0 && (
                 <tr>
-                  <td colSpan={12} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    No stocks match this market-cap filter. Switch Universe back to All-Cap Tech or Ex-Mega.
+                  <td colSpan={13} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    {activePositions.length === 0
+                      ? 'No stocks match this market-cap filter. Switch Universe back to All-Cap Tech or Ex-Mega.'
+                      : 'No positions in this Entry Zone filter. Switch back to All Zones.'}
                   </td>
                 </tr>
               )}

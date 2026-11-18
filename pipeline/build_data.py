@@ -42,10 +42,13 @@ from security_resolver import (
     TICKER_META_PATH,
     _normalize_legal_name,
     fetch_all_prices,
+    fetch_nasdaq_market_caps,
     is_tech_tmt,
     load_cached_ohlcv,
+    load_cached_splits,
     load_json_dict,
     resolve_cusips,
+    split_factor_between,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -732,6 +735,20 @@ def compute_ideal_portfolio_weights(
     return capped, stock_agg, sorted_items
 
 
+def statutory_deadline_date(period_end: str) -> str:
+    """
+    Compute SEC statutory 13F-HR deadline (period_end + 45 calendar days,
+    rolled forward to Monday if Day 45 falls on Saturday or Sunday).
+    """
+    pe_dt = datetime.strptime(period_end, "%Y-%m-%d").date()
+    dl_dt = pe_dt + timedelta(days=45)
+    if dl_dt.weekday() == 5:  # Saturday -> Monday
+        dl_dt += timedelta(days=2)
+    elif dl_dt.weekday() == 6:  # Sunday -> Monday
+        dl_dt += timedelta(days=1)
+    return dl_dt.strftime("%Y-%m-%d")
+
+
 def run_ideal_portfolio_backtest(
     bt_mode: str,
     all_quarters: list[str],
@@ -745,10 +762,15 @@ def run_ideal_portfolio_backtest(
     curated_bt_ciks: set[str],
     excluded_etfs: set[str] | frozenset[str] = NON_STOCK_ETFS,
     min_quarter_date: str = "2021-09-30",
+    splits_map: dict[str, Any] | None = None,
+    rf_ann_arr: np.ndarray | None = None,
+    qqq_nav: np.ndarray | None = None,
 ) -> list[tuple[int, dict[str, float]]]:
     """
     Reconstruct survivorship-free quarterly point-in-time backtest segments for the
-    Elite-50 Ideal Portfolio in Quarter-End or zero-look-ahead 45-Day Filing-Lag mode.
+    Elite-50 Ideal Portfolio in Quarter-End or zero-look-ahead 45-Day Filing-Lag mode,
+    mirroring live fund qualification, rolling 4Q persistence, risk-adjusted PIT Skill Score,
+    and split-adjusted QoQ accumulation signals.
     """
     segs: list[tuple[int, dict[str, float]]] = []
     # Orthogonal horizons matching live scorer: 0-12M (35%), 12-36M (40%), 36-60M (25%)
@@ -759,7 +781,7 @@ def run_ideal_portfolio_backtest(
             continue
         qd_dt = datetime.strptime(qd, "%Y-%m-%d")
         if bt_mode == "filing_lag":
-            rebal_dt = (qd_dt + timedelta(days=46)).strftime("%Y-%m-%d")
+            rebal_dt = max(statutory_deadline_date(qd), (qd_dt + timedelta(days=46)).strftime("%Y-%m-%d"))
             if rebal_dt > as_of_date:
                 continue
         else:
@@ -769,7 +791,7 @@ def run_ideal_portfolio_backtest(
         if rebal_idx is None:
             continue
 
-        active_cands: list[tuple[str, dict[str, Any], dict[str, float]]] = []
+        active_cands: list[tuple[str, dict[str, Any], dict[str, float], str, list[dict[str, Any]]]] = []
         for cik in all_bt_ciks:
             sn_list = snaps_by_cik.get(cik) or []
             avail = [s for s in sn_list if s["effDate"] <= rebal_dt]
@@ -779,26 +801,40 @@ def run_ideal_portfolio_backtest(
             # Require filing period within 180d + point-in-time concentration/eligibility
             if (qd_dt - datetime.strptime(cur_s["reportDate"], "%Y-%m-%d")).days > 180:
                 continue
+            is_cur = cik in curated_bt_ciks
+            tech_floor = 30.0 if is_cur else 35.0
             if (
                 cur_s["eqAum"] < 100_000_000
-                or cur_s["techPct"] < 30.0
+                or cur_s["techPct"] < tech_floor
                 or cur_s["posCount"] < 5
-                or (cur_s["posCount"] > 250 and cik not in curated_bt_ciks)
+                or (cur_s["posCount"] > 250 and not is_cur)
                 or cur_s["effN"] < 4.0
                 or cur_s["maxSingle"] > 45.0
             ):
                 continue
-            # Prior period snapshot (for true +/-5% share-count delta)
+
+            recent_snaps = avail[-4:]
+            avg4q_max1 = sum(s["maxSingle"] for s in recent_snaps) / len(recent_snaps)
+            if avg4q_max1 > 40.0:
+                continue
+            if len(avail) >= 4:
+                med4q_tech = float(statistics.median(s["techPct"] for s in recent_snaps))
+                persist_floor = 40.0 if is_cur else 50.0
+                if med4q_tech < persist_floor:
+                    continue
+
+            # Prior period snapshot (for split-adjusted +/-5% share-count delta)
             prev_same = [s for s in avail if s["reportDate"] < cur_s["reportDate"]]
             prev_shares = prev_same[-1]["shares"] if prev_same else {}
-            active_cands.append((cik, cur_s, prev_shares))
+            prev_rd = prev_same[-1]["reportDate"] if prev_same else ""
+            active_cands.append((cik, cur_s, prev_shares, prev_rd, avail))
 
         if len(active_cands) < 5:
             continue
 
         def _collect_horizon_vals(start_i: int, end_i: int) -> list[tuple[str, float]]:
             out_vals: list[tuple[str, float]] = []
-            for cik, _, _ in active_cands:
+            for cik, _, _, _, _ in active_cands:
                 nav_arr = navs_by_cik.get(cik)
                 if nav_arr is None or end_i >= len(nav_arr):
                     continue
@@ -819,12 +855,9 @@ def run_ideal_portfolio_backtest(
             if e_h <= s_h + 45:
                 continue
             vals = _collect_horizon_vals(s_h, e_h)
-            # In Year-1 filing_lag (Q3-2021 / Q4-2021), cal_dates[0] precedes Q4-2020 45-day lag
-            # filing debuts (~2021-02-16). Align Year-1 scoring onto the common debut index maximizing
-            # cohort coverage * sqrt(horizon) so filing_lag scores cleanly instead of skipping 2021-11-15.
             if h_idx == 0 and s_h <= 45 and len(vals) < min(20, max(3, int(len(active_cands) * 0.45))):
                 cand_starts: dict[str, int] = {}
-                for cik, _, _ in active_cands:
+                for cik, _, _, _, _ in active_cands:
                     nav_arr = navs_by_cik.get(cik)
                     if nav_arr is None or e_h >= len(nav_arr) or math.isnan(nav_arr[e_h]):
                         continue
@@ -850,9 +883,80 @@ def run_ideal_portfolio_backtest(
             if vals:
                 h_ranks_pit[h_idx] = _pct_ranks_desc(vals)
 
+        # Compute PIT trailing risk-adjusted metrics (Sortino, Info Ratio vs QQQ, Batting Avg) up to rebal_idx
+        pit_ir_pairs: list[tuple[str, float]] = []
+        pit_sort_pairs: list[tuple[str, float]] = []
+        pit_bat_pairs: list[tuple[str, float]] = []
+        pit_valid_days: dict[str, int] = {}
+        if qqq_nav is not None and rebal_idx >= 60 and len(qqq_nav) > rebal_idx:
+            min_req_days = 120 if rebal_idx >= 180 else 45
+            stat_floor = max(0, rebal_idx - 756)
+            for cik, _, _, _, avail in active_cands:
+                nav_arr = navs_by_cik.get(cik)
+                if nav_arr is None or len(nav_arr) <= rebal_idx or math.isnan(nav_arr[rebal_idx]):
+                    continue
+                nans_b = np.where(np.isnan(nav_arr[: rebal_idx + 1]))[0]
+                c_start = int(nans_b[-1]) + 1 if len(nans_b) > 0 else 0
+                s_st = max(c_start, stat_floor)
+                n_days_valid = (rebal_idx - s_st) + 1
+                if n_days_valid < min_req_days:
+                    continue
+                sub_n = nav_arr[s_st : rebal_idx + 1]
+                sub_q = qqq_nav[s_st : rebal_idx + 1]
+                dr = np.diff(sub_n) / sub_n[:-1]
+                qr = np.diff(sub_q) / sub_q[:-1]
+                if len(dr) < 30:
+                    continue
+                act_r = dr - qr
+                act_std = float(np.std(act_r, ddof=1))
+                ir_val = (float(np.mean(act_r)) / act_std) * math.sqrt(252.0) if act_std > 1e-8 else 0.0
+                if rf_ann_arr is not None and len(rf_ann_arr) > rebal_idx:
+                    rf_sub = np.clip(rf_ann_arr[s_st + 1 : rebal_idx + 1], 0.0, 15.0)
+                    rf_d = (1.0 + rf_sub / 100.0) ** (1.0 / 252.0) - 1.0
+                else:
+                    rf_d = np.full(len(dr), (1.04) ** (1.0 / 252.0) - 1.0, dtype=np.float64)
+                ex_r = dr - rf_d
+                ann_ex = float(np.mean(ex_r) * 252.0)
+                down_dev = float(np.sqrt(np.mean(np.minimum(0.0, ex_r) ** 2)) * math.sqrt(252.0))
+                sort_val = max(-5.0, min(10.0, ann_ex / down_dev)) if down_dev > 1e-6 else 0.0
+
+                # Interval batting avg across prior disclosed snapshots up to rebal_idx
+                beats = 0
+                tot_int = 0
+                eff_indices: list[int] = []
+                for s_snap in avail:
+                    ei = find_idx_on_or_after(cal_dates, s_snap["effDate"])
+                    if ei is not None and ei <= rebal_idx:
+                        if not eff_indices or ei > eff_indices[-1]:
+                            eff_indices.append(ei)
+                if not eff_indices or eff_indices[-1] < rebal_idx - 10:
+                    eff_indices.append(rebal_idx)
+                for ii in range(len(eff_indices) - 1):
+                    si_0, si_1 = eff_indices[ii], eff_indices[ii + 1]
+                    if si_1 - si_0 >= 15 and si_0 >= c_start and not math.isnan(nav_arr[si_0]) and not math.isnan(nav_arr[si_1]):
+                        tot_int += 1
+                        if (nav_arr[si_1] / nav_arr[si_0]) > (qqq_nav[si_1] / qqq_nav[si_0]):
+                            beats += 1
+                bat_val = (beats / tot_int) if tot_int >= 2 else 0.5
+                pit_ir_pairs.append((cik, ir_val))
+                pit_sort_pairs.append((cik, sort_val))
+                pit_bat_pairs.append((cik, bat_val))
+                pit_valid_days[cik] = n_days_valid
+
+        pit_skill_norm: dict[str, float] = {}
+        if pit_ir_pairs:
+            ir_r = _pct_ranks_desc(pit_ir_pairs)
+            sort_r = _pct_ranks_desc(pit_sort_pairs)
+            bat_r = _pct_ranks_desc(pit_bat_pairs)
+            for cik, _ in pit_ir_pairs:
+                raw_comp = 0.40 * ir_r[cik] + 0.30 * bat_r[cik] + 0.30 * sort_r[cik]
+                conf = min(1.0, pit_valid_days[cik] / 504.0)
+                shrunk = 0.50 + conf * (raw_comp - 0.50)
+                pit_skill_norm[cik] = 0.25 + 0.75 * shrunk
+
         has_1y_cohort = 0 in h_ranks_pit and len(h_ranks_pit[0]) >= 25
-        scored_funds: list[tuple[str, float, dict[str, Any], dict[str, float]]] = []
-        for cik, cur_s, prev_shares in active_cands:
+        scored_funds: list[tuple[str, float, dict[str, Any], dict[str, float], str]] = []
+        for cik, cur_s, prev_shares, prev_rd, _ in active_cands:
             if has_1y_cohort and cik not in h_ranks_pit[0]:
                 continue
             num = 0.0
@@ -864,8 +968,12 @@ def run_ideal_portfolio_backtest(
                     den += hw
             if rebal_idx >= 90 and den <= 0:
                 continue
-            sc_pit = (0.25 + 0.75 * (num / den)) if den > 0 else 0.5
-            scored_funds.append((cik, sc_pit, cur_s, prev_shares))
+            ortho_pit = (0.25 + 0.75 * (num / den)) if den > 0 else 0.5
+            if cik in pit_skill_norm:
+                sc_pit = 0.65 * ortho_pit + 0.35 * pit_skill_norm[cik]
+            else:
+                sc_pit = ortho_pit
+            scored_funds.append((cik, sc_pit, cur_s, prev_shares, prev_rd))
 
         scored_funds.sort(key=lambda x: x[1], reverse=True)
         top_cohort = scored_funds[: min(50, len(scored_funds))]
@@ -877,8 +985,9 @@ def run_ideal_portfolio_backtest(
         s_add: dict[str, int] = {}
         s_trim: dict[str, int] = {}
 
-        for _, f_sc, cur_s, prev_shares in top_cohort:
+        for _, f_sc, cur_s, prev_shares, prev_rd in top_cohort:
             cur_sh_map = cur_s["shares"]
+            cur_rd = cur_s["reportDate"]
             for t, w_val in cur_s["weights"].items():
                 if t.startswith("CUSIP:") or t in excluded_etfs or w_val <= 0:
                     continue
@@ -893,10 +1002,13 @@ def run_ideal_portfolio_backtest(
                     csh = cur_sh_map.get(t, 0.0)
                     if psh <= 0:
                         s_new[t] = s_new.get(t, 0) + 1
-                    elif csh >= psh * 1.05:
-                        s_add[t] = s_add.get(t, 0) + 1
-                    elif csh <= psh * 0.95:
-                        s_trim[t] = s_trim.get(t, 0) + 1
+                    else:
+                        sp_factor, _ = split_factor_between(t, prev_rd, cur_rd, splits_map)
+                        psh_adj = psh * sp_factor
+                        if csh >= psh_adj * 1.05:
+                            s_add[t] = s_add.get(t, 0) + 1
+                        elif csh <= psh_adj * 0.95:
+                            s_trim[t] = s_trim.get(t, 0) + 1
 
         filt_scores: dict[str, float] = {}
         for t, sc in s_scores.items():
@@ -1009,16 +1121,10 @@ def compute_deadline_status(period_end: str, filing_date: str) -> dict[str, Any]
     Compute SEC statutory 13F-HR deadline (period_end + 45 calendar days,
     rolled forward to Monday if Day 45 falls on Saturday or Sunday).
     """
-    pe_dt = datetime.strptime(period_end, "%Y-%m-%d").date()
-    dl_dt = pe_dt + timedelta(days=45)
-    if dl_dt.weekday() == 5:  # Saturday -> Monday
-        dl_dt += timedelta(days=2)
-    elif dl_dt.weekday() == 6:  # Sunday -> Monday
-        dl_dt += timedelta(days=1)
-
+    dl_str = statutory_deadline_date(period_end)
+    dl_dt = datetime.strptime(dl_str, "%Y-%m-%d").date()
     fd_dt = datetime.strptime(filing_date, "%Y-%m-%d").date()
     days_before = (dl_dt - fd_dt).days
-    dl_str = dl_dt.strftime("%Y-%m-%d")
 
     if days_before == 0:
         badge = "Deadline Day"
@@ -1043,7 +1149,7 @@ def aggregate_filing_positions(
     cusip_meta: dict[str, dict[str, Any]],
 ) -> tuple[dict[tuple[str, str], dict[str, Any]], float, float]:
     """
-    Aggregate filing rows by (rawTicker, secType).
+    Aggregate filing rows by canonical (canonTicker, secType) so dual-class lines (GOOG+GOOGL) merge cleanly.
     Returns (agg_dict, total_reported_usd, equity_aum_usd).
     """
     agg: dict[tuple[str, str], dict[str, Any]] = {}
@@ -1060,12 +1166,13 @@ def aggregate_filing_positions(
         meta = cusip_meta.get(r["cusip"], {})
         raw_ticker = meta.get("ticker") or f"CUSIP:{r['cusip']}"
         disp_ticker = meta.get("displaySymbol") or raw_ticker
-        key = (raw_ticker, r["secType"])
+        canon_ticker = raw_ticker if raw_ticker.startswith("CUSIP:") else DUAL_CLASS_CANONICAL.get(raw_ticker, raw_ticker)
+        key = (canon_ticker, r["secType"])
         if key not in agg:
             agg[key] = {
                 "cusip": r["cusip"],
-                "ticker": disp_ticker if raw_ticker.startswith("CUSIP:") else raw_ticker,
-                "rawTicker": raw_ticker,
+                "ticker": disp_ticker if raw_ticker.startswith("CUSIP:") else canon_ticker,
+                "rawTicker": canon_ticker,
                 "name": meta.get("name") or r["issuer"],
                 "sector": meta.get("sector") or "Other",
                 "industry": meta.get("industry") or "",
@@ -1073,10 +1180,19 @@ def aggregate_filing_positions(
                 "securityType": r["secType"],
                 "shares": sh,
                 "valueUsd": val,
+                "maxLegVal": val,
             }
         else:
             agg[key]["shares"] += sh
             agg[key]["valueUsd"] += val
+            agg[key]["isTechTmt"] = agg[key]["isTechTmt"] or bool(meta.get("isTechTmt"))
+            if val > agg[key]["maxLegVal"] or raw_ticker == canon_ticker:
+                agg[key]["maxLegVal"] = val
+                if raw_ticker == canon_ticker:
+                    agg[key]["cusip"] = r["cusip"]
+                    agg[key]["name"] = meta.get("name") or r["issuer"]
+    for item in agg.values():
+        item.pop("maxLegVal", None)
     return agg, total_reported, eq_aum
 
 
@@ -1086,6 +1202,7 @@ def build_fund_update_entry(
     cusip_meta: dict[str, dict[str, Any]],
     in_rankings: bool,
     ranked_windows: list[str],
+    splits_map: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     if len(filings) < 2:
         return None
@@ -1139,13 +1256,27 @@ def build_fund_update_entry(
         assert base is not None
 
         sec_type = base["securityType"]
-        prev_sh = float(p_item["shares"]) if p_item else 0.0
+        prev_sh_raw = float(p_item["shares"]) if p_item else 0.0
         curr_sh = float(c_item["shares"]) if c_item else 0.0
+        sp_factor = 1.0
+        sp_ratio = ""
+        if sec_type == "EQUITY" and splits_map and not base["rawTicker"].startswith("CUSIP:"):
+            sp_factor, sp_ratio = split_factor_between(
+                base["rawTicker"], prev_fl["reportDate"], curr_fl["reportDate"], splits_map
+            )
+        prev_sh = prev_sh_raw * sp_factor
         sh_delta = curr_sh - prev_sh
 
         prev_val = float(p_item["valueUsd"]) if p_item else 0.0
         curr_val = float(c_item["valueUsd"]) if c_item else 0.0
         val_delta = curr_val - prev_val
+
+        est_price = (
+            (curr_val / curr_sh)
+            if curr_sh > 0
+            else ((prev_val / prev_sh) if prev_sh > 0 else 0.0)
+        )
+        est_flow_usd = sh_delta * est_price
 
         prev_book_pct = (prev_val / prev_rep * 100.0) if (p_item and prev_rep > 0) else 0.0
         curr_book_pct = (curr_val / curr_rep * 100.0) if (c_item and curr_rep > 0) else 0.0
@@ -1162,6 +1293,7 @@ def build_fund_update_entry(
             prev_put_usd += prev_val
 
         sh_delta_pct: float | None = None
+        is_dust_scale = False
         if p_item is None or prev_sh <= 0:
             action = "NEW"
             new_cnt += 1
@@ -1172,6 +1304,12 @@ def build_fund_update_entry(
         else:
             diff_pct = ((curr_sh / prev_sh) - 1.0) * 100.0
             sh_delta_pct = clean_num(diff_pct, 1)
+            is_dust_scale = (
+                prev_sh < 100
+                and prev_val < 50_000
+                and curr_val >= 250_000
+                and diff_pct >= 1000.0
+            )
             # +/- 5.0% threshold prevents share-class/DRIP/rounding noise from triggering Added/Trimmed signals
             if diff_pct >= 5.0:
                 action = "ADDED"
@@ -1209,6 +1347,14 @@ def build_fund_update_entry(
                     val_shift_type = "MARKUP"
                     tag_note = f"Markup on flat shares ({prev_book_pct:.1f}% → {curr_book_pct:.1f}%)"
 
+        if sp_factor != 1.0 and sp_ratio:
+            if tag_note:
+                tag_note = f"{tag_note} (adjusted for {sp_ratio} split)"
+            else:
+                tag_note = f"Prior shares adjusted {sp_ratio} for corporate split"
+        elif is_dust_scale:
+            tag_note = "Scaled from starter stub"
+
         move_obj = {
             "cusip": base["cusip"],
             "ticker": base["ticker"],
@@ -1224,11 +1370,13 @@ def build_fund_update_entry(
             "prevValueUsd": round(prev_val, 2),
             "currValueUsd": round(curr_val, 2),
             "valueDeltaUsd": round(val_delta, 2),
+            "estFlowUsd": round(est_flow_usd, 2),
             "prevBookPct": round(prev_book_pct, 2),
             "currBookPct": round(curr_book_pct, 2),
             "bookDeltaPct": round(book_delta_pct, 2),
             "valuationShiftType": val_shift_type,
             "tagNote": tag_note,
+            "_isDustScale": is_dust_scale,
         }
         all_moves.append(move_obj)
         if val_shift_type is not None:
@@ -1387,30 +1535,38 @@ def build_fund_update_entry(
 
     instrument_shifts.sort(key=lambda x: max(x["currTotalUsd"], x["prevTotalUsd"]), reverse=True)
 
-    # Categorized top lists (prioritize Equities for standard equity buckets, fallback includes options clearly labeled)
+    def _is_mat(m: dict[str, Any]) -> bool:
+        return max(m["currValueUsd"], m["prevValueUsd"], abs(m["valueDeltaUsd"])) >= 250_000.0
+
+    # Categorized top lists (prioritize material Equities, cleanly strip internal scratch flag)
     top_new = sorted(
         [m for m in all_moves if m["action"] == "NEW"],
-        key=lambda m: (m["securityType"] == "EQUITY", m["currValueUsd"]),
+        key=lambda m: (m["securityType"] == "EQUITY", _is_mat(m), m["currValueUsd"]),
         reverse=True,
     )[:8]
     top_added = sorted(
         [m for m in all_moves if m["action"] == "ADDED"],
         key=lambda m: (
             m["securityType"] == "EQUITY",
-            max(m["valueDeltaUsd"], 0.0) * (1.35 if (m["sharesDeltaPct"] or 0) >= 100 else 1.0),
+            _is_mat(m),
+            max(m["estFlowUsd"], m["valueDeltaUsd"], 0.0)
+            * (1.35 if (not m.get("_isDustScale") and (m["sharesDeltaPct"] or 0) >= 100) else 1.0),
         ),
         reverse=True,
     )[:8]
     top_trimmed = sorted(
         [m for m in all_moves if m["action"] == "TRIMMED"],
-        key=lambda m: abs(m["valueDeltaUsd"]),
+        key=lambda m: (_is_mat(m), max(abs(m["estFlowUsd"]), abs(m["valueDeltaUsd"]))),
         reverse=True,
     )[:8]
     top_exited = sorted(
         [m for m in all_moves if m["action"] == "EXITED"],
-        key=lambda m: m["prevValueUsd"],
+        key=lambda m: (_is_mat(m), m["prevValueUsd"]),
         reverse=True,
     )[:8]
+
+    for mv in all_moves:
+        mv.pop("_isDustScale", None)
 
     curr_eq_book_pct = (curr_eq_book / curr_rep * 100.0) if curr_rep > 0 else 0.0
     prev_eq_book_pct = (prev_eq_book / prev_rep * 100.0) if prev_rep > 0 else 0.0
@@ -1425,7 +1581,7 @@ def build_fund_update_entry(
     activity_ratio = (gross_activity / max(curr_rep, prev_rep) * 100.0) if max(curr_rep, prev_rep) > 0 else 0.0
     has_sig_hedge = curr_put_book_pct >= 1.0 or prev_put_book_pct >= 1.0 or curr_put_usd >= 20_000_000.0
 
-    # Synthesize grounded, scannable Apple-editorial narrative sections
+    # Synthesize grounded, scannable Apple-editorial narrative sections (material positions >= $250K)
     fund_short = cand["name"]
     dir_word = "up" if total_val_delta >= 0 else "down"
     delta_pct_str = f"{total_val_delta_pct:+.1f}%" if total_val_delta_pct is not None else ""
@@ -1461,28 +1617,36 @@ def build_fund_update_entry(
         )
 
     focus_notes: list[str] = []
-    # Highlight up to 1 top Exit, 1-2 Heavy Adds, 1 Trim, 1 New
-    if top_exited:
-        ex0 = top_exited[0]
+    mat_exited = [m for m in top_exited if _is_mat(m)]
+    if mat_exited:
+        ex0 = mat_exited[0]
         focus_notes.append(
             f"{ex0['ticker']} ({ex0['securityType'].lower()}) — exited entirely. "
             f"Prior {_fmt_shares_brief(ex0['prevShares'])} sh / {_fmt_usd_brief(ex0['prevValueUsd'])} ({ex0['prevBookPct']:.1f}%) is gone from {q_label[-2:]}."
         )
-    added_eq = [m for m in top_added if m["securityType"] == "EQUITY"]
+    added_eq = [m for m in top_added if m["securityType"] == "EQUITY" and _is_mat(m)]
     for ad in added_eq[:2]:
-        pct_s = f"+{ad['sharesDeltaPct']:,.0f}%" if (ad["sharesDeltaPct"] or 0) >= 100 else f"+{ad['sharesDeltaPct']:.1f}%"
-        focus_notes.append(
-            f"{ad['ticker']} — added heavily: {_fmt_shares_brief(ad['prevShares'])} → {_fmt_shares_brief(ad['currShares'])} sh ({pct_s}), "
-            f"{_fmt_usd_brief(ad['prevValueUsd'])} → {_fmt_usd_brief(ad['currValueUsd'])} ({ad['currBookPct']:.2f}% of book)."
-        )
-    if top_trimmed:
-        tr0 = top_trimmed[0]
+        dp_val = ad["sharesDeltaPct"] or 0.0
+        if dp_val >= 1000.0 or ad.get("tagNote") == "Scaled from starter stub":
+            focus_notes.append(
+                f"{ad['ticker']} — scaled from starter stub to {_fmt_shares_brief(ad['currShares'])} sh: "
+                f"{_fmt_usd_brief(ad['prevValueUsd'])} → {_fmt_usd_brief(ad['currValueUsd'])} ({ad['currBookPct']:.2f}% of book)."
+            )
+        else:
+            pct_s = f"+{dp_val:,.0f}%" if dp_val >= 100 else f"+{dp_val:.1f}%"
+            focus_notes.append(
+                f"{ad['ticker']} — added heavily: {_fmt_shares_brief(ad['prevShares'])} → {_fmt_shares_brief(ad['currShares'])} sh ({pct_s}), "
+                f"{_fmt_usd_brief(ad['prevValueUsd'])} → {_fmt_usd_brief(ad['currValueUsd'])} ({ad['currBookPct']:.2f}% of book)."
+            )
+    mat_trimmed = [m for m in top_trimmed if _is_mat(m)]
+    if mat_trimmed:
+        tr0 = mat_trimmed[0]
         focus_notes.append(
             f"{tr0['ticker']} — trimmed {abs(tr0['sharesDeltaPct'] or 0):.1f}%: "
             f"{_fmt_shares_brief(tr0['prevShares'])} → {_fmt_shares_brief(tr0['currShares'])} sh, "
             f"{_fmt_usd_brief(tr0['prevValueUsd'])} → {_fmt_usd_brief(tr0['currValueUsd'])}."
         )
-    new_eq = [m for m in top_new if m["securityType"] == "EQUITY"]
+    new_eq = [m for m in top_new if m["securityType"] == "EQUITY" and _is_mat(m)]
     if new_eq:
         nw0 = new_eq[0]
         focus_notes.append(
@@ -1520,7 +1684,7 @@ def build_fund_update_entry(
     non_hedge_shifts = [s for s in instrument_shifts if s["shiftType"] not in ("NEW_HEDGE", "HEDGE_SURGE")]
     for sh_sig in non_hedge_shifts[:3]:
         other_bits.append(sh_sig["label"])
-    extra_new = [m for m in top_new if m["securityType"] != "EQUITY" or m not in new_eq[:1]][:4]
+    extra_new = [m for m in top_new if _is_mat(m) and (m["securityType"] != "EQUITY" or m not in new_eq[:1])][:4]
     if extra_new:
         lbls = [
             f"{m['ticker']}{' ' + m['securityType'].lower() + 's' if m['securityType'] != 'EQUITY' else ''} ({_fmt_usd_brief(m['currValueUsd'])})"
@@ -1639,6 +1803,7 @@ def build_updates_overview(
         min_funds: int = 2,
         limit: int = 12,
         sort_by_abs_delta: bool = False,
+        sign_filter: int = 0,
     ) -> list[dict[str, Any]]:
         buckets: dict[str, dict[str, Any]] = {}
         for u in latest_pool:
@@ -1659,11 +1824,13 @@ def build_updates_overview(
                         "seenCiks": set(),
                         "totalCurrValueUsd": 0.0,
                         "totalDeltaUsd": 0.0,
+                        "totalEstFlowUsd": 0.0,
                         "funds": [],
                     }
                 b = buckets[t]
                 b["totalCurrValueUsd"] += mv["currValueUsd"]
                 b["totalDeltaUsd"] += mv["valueDeltaUsd"]
+                b["totalEstFlowUsd"] += mv.get("estFlowUsd", mv["valueDeltaUsd"])
                 b["seenCiks"].add(u["cik"])
                 b["funds"].append({
                     "cik": u["cik"],
@@ -1673,6 +1840,7 @@ def build_updates_overview(
                     "currBookPct": mv["currBookPct"],
                     "prevBookPct": mv["prevBookPct"],
                     "valueDeltaUsd": mv["valueDeltaUsd"],
+                    "estFlowUsd": mv.get("estFlowUsd", mv["valueDeltaUsd"]),
                     "sharesDeltaPct": mv["sharesDeltaPct"],
                 })
         out: list[dict[str, Any]] = []
@@ -1683,13 +1851,18 @@ def build_updates_overview(
             b["fundCount"] = fcnt
             b["totalCurrValueUsd"] = round(b["totalCurrValueUsd"], 2)
             b["totalDeltaUsd"] = round(b["totalDeltaUsd"], 2)
-            b["funds"].sort(key=lambda x: abs(x["valueDeltaUsd"]), reverse=True)
+            b["totalEstFlowUsd"] = round(b["totalEstFlowUsd"], 2)
+            if sign_filter > 0 and b["totalEstFlowUsd"] <= 0:
+                continue
+            if sign_filter < 0 and b["totalEstFlowUsd"] >= 0:
+                continue
+            b["funds"].sort(key=lambda x: abs(x.get("estFlowUsd", x["valueDeltaUsd"])), reverse=True)
             b["funds"] = b["funds"][:6]
             out.append(b)
         out.sort(
             key=lambda x: (
                 x["fundCount"],
-                abs(x["totalDeltaUsd"]) if sort_by_abs_delta else max(x["totalCurrValueUsd"], abs(x["totalDeltaUsd"])),
+                abs(x["totalEstFlowUsd"]) if sort_by_abs_delta else max(x["totalCurrValueUsd"], abs(x["totalEstFlowUsd"])),
             ),
             reverse=True,
         )
@@ -1706,9 +1879,9 @@ def build_updates_overview(
         "totalPutNotionalUsd": round(tot_puts, 2),
         "totalCallNotionalUsd": round(tot_calls, 2),
         "totalLatestBookUsd": round(tot_book, 2),
-        "consensusNewInitiations": _agg_consensus(("NEW",), ("EQUITY",), min_funds=2, limit=12),
-        "consensusHeavyAdds": _agg_consensus(("ADDED",), ("EQUITY",), min_funds=2, limit=12, sort_by_abs_delta=True),
-        "consensusExitsAndTrims": _agg_consensus(("EXITED", "TRIMMED"), ("EQUITY",), min_funds=2, limit=12, sort_by_abs_delta=True),
+        "consensusNewInitiations": _agg_consensus(("NEW",), ("EQUITY",), min_funds=2, limit=12, sign_filter=1),
+        "consensusHeavyAdds": _agg_consensus(("ADDED",), ("EQUITY",), min_funds=2, limit=12, sort_by_abs_delta=True, sign_filter=1),
+        "consensusExitsAndTrims": _agg_consensus(("EXITED", "TRIMMED"), ("EQUITY",), min_funds=2, limit=12, sort_by_abs_delta=True, sign_filter=-1),
         "consensusOptionMoves": _agg_consensus(("NEW", "ADDED", "TRIMMED", "EXITED"), ("CALL", "PUT"), min_funds=1, limit=12, sort_by_abs_delta=True),
     }
 
@@ -1989,6 +2162,7 @@ def build_signal_screener(
                 "prevVal": 0.0,
                 "currVal": 0.0,
                 "valDelta": 0.0,
+                "estFlow": 0.0,
                 "currBookPct": 0.0,
                 "prevBookPct": 0.0,
             })
@@ -1997,6 +2171,7 @@ def build_signal_screener(
             slot["prevVal"] += float(mv["prevValueUsd"])
             slot["currVal"] += float(mv["currValueUsd"])
             slot["valDelta"] += float(mv["valueDeltaUsd"])
+            slot["estFlow"] += float(mv.get("estFlowUsd", mv["valueDeltaUsd"]))
             slot["currBookPct"] += float(mv["currBookPct"])
             slot["prevBookPct"] += float(mv["prevBookPct"])
 
@@ -2031,11 +2206,13 @@ def build_signal_screener(
                 "exitedCount": 0,
                 "eliteSellCount": 0,
                 "netValueDeltaUsd": 0.0,
+                "netEstFlowUsd": 0.0,
                 "totalNewValueUsd": 0.0,
                 "totalSellOutflowUsd": 0.0,
                 "movers": [],
             })
             ma["netValueDeltaUsd"] += s["valDelta"]
+            ma["netEstFlowUsd"] += s["estFlow"]
             if act == "NEW":
                 ma["newCount"] += 1
                 ma["totalNewValueUsd"] += s["currVal"]
@@ -2045,7 +2222,7 @@ def build_signal_screener(
                 ma["addedCount"] += 1
             elif act == "TRIMMED":
                 ma["trimmedCount"] += 1
-                ma["totalSellOutflowUsd"] += max(0.0, -s["valDelta"])
+                ma["totalSellOutflowUsd"] += max(0.0, -s["estFlow"], -s["valDelta"])
                 if is_elite:
                     ma["eliteSellCount"] += 1
             elif act == "EXITED":
@@ -2062,6 +2239,7 @@ def build_signal_screener(
                 "currBookPct": round(s["currBookPct"], 2),
                 "prevBookPct": round(s["prevBookPct"], 2),
                 "valueDeltaUsd": round(s["valDelta"], 2),
+                "estFlowUsd": round(s["estFlow"], 2),
                 "sharesDeltaPct": sh_pct,
             })
 
@@ -2084,7 +2262,7 @@ def build_signal_screener(
         weights = sp.get("weights") or []
         movers_sorted = sorted(
             ma.get("movers", []),
-            key=lambda m: (m.get("fundTier") == "Elite 50", abs(m["valueDeltaUsd"])),
+            key=lambda m: (m.get("fundTier") == "Elite 50", abs(m.get("estFlowUsd", m["valueDeltaUsd"]))),
             reverse=True,
         )
         backers_sorted = sorted(
@@ -2111,6 +2289,7 @@ def build_signal_screener(
             "trimmedCount": ma.get("trimmedCount", 0),
             "exitedCount": ma.get("exitedCount", 0),
             "netDeltaUsd": round(ma.get("netValueDeltaUsd", 0.0), 2),
+            "netEstFlowUsd": round(ma.get("netEstFlowUsd", 0.0), 2),
             "movers": movers_sorted[:6],
             "topBackers": backers_sorted[:6],
         }
@@ -2130,12 +2309,12 @@ def build_signal_screener(
             t for t, ma in move_agg.items()
             if (ma["newCount"] + ma["addedCount"]) >= 2
             and (ma["newCount"] + ma["addedCount"]) > (ma["trimmedCount"] + ma["exitedCount"])
-            and ma["netValueDeltaUsd"] > 0
+            and ma["netEstFlowUsd"] > 0
         ],
         key=lambda t: (
             stock_pos.get(t, {}).get("eliteHoldersCount", 0) > 0,
             1.3 * move_agg[t]["newCount"] + move_agg[t]["addedCount"] - move_agg[t]["trimmedCount"] - 1.2 * move_agg[t]["exitedCount"],
-            move_agg[t]["netValueDeltaUsd"],
+            move_agg[t]["netEstFlowUsd"],
         ),
         reverse=True,
     )[:25]
@@ -2145,7 +2324,7 @@ def build_signal_screener(
             t for t, ma in move_agg.items()
             if (ma["exitedCount"] + ma["trimmedCount"]) >= 2
             and (ma["exitedCount"] + ma["trimmedCount"]) > (ma["newCount"] + ma["addedCount"])
-            and ma["netValueDeltaUsd"] < 0
+            and ma["netEstFlowUsd"] < 0
         ],
         key=lambda t: (
             1.5 * move_agg[t]["exitedCount"] + move_agg[t]["trimmedCount"],
@@ -2192,6 +2371,7 @@ def main() -> None:
         today_date,
         min_history_report_date="2020-12-31",
     )
+    hist_liq_ciks: list[str] = funnel_counts.pop("_historicalLiquidatedCiks", [])
 
     if len(stage1_results) < 25:
         raise RuntimeError(
@@ -2340,14 +2520,24 @@ def main() -> None:
     stage2_targets = [c for c in stage2_targets_raw if c["cik"] not in excluded_ops]
     funnel_counts["techFloorPassCount"] = len(stage2_targets)
 
+    # Include closed/liquidated historical managers (>=4Q) from bulk datasets for survivorship-free PIT backtest
+    stage2_ciks_set = {c["cik"] for c in stage2_targets}
+    hist_liq_set = {c for c in hist_liq_ciks if c not in stage2_ciks_set and c not in excluded_ops}
+    all_stage2_ciks = [c["cik"] for c in stage2_targets] + sorted(hist_liq_set)
+
     # Stage 2: Offline Bulk Data Set historical extraction + Post-Bulk .txt XML ingestion
-    print(f"\n[stage-2] Assembling full 2021-present histories for {len(stage2_targets)} surviving funds...", flush=True)
+    print(
+        f"\n[stage-2] Assembling full 2021-present histories for {len(stage2_targets)} surviving funds "
+        f"(+{len(hist_liq_set)} historical closed PIT funds)...",
+        flush=True,
+    )
     raw_fund_filings, pb_stats = ingest_target_histories(
-        target_ciks=[c["cik"] for c in stage2_targets],
+        target_ciks=all_stage2_ciks,
         bulk_paths=bulk_paths,
         post_bulk_by_cik=post_bulk_by_cik,
         today_date=today_date,
         min_report_date="2020-12-31",
+        allow_stale_ciks=hist_liq_set,
     )
     funnel_counts["postBulkFilingsCount"] = pb_stats["postBulkFilingsCount"]
 
@@ -2359,9 +2549,10 @@ def main() -> None:
     from sec_client import WARRANT_TITLE_RE
     all_cusips: dict[str, dict[str, str]] = {}
     all_cusip_priority: dict[str, float] = {}
-    for filings in raw_fund_filings.values():
+    for cik_r, filings in raw_fund_filings.items():
+        is_live_target = cik_r not in hist_liq_set
         for idx_fl, fl in enumerate(filings):
-            is_recent_q = idx_fl >= len(filings) - 2
+            is_recent_q = is_live_target and idx_fl >= len(filings) - 2
             rec_mult = 5.0 if is_recent_q else 1.0
             for row in fl["rows"]:
                 if row["secType"] == "EQUITY" or is_recent_q:
@@ -2487,12 +2678,13 @@ def main() -> None:
         funnel_counts["excludedInstitutionsCount"] += excluded_mm_stage3
         funnel_counts["techFloorPassCount"] = max(0, funnel_counts.get("techFloorPassCount", 0) - excluded_mm_stage3)
 
-    # Identify historical non-surviving Stage 2 CIKs that ever met Tech criteria for survivorship-free backtest
+    # Identify historical non-surviving Stage 2 & closed/liquidated CIKs that met Tech criteria for survivorship-free backtest
     strict_ciks_set = {c["cik"] for c in strict_pass_cands}
     pit_extra_ciks: list[str] = []
+    pit_extra_seen: set[str] = set()
     for cand in stage2_targets:
         cik = cand["cik"]
-        if cik in strict_ciks_set or cik not in raw_fund_filings:
+        if cik in strict_ciks_set or cik not in raw_fund_filings or cik in pit_extra_seen:
             continue
         filings = raw_fund_filings[cik]
         if len(filings) < 4:
@@ -2506,6 +2698,7 @@ def main() -> None:
                 ever_tech = True
                 break
         if ever_tech:
+            pit_extra_seen.add(cik)
             pit_extra_ciks.append(cik)
             for fl in filings:
                 for row in fl["rows"]:
@@ -2517,10 +2710,49 @@ def main() -> None:
                                 needed_tickers.add(raw_t)
                                 needed_tickers.add(canon_t)
 
+    hist_added_cnt = 0
+    for cik_h in sorted(hist_liq_set):
+        if cik_h in strict_ciks_set or cik_h in pit_extra_seen or cik_h not in raw_fund_filings:
+            continue
+        filings = raw_fund_filings[cik_h]
+        if len(filings) < 4:
+            continue
+        qual_q_cnt = 0
+        for fl in filings:
+            w_h, eq_h, _, _, pos_h, _, _, tech_h, _, _ = extract_equity_weights(
+                fl, cusip_meta, excluded_etfs=excluded_etf_tickers
+            )
+            hhi_h = sum(w * w for w in w_h.values()) if w_h else 0.0
+            eff_n_h = (1.0 / hhi_h) if hhi_h > 0 else float(pos_h)
+            if w_h and eq_h >= 100_000_000 and tech_h >= 35.0 and pos_h >= 5 and eff_n_h >= 3.5:
+                qual_q_cnt += 1
+        if qual_q_cnt >= 2:
+            pit_extra_seen.add(cik_h)
+            pit_extra_ciks.append(cik_h)
+            hist_added_cnt += 1
+            for fl in filings:
+                for row in fl["rows"]:
+                    if row["secType"] == "EQUITY":
+                        raw_t = cusip_meta.get(row["cusip"], {}).get("ticker", "")
+                        if raw_t and not raw_t.startswith("CUSIP:"):
+                            canon_t = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
+                            if canon_t not in excluded_etf_tickers:
+                                needed_tickers.add(raw_t)
+                                needed_tickers.add(canon_t)
+
+    if pit_extra_ciks:
+        print(
+            f"[pit-backtest] Including {len(pit_extra_ciks)} non-surviving historical funds "
+            f"({hist_added_cnt} defunct/liquidated) in survivorship-free PIT universe.",
+            flush=True,
+        )
+    funnel_counts["pitHistoricalBacktestCount"] = len(pit_extra_ciks)
     funnel_counts["strictQualificationCount"] = len(strict_pass_cands)
 
-    # Step 5: Fetch historical daily adjusted prices & OHLCV + ^IRX risk-free yield
-    raw_prices = fetch_all_prices(sorted(needed_tickers))
+    # Step 5: Fetch historical daily adjusted prices, splits & OHLCV + ^IRX risk-free yield
+    sorted_needed_tickers = sorted(needed_tickers)
+    raw_prices = fetch_all_prices(sorted_needed_tickers)
+    splits_map = load_cached_splits(sorted_needed_tickers)
     qqq_dict = raw_prices.get("QQQ") or {}
     cal_dates = sorted(qqq_dict.keys())
     if len(cal_dates) < 252:
@@ -2599,6 +2831,21 @@ def main() -> None:
             "curve": downsample_curve(cal_dates, b_nav, step=5),
         }
 
+    # Precompute canonical metadata lookup for merged share classes (GOOG -> GOOGL) & latest quarter label
+    canon_meta_by_ticker: dict[str, dict[str, Any]] = {}
+    canon_cusip_by_ticker: dict[str, str] = {}
+    for c_key, m_val in cusip_meta.items():
+        tk = m_val.get("ticker", "")
+        if tk and not tk.startswith("CUSIP:"):
+            if tk not in canon_meta_by_ticker or m_val.get("sector"):
+                canon_meta_by_ticker[tk] = m_val
+                canon_cusip_by_ticker[tk] = c_key
+
+    latest_q_overall = max(
+        (quarter_label(raw_fund_filings[c["cik"]][-1]["reportDate"]) for c in qualified_cands),
+        default="2026 Q3",
+    )
+
     # Step 6: Simulate every qualified fund + build zero-look-ahead PIT histories
     funds_out: list[dict[str, Any]] = []
     fund_navs: dict[str, dict[str, np.ndarray]] = {"quarter_end": {}, "filing_lag": {}}
@@ -2631,7 +2878,7 @@ def main() -> None:
         fund_navs["quarter_end"][cik] = nav_qe
         fund_navs["filing_lag"][cik] = nav_lag
 
-        # Compute quarter-by-quarter returns & Batting Average vs QQQ
+        # Compute quarter-by-quarter returns & Batting Average vs QQQ (independently for QE & 45d-Lag)
         q_beats = 0
         q_total = 0
         for i, qrow in enumerate(quarterly_hist):
@@ -2652,12 +2899,31 @@ def main() -> None:
                 qrow["quarterReturnPct"] = None
                 qrow["qqqQuarterReturnPct"] = None
 
+        lag_beats = 0
+        lag_total = 0
+        lag_boundaries: list[int] = [seg[0] for seg in lag_segments]
+        if lag_boundaries:
+            if lag_boundaries[-1] < n_dates - 1:
+                lag_boundaries.append(n_dates - 1)
+            prev_b = lag_boundaries[0]
+            for nxt_b in lag_boundaries[1:]:
+                if nxt_b - prev_b < 15:
+                    continue
+                if not math.isnan(nav_lag[prev_b]) and not math.isnan(nav_lag[nxt_b]) and nav_lag[prev_b] > 0:
+                    lr = (nav_lag[nxt_b] / nav_lag[prev_b]) - 1.0
+                    lqr = (qqq_nav[nxt_b] / qqq_nav[prev_b]) - 1.0
+                    lag_total += 1
+                    if lr > lqr:
+                        lag_beats += 1
+                prev_b = nxt_b
+
         batting_avg_pct = clean_num((q_beats / q_total) * 100.0, 1) if q_total >= 2 else None
+        lag_batting_avg_pct = clean_num((lag_beats / lag_total) * 100.0, 1) if lag_total >= 2 else None
         rets_qe, met_qe = compute_returns_and_metrics(nav_qe, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
         rets_lag, met_lag = compute_returns_and_metrics(nav_lag, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
         met_qe["battingAvgPct"] = batting_avg_pct
         met_qe["avgTurnoverPct"] = avg_turnover_pct
-        met_lag["battingAvgPct"] = batting_avg_pct
+        met_lag["battingAvgPct"] = lag_batting_avg_pct
         met_lag["avgTurnoverPct"] = avg_turnover_pct
 
         # Latest holdings table (all rows: Equity + Options + Notes, untruncated in shard)
@@ -2674,30 +2940,41 @@ def main() -> None:
         combined_rows: dict[tuple[str, str], dict[str, Any]] = {}
         for r in latest["rows"]:
             meta = cusip_meta.get(r["cusip"], {})
-            ticker = meta.get("ticker") or f"CUSIP:{r['cusip']}"
-            disp_ticker = meta.get("displaySymbol") or ticker
-            key = (ticker, r["secType"])
+            raw_ticker = meta.get("ticker") or f"CUSIP:{r['cusip']}"
+            disp_ticker = meta.get("displaySymbol") or raw_ticker
+            canon_ticker = raw_ticker if raw_ticker.startswith("CUSIP:") else DUAL_CLASS_CANONICAL.get(raw_ticker, raw_ticker)
+            key = (canon_ticker, r["secType"])
             if key not in combined_rows:
+                c_meta = canon_meta_by_ticker.get(canon_ticker, {}) if raw_ticker != canon_ticker else {}
                 combined_rows[key] = {
-                    "cusip": r["cusip"],
-                    "ticker": disp_ticker if ticker.startswith("CUSIP:") else ticker,
-                    "rawTicker": ticker,
-                    "name": meta.get("name") or r["issuer"],
-                    "sector": meta.get("sector") or "Other",
-                    "industry": meta.get("industry") or "",
-                    "isTechTmt": bool(meta.get("isTechTmt")),
+                    "cusip": canon_cusip_by_ticker.get(canon_ticker, r["cusip"]) if raw_ticker != canon_ticker else r["cusip"],
+                    "ticker": disp_ticker if raw_ticker.startswith("CUSIP:") else canon_ticker,
+                    "rawTicker": canon_ticker,
+                    "name": (c_meta.get("name") or meta.get("name") or r["issuer"]) if c_meta else (meta.get("name") or r["issuer"]),
+                    "sector": (c_meta.get("sector") or meta.get("sector") or "Other") if c_meta else (meta.get("sector") or "Other"),
+                    "industry": (c_meta.get("industry") or meta.get("industry") or "") if c_meta else (meta.get("industry") or ""),
+                    "isTechTmt": bool(meta.get("isTechTmt") or c_meta.get("isTechTmt")),
                     "securityType": r["secType"],
-                    "shares": r["shares"],
-                    "valueUsd": r["valueUsd"],
+                    "shares": float(r["shares"]),
+                    "valueUsd": float(r["valueUsd"]),
+                    "_maxLegVal": float(r["valueUsd"]),
                 }
             else:
-                combined_rows[key]["shares"] += r["shares"]
-                combined_rows[key]["valueUsd"] += r["valueUsd"]
+                slot = combined_rows[key]
+                slot["shares"] += float(r["shares"])
+                slot["valueUsd"] += float(r["valueUsd"])
+                slot["isTechTmt"] = slot["isTechTmt"] or bool(meta.get("isTechTmt"))
+                if float(r["valueUsd"]) > slot["_maxLegVal"] or raw_ticker == canon_ticker:
+                    slot["_maxLegVal"] = float(r["valueUsd"])
+                    if raw_ticker == canon_ticker:
+                        slot["cusip"] = r["cusip"]
+                        slot["name"] = meta.get("name") or r["issuer"]
 
         holdings_list: list[dict[str, Any]] = []
         sector_totals: dict[str, float] = {}
         for item in sorted(combined_rows.values(), key=lambda x: x["valueUsd"], reverse=True):
             rt = item.pop("rawTicker")
+            item.pop("_maxLegVal", None)
             is_eq = item["securityType"] == "EQUITY"
             canon_t = DUAL_CLASS_CANONICAL.get(rt, rt)
             is_single_eq = is_eq and canon_t not in excluded_etf_tickers
@@ -2710,10 +2987,15 @@ def main() -> None:
 
             qoq_sh_pct = None
             qoq_w_delta = None
+            est_flow_usd = None
             status = "UNCHANGED"
             if prev:
                 p_row = prev_agg_rows.get((rt, item["securityType"]))
-                psh = float(p_row["shares"]) if p_row else 0.0
+                psh_raw = float(p_row["shares"]) if p_row else 0.0
+                sp_factor = 1.0
+                if is_eq and splits_map and not canon_t.startswith("CUSIP:"):
+                    sp_factor, _ = split_factor_between(canon_t, prev["reportDate"], latest["reportDate"], splits_map)
+                psh = psh_raw * sp_factor
                 if psh <= 0:
                     status = "NEW"
                 else:
@@ -2723,6 +3005,12 @@ def main() -> None:
                         status = "ADDED"
                     elif diff_pct <= -5.0:
                         status = "TRIMMED"
+                est_px = (
+                    (item["valueUsd"] / item["shares"])
+                    if item["shares"] > 0
+                    else ((float(p_row["valueUsd"]) / psh) if (p_row and psh > 0) else 0.0)
+                )
+                est_flow_usd = round((item["shares"] - psh) * est_px, 2)
                 if is_single_eq:
                     pw = (float(p_row["valueUsd"]) / prev_eq_aum * 100.0) if (p_row and prev_eq_aum > 0) else 0.0
                     qoq_w_delta = clean_num(w_eq - pw, 2)
@@ -2730,7 +3018,7 @@ def main() -> None:
                     pw_rep = (float(p_row["valueUsd"]) / prev_rep_aum * 100.0) if (p_row and prev_rep_aum > 0) else 0.0
                     qoq_w_delta = clean_num(w_rep - pw_rep, 2)
 
-            px_t = rt if rt in aligned_prices else DUAL_CLASS_CANONICAL.get(rt, rt)
+            px_t = rt if rt in aligned_prices else canon_t
             px_last = None
             if px_t in aligned_prices:
                 arr, _, last_i = aligned_prices[px_t]
@@ -2744,6 +3032,7 @@ def main() -> None:
                 "reportedWeightPct": round(w_rep, 2),
                 "qoqSharesChangePct": qoq_sh_pct,
                 "qoqWeightDeltaPct": qoq_w_delta,
+                "estFlowUsd": est_flow_usd,
                 "status": status,
                 "pricePerShare": px_last,
             })
@@ -2790,6 +3079,7 @@ def main() -> None:
                     seen_st.add(cand_tk)
                     searchable_tickers.append(cand_tk)
 
+        lat_q_lbl = quarter_label(latest["reportDate"])
         funds_out.append({
             "cik": cik,
             "shard": fund_shard_id(cik),
@@ -2804,8 +3094,9 @@ def main() -> None:
             "isLeaderboardEligible": is_lb_eligible,
             "exclusionReason": exclusion_reason,
             "latestPeriod": latest["reportDate"],
-            "latestQuarterLabel": quarter_label(latest["reportDate"]),
+            "latestQuarterLabel": lat_q_lbl,
             "latestFilingDate": latest["filingDate"],
+            "isStaleQuarter": lat_q_lbl != latest_q_overall,
             "equityAumUsd": round(eq_aum, 2),
             "totalReportedUsd": round(rep_aum, 2),
             "equityPositionCount": pos_cnt,
@@ -2829,10 +3120,25 @@ def main() -> None:
             "edgarUrl": f"https://www.sec.gov/edgar/browse/?CIK={int(cik):010d}",
         })
 
-    # Step 7: Composite Skill Score (0-100), Elite-50 Tiers & Dual Rankings
+    # Step 7: Composite Skill Score (0-100) with track-record confidence shrinkage, Elite-50 Tiers & Dual Rankings
     lb_funds = [f for f in funds_out if f["isLeaderboardEligible"]]
     lb_ciks = {f["cik"] for f in lb_funds}
     fund_by_cik = {f["cik"]: f for f in funds_out}
+
+    valid_3y_by_mode: dict[str, dict[str, int]] = {"quarter_end": {}, "filing_lag": {}}
+    for mode in MODES:
+        for f in lb_funds:
+            nav_m = fund_navs[mode].get(f["cik"])
+            vdays = 0
+            if nav_m is not None:
+                vm = np.where(~np.isnan(nav_m))[0]
+                if len(vm) >= 20:
+                    lv = int(vm[-1])
+                    nb = np.where(np.isnan(nav_m[: lv + 1]))[0]
+                    cs = int(nb[-1]) + 1 if len(nb) > 0 else int(vm[0])
+                    st = max(cs, win_indices["3Y"])
+                    vdays = max(0, lv - st + 1)
+            valid_3y_by_mode[mode][f["cik"]] = vdays
 
     skill_ranks_by_mode: dict[str, dict[str, int]] = {"quarter_end": {}, "filing_lag": {}}
     for mode in MODES:
@@ -2849,7 +3155,10 @@ def main() -> None:
             sort_pr = _pct_ranks_desc([(f["cik"], float(f["metrics"][mode]["sortinoRatio"])) for f in sk_cands])
             for f in sk_cands:
                 c = f["cik"]
-                sc = round((0.40 * ir_pr[c] + 0.30 * bat_pr[c] + 0.30 * sort_pr[c]) * 100.0, 1)
+                raw_sc = 0.40 * ir_pr[c] + 0.30 * bat_pr[c] + 0.30 * sort_pr[c]
+                conf = min(1.0, valid_3y_by_mode[mode].get(c, 0) / 630.0)
+                shrunk_sc = 0.50 + conf * (raw_sc - 0.50)
+                sc = round(shrunk_sc * 100.0, 1)
                 f["metrics"][mode]["skillScore"] = sc
         for f in funds_out:
             if "skillScore" not in f["metrics"][mode]:
@@ -2870,26 +3179,33 @@ def main() -> None:
             f["metrics"][mode]["skillRank"] = sr
             skill_ranks_by_mode[mode][f["cik"]] = sr
 
-    # Assign FundTier purely from primary realistic 45-Day Lag Skill Rank (only 1Y+ TTM scored funds eligible for Elite 50 / Top 100)
-    scored_lag_count = sum(1 for f in lb_funds if f["metrics"]["filing_lag"]["skillScore"] is not None)
+    # Assign FundTier from 45-Day Lag Skill Rank, preferring seasoned >=8Q track records for Elite 50
+    scored_lag_funds = [f for f in lb_funds if f["metrics"]["filing_lag"]["skillScore"] is not None]
+    eligible_elite_pool = [f for f in scored_lag_funds if f.get("quartersTracked", 0) >= 8]
+    elite_source = (
+        eligible_elite_pool
+        if len(eligible_elite_pool) >= 50
+        else (scored_lag_funds if len(scored_lag_funds) >= 50 else lb_funds)
+    )
+    elite50_ciks = [
+        f["cik"]
+        for f in sorted(
+            elite_source,
+            key=lambda x: skill_ranks_by_mode["filing_lag"].get(x["cik"], 9999),
+        )
+    ][:50]
+    elite50_set = set(elite50_ciks)
+    scored_lag_count = len(scored_lag_funds)
     for f in lb_funds:
         sr_lag = skill_ranks_by_mode["filing_lag"].get(f["cik"], 9999)
-        if f["metrics"]["filing_lag"]["skillScore"] is None and scored_lag_count >= 50:
-            f["fundTier"] = "Qualified"
-        elif sr_lag <= 50:
+        if f["cik"] in elite50_set:
             f["fundTier"] = "Elite 50"
+        elif f["metrics"]["filing_lag"]["skillScore"] is None and scored_lag_count >= 50:
+            f["fundTier"] = "Qualified"
         elif sr_lag <= 100:
             f["fundTier"] = "Top 100"
         else:
             f["fundTier"] = "Qualified"
-
-    elite50_ciks = [
-        f["cik"]
-        for f in sorted(
-            [x for x in lb_funds if x["metrics"]["filing_lag"]["skillScore"] is not None] or lb_funds,
-            key=lambda x: skill_ranks_by_mode["filing_lag"].get(x["cik"], 9999),
-        )
-    ][:50]
 
     rankings: dict[str, dict[str, list[dict[str, Any]]]] = {"quarter_end": {}, "filing_lag": {}}
     ranked_union_ciks: dict[str, list[str]] = {"quarter_end": [], "filing_lag": []}
@@ -2939,16 +3255,6 @@ def main() -> None:
                     union_set.append(c)
         ranked_union_ciks[mode] = union_set
 
-    # Precompute canonical metadata lookup for merged share classes (GOOG -> GOOGL)
-    canon_meta_by_ticker: dict[str, dict[str, Any]] = {}
-    canon_cusip_by_ticker: dict[str, str] = {}
-    for c_key, m_val in cusip_meta.items():
-        tk = m_val.get("ticker", "")
-        if tk and not tk.startswith("CUSIP:"):
-            if tk not in canon_meta_by_ticker or m_val.get("sector"):
-                canon_meta_by_ticker[tk] = m_val
-                canon_cusip_by_ticker[tk] = c_key
-
     # Step 8: Build QoQ Fund Updates Digest early so Signal Screener & Stock Dossiers can index exits/moves
     fund_updates_out: list[dict[str, Any]] = []
     seen_update_ciks: set[str] = set()
@@ -2966,6 +3272,7 @@ def main() -> None:
             cusip_meta=cusip_meta,
             in_rankings=in_rankings,
             ranked_windows=top100_w,
+            splits_map=splits_map,
         )
         if upd:
             upd["fundTier"] = fund_by_cik[cik]["fundTier"] if cik in fund_by_cik else "Watchlist"
@@ -3171,6 +3478,9 @@ def main() -> None:
         ticker_is_tech=ticker_is_tech,
         curated_bt_ciks=curated_bt_ciks,
         excluded_etfs=excluded_etf_tickers,
+        splits_map=splits_map,
+        rf_ann_arr=rf_ann_arr,
+        qqq_nav=qqq_nav,
     )
     bt_segments_lag = run_ideal_portfolio_backtest(
         bt_mode="filing_lag",
@@ -3184,13 +3494,16 @@ def main() -> None:
         ticker_is_tech=ticker_is_tech,
         curated_bt_ciks=curated_bt_ciks,
         excluded_etfs=excluded_etf_tickers,
+        splits_map=splits_map,
+        rf_ann_arr=rf_ann_arr,
+        qqq_nav=qqq_nav,
     )
     ideal_nav_qe = simulate_nav_series(bt_segments_qe, aligned_prices, n_dates)
     ideal_nav_lag = simulate_nav_series(bt_segments_lag, aligned_prices, n_dates)
     ideal_rets_qe, ideal_met_qe = compute_returns_and_metrics(ideal_nav_qe, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
     ideal_rets_lag, ideal_met_lag = compute_returns_and_metrics(ideal_nav_lag, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
 
-    # Step 11: External Public APIs (OHLCV Q-VWAP + SEC XBRL Fundamentals + Elite-50 13D/13G Alerts) & Stock Dossiers
+    # Step 11: External Public APIs (OHLCV Q-VWAP + SEC XBRL Fundamentals + Nasdaq Market Caps + Elite-50 13D/13G Alerts) & Stock Dossiers
     all_dossier_builders: dict[str, dict[str, Any]] = {}
     for f in funds_out:
         cik = f["cik"]
@@ -3237,6 +3550,7 @@ def main() -> None:
                 "holders": [],
                 "recentMoves": [],
                 "totalValueUsd": 0.0,
+                "netEstFlowUsd": 0.0,
                 "weights": [],
                 "eliteHoldersCount": 0,
                 "newCount": 0,
@@ -3284,12 +3598,14 @@ def main() -> None:
                 "prevSh": 0.0,
                 "currSh": 0.0,
                 "valDelta": 0.0,
+                "estFlow": 0.0,
                 "currBookPct": 0.0,
                 "prevBookPct": 0.0,
             })
             slot["prevSh"] += float(mv["prevShares"])
             slot["currSh"] += float(mv["currShares"])
             slot["valDelta"] += float(mv["valueDeltaUsd"])
+            slot["estFlow"] += float(mv.get("estFlowUsd", mv["valueDeltaUsd"]))
             slot["currBookPct"] += float(mv["currBookPct"])
             slot["prevBookPct"] += float(mv["prevBookPct"])
 
@@ -3315,6 +3631,7 @@ def main() -> None:
                 "holders": [],
                 "recentMoves": [],
                 "totalValueUsd": 0.0,
+                "netEstFlowUsd": 0.0,
                 "weights": [],
                 "eliteHoldersCount": 0,
                 "newCount": 0,
@@ -3322,6 +3639,7 @@ def main() -> None:
                 "trimmedCount": 0,
                 "exitedCount": 0,
             })
+            rec["netEstFlowUsd"] += s["estFlow"]
             if act == "NEW":
                 rec["newCount"] += 1
             elif act == "ADDED":
@@ -3339,6 +3657,7 @@ def main() -> None:
                 "action": act,
                 "sharesDeltaPct": sh_pct,
                 "valueDeltaUsd": round(s["valDelta"], 2),
+                "estFlowUsd": round(s["estFlow"], 2),
                 "prevBookPct": round(s["prevBookPct"], 2),
                 "currBookPct": round(s["currBookPct"], 2),
             })
@@ -3362,6 +3681,7 @@ def main() -> None:
 
     all_dossier_tickers = sorted(all_dossier_builders.keys())
     ohlcv_map = load_cached_ohlcv(all_dossier_tickers)
+    nasdaq_mcaps = fetch_nasdaq_market_caps(max_age_hours=24.0)
     ticker_to_cik, cik_to_ticker, name_to_ticker = load_ticker_cik_mappings()
     for ov in MANUAL_CUSIP_OVERRIDES.values():
         tk = DUAL_CLASS_CANONICAL.get(ov.get("ticker", ""), ov.get("ticker", ""))
@@ -3374,6 +3694,11 @@ def main() -> None:
             name_to_ticker[nn] = t_key
     xbrl_map = fetch_xbrl_fundamentals_batch(sorted(xbrl_priority_set), ticker_to_cik, max_age_hours=168.0)
 
+    cusip_to_ticker_map = {
+        c_k: DUAL_CLASS_CANONICAL.get(m_v["ticker"], m_v["ticker"])
+        for c_k, m_v in cusip_meta.items()
+        if m_v.get("ticker") and not str(m_v["ticker"]).startswith("CUSIP:")
+    }
     elite_names_by_cik = {f["cik"]: f["name"] for f in funds_out if f["cik"] in elite50_ciks}
     midquarter_alerts = fetch_midquarter_alerts(
         elite_ciks=elite50_ciks,
@@ -3382,6 +3707,7 @@ def main() -> None:
         name_to_ticker_map=name_to_ticker,
         today_date=today_date,
         since_days=95,
+        cusip_to_ticker_map=cusip_to_ticker_map,
     )
     alerts_by_ticker: dict[str, list[dict[str, Any]]] = {}
     alerts_by_cik: dict[str, list[dict[str, Any]]] = {}
@@ -3413,16 +3739,23 @@ def main() -> None:
         total_held = all_dossier_builders.get(t, {}).get("totalValueUsd", 0.0)
         mkt_cap_usd = None
         mkt_cap_tier = None
-        if xb and xb.get("sharesOutstanding") and px_usd and px_usd > 0:
-            raw_mc = px_usd * float(xb["sharesOutstanding"])
-            if raw_mc >= total_held * 0.75:
-                mkt_cap_usd = round(raw_mc, 0)
-                if raw_mc >= 200e9:
-                    mkt_cap_tier = "Mega >$200B"
-                elif raw_mc >= 30e9:
-                    mkt_cap_tier = "Large $30B-$200B"
-                else:
-                    mkt_cap_tier = "Emerging <$30B"
+        raw_mc: float | None = None
+        nq_mc = nasdaq_mcaps.get(t)
+        if nq_mc and 0.0 < nq_mc <= 5e12 and nq_mc >= total_held * 0.75:
+            raw_mc = float(nq_mc)
+        elif xb and xb.get("sharesOutstanding") and px_usd and px_usd > 0:
+            cand_mc = px_usd * float(xb["sharesOutstanding"])
+            if cand_mc >= total_held * 0.75:
+                raw_mc = cand_mc
+
+        if raw_mc is not None and raw_mc > 0:
+            mkt_cap_usd = round(raw_mc, 0)
+            if raw_mc >= 200e9:
+                mkt_cap_tier = "Mega >$200B"
+            elif raw_mc >= 30e9:
+                mkt_cap_tier = "Large $30B-$200B"
+            else:
+                mkt_cap_tier = "Emerging <$30B"
 
         fundamentals = None
         if xb:
@@ -3690,6 +4023,7 @@ def main() -> None:
             "holderCount": h_cnt,
             "eliteHoldersCount": el_cnt,
             "totalValueUsd": round(rec["totalValueUsd"], 2),
+            "netEstFlowUsd": round(rec["netEstFlowUsd"], 2),
             "avgWeightPct": avg_w,
             "maxWeightPct": max_w,
             "newCount": rec["newCount"],
@@ -3733,6 +4067,7 @@ def main() -> None:
         }
         funds_summary_out.append(compact_f)
 
+    _compact_move_keys = ("topNew", "topAdded", "topTrimmed", "topExited", "valuationShifts")
     for u in fund_updates_out:
         sid = u["shard"]
         cik = u["cik"]
@@ -3741,9 +4076,13 @@ def main() -> None:
             "allMoves": u["allMoves"],
         }
         compact_u = {k: v for k, v in u.items() if k != "allMoves"}
+        for mk in _compact_move_keys:
+            compact_u[mk] = [
+                {ik: iv for ik, iv in item.items() if ik != "industry"}
+                for item in (compact_u.get(mk) or [])[:4]
+            ]
         updates_summary_out.append(compact_u)
 
-    latest_q_overall = max((f["latestQuarterLabel"] for f in funds_out), default="2026 Q3")
     total_filings_cnt = sum(len(raw_fund_filings[f["cik"]]) for f in funds_out)
     curated_qual_cnt = sum(1 for f in funds_out if f.get("source") == "Curated Core")
     disc_qual_cnt = len(funds_out) - curated_qual_cnt
@@ -3790,6 +4129,7 @@ def main() -> None:
                 "SEC EDGAR Form 13F Bulk Data Sets (2021-Present), EFTS & 13F-HR / 13F-HR/A Filings",
                 "SEC EDGAR XBRL CompanyFacts & Schedule 13D/13G Submissions",
                 "OpenFIGI CUSIP Security Master",
+                "Nasdaq Stock Screener Market Caps (~7,200 US Equities & ADRs)",
                 "Yahoo Finance Adjusted OHLCV & ^IRX 13W T-Bill + US Treasury Fiscal Data",
             ],
             "universeFunnel": funnel_counts,

@@ -12,6 +12,7 @@ import { FundDetailDrawer } from './components/FundDetailDrawer';
 import { UpdateDetailDrawer } from './components/UpdateDetailDrawer';
 import { StockDetailDrawer } from './components/StockDetailDrawer';
 import { ThemeToggle, type ThemeMode } from './components/ThemeToggle';
+import { useModalFocusTrap } from './utils/useModalFocusTrap';
 
 type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'updates';
 
@@ -72,6 +73,7 @@ export function App() {
   const switchTimerRef = useRef<number | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
   const activeTransitionRef = useRef<ViewTransitionLike | null>(null);
+  const methodologyPanelRef = useRef<HTMLDivElement>(null);
   const initial = useMemo(() => parseHashState(), []);
   const [activeTab, setActiveTabState] = useState<PrimaryTab>(initial.tab);
   const [windowSize, setWindowSize] = useState<ReturnWindow>('TTM');
@@ -79,9 +81,12 @@ export function App() {
   const [selectedFundCik, setSelectedFundCikState] = useState<string | null>(initial.cik);
   const [selectedUpdateCik, setSelectedUpdateCik] = useState<string | null>(null);
   const [selectedStockTicker, setSelectedStockTickerState] = useState<string | null>(initial.stock);
+  const [returnToStockTicker, setReturnToStockTicker] = useState<string | null>(null);
   const [updateReturnToFund, setUpdateReturnToFund] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
   const [homeResetKey, setHomeResetKey] = useState(0);
+
+  useModalFocusTrap(methodologyPanelRef, showMethodology);
 
   useEffect(() => {
     applyThemeToDocument(theme);
@@ -219,7 +224,7 @@ export function App() {
   const syncHash = useCallback((tab: PrimaryTab, cik: string | null, stock: string | null) => {
     const nextHash = stock && !cik ? `#stock/${stock}` : cik ? `#${tab}/${cik}` : `#${tab}`;
     if (window.location.hash !== nextHash) {
-      window.history.replaceState(null, '', nextHash);
+      window.history.pushState(null, '', nextHash);
     }
   }, []);
 
@@ -228,6 +233,7 @@ export function App() {
       setActiveTabState(tab);
       setSelectedUpdateCik(null);
       setSelectedStockTickerState(null);
+      setReturnToStockTicker(null);
       setUpdateReturnToFund(false);
       syncHash(tab, selectedFundCik, null);
     },
@@ -238,6 +244,7 @@ export function App() {
     (cik: string | null) => {
       setSelectedUpdateCik(null);
       setSelectedStockTickerState(null);
+      setReturnToStockTicker(null);
       setUpdateReturnToFund(false);
       setSelectedFundCikState(cik);
       syncHash(activeTab, cik, null);
@@ -267,6 +274,7 @@ export function App() {
     (cik: string) => {
       setSelectedFundCikState(null);
       setSelectedStockTickerState(null);
+      setReturnToStockTicker(null);
       syncHash(activeTab, null, null);
       setUpdateReturnToFund(true);
       setSelectedUpdateCik(cik);
@@ -277,6 +285,7 @@ export function App() {
   const handleDiveDeeperFromUpdates = useCallback((cik: string) => {
     setUpdateReturnToFund(false);
     setSelectedStockTickerState(null);
+    setReturnToStockTicker(null);
     setSelectedUpdateCik(cik);
   }, []);
 
@@ -288,6 +297,7 @@ export function App() {
     setSelectedFundCikState(null);
     setSelectedUpdateCik(null);
     setSelectedStockTickerState(null);
+    setReturnToStockTicker(null);
     setUpdateReturnToFund(false);
     setShowMethodology(false);
     setActiveTabState('ranking');
@@ -295,7 +305,7 @@ export function App() {
     setMode('filing_lag');
     setHomeResetKey((k) => k + 1);
     if (window.location.hash) {
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+      window.history.pushState(null, '', `${window.location.pathname}${window.location.search}`);
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
@@ -306,6 +316,7 @@ export function App() {
       setActiveTabState(parsed.tab);
       setSelectedFundCikState(parsed.cik);
       setSelectedStockTickerState(parsed.stock);
+      setReturnToStockTicker(null);
       setSelectedUpdateCik(null);
       setUpdateReturnToFund(false);
     };
@@ -317,15 +328,18 @@ export function App() {
           setSelectedUpdateCik(null);
           setUpdateReturnToFund(false);
         } else if (selectedFundCik) {
+          setReturnToStockTicker(null);
           setSelectedFundCik(null);
         } else if (showMethodology) {
           setShowMethodology(false);
         }
       }
     };
+    window.addEventListener('popstate', onHashChange);
     window.addEventListener('hashchange', onHashChange);
     window.addEventListener('keydown', onKeyDown);
     return () => {
+      window.removeEventListener('popstate', onHashChange);
       window.removeEventListener('hashchange', onHashChange);
       window.removeEventListener('keydown', onKeyDown);
     };
@@ -527,10 +541,13 @@ export function App() {
             </div>
           </div>
 
-          <nav className="primary-nav" aria-label="Primary sections">
+          <nav className="primary-nav" role="tablist" aria-label="Primary sections">
             <button
               type="button"
               id="tab-ranking"
+              role="tab"
+              aria-selected={activeTab === 'ranking'}
+              aria-controls="panel-ranking"
               className={`nav-tab ${activeTab === 'ranking' ? 'active' : ''}`}
               onClick={() => setActiveTab('ranking')}
             >
@@ -542,6 +559,9 @@ export function App() {
             <button
               type="button"
               id="tab-holdings"
+              role="tab"
+              aria-selected={activeTab === 'holdings'}
+              aria-controls="panel-holdings"
               className={`nav-tab ${activeTab === 'holdings' ? 'active' : ''}`}
               onClick={() => setActiveTab('holdings')}
             >
@@ -553,6 +573,9 @@ export function App() {
             <button
               type="button"
               id="tab-ideal"
+              role="tab"
+              aria-selected={activeTab === 'ideal'}
+              aria-controls="panel-ideal"
               className={`nav-tab ${activeTab === 'ideal' ? 'active' : ''}`}
               onClick={() => setActiveTab('ideal')}
             >
@@ -564,6 +587,9 @@ export function App() {
             <button
               type="button"
               id="tab-updates"
+              role="tab"
+              aria-selected={activeTab === 'updates'}
+              aria-controls="panel-updates"
               className={`nav-tab ${activeTab === 'updates' ? 'active' : ''}`}
               onClick={() => setActiveTab('updates')}
             >
@@ -575,15 +601,21 @@ export function App() {
         </div>
       </header>
 
-      {/* Active Tab Content */}
+      {/* Persistent Tab Panels (preserve scroll/filter/sort state across tab switches) */}
       <main className="main-content">
-        {activeTab === 'ranking' && (
+        <div
+          id="panel-ranking"
+          role="tabpanel"
+          aria-labelledby="tab-ranking"
+          hidden={activeTab !== 'ranking'}
+        >
           <RankingTab
             key={homeResetKey}
             funds={dataset.funds}
             rankings={dataset.rankings}
             benchmarks={dataset.benchmarks}
             stocksIndex={dataset.stocksIndex}
+            latestQuarterCovered={dataset.metadata.latestQuarterCovered}
             windowSize={windowSize}
             onWindowChange={setWindowSize}
             mode={mode}
@@ -591,9 +623,14 @@ export function App() {
             onSelectFund={setSelectedFundCik}
             onSelectStock={handleSelectStock}
           />
-        )}
+        </div>
 
-        {activeTab === 'holdings' && (
+        <div
+          id="panel-holdings"
+          role="tabpanel"
+          aria-labelledby="tab-holdings"
+          hidden={activeTab !== 'holdings'}
+        >
           <HoldingsTab
             topHoldings={dataset.topHoldings}
             signalScreener={dataset.signalScreener}
@@ -603,9 +640,14 @@ export function App() {
             onSelectFund={setSelectedFundCik}
             onSelectStock={handleSelectStock}
           />
-        )}
+        </div>
 
-        {activeTab === 'ideal' && (
+        <div
+          id="panel-ideal"
+          role="tabpanel"
+          aria-labelledby="tab-ideal"
+          hidden={activeTab !== 'ideal'}
+        >
           <IdealPortfolioTab
             idealPortfolio={dataset.idealPortfolio}
             benchmarks={dataset.benchmarks}
@@ -615,9 +657,14 @@ export function App() {
             onSelectFund={setSelectedFundCik}
             onSelectStock={handleSelectStock}
           />
-        )}
+        </div>
 
-        {activeTab === 'updates' && (
+        <div
+          id="panel-updates"
+          role="tabpanel"
+          aria-labelledby="tab-updates"
+          hidden={activeTab !== 'updates'}
+        >
           <UpdatesTab
             updates={dataset.fundUpdates}
             overview={dataset.updatesOverview}
@@ -628,7 +675,7 @@ export function App() {
             onDiveDeeper={handleDiveDeeperFromUpdates}
             onSelectStock={handleSelectStock}
           />
-        )}
+        </div>
       </main>
 
       {/* Footer */}
@@ -652,7 +699,25 @@ export function App() {
           mode={mode}
           benchmarks={dataset.benchmarks}
           stocksIndex={dataset.stocksIndex}
-          onClose={() => setSelectedFundCik(null)}
+          returnToStockTicker={returnToStockTicker}
+          onReturnToStock={() => {
+            const targetStock = returnToStockTicker;
+            setReturnToStockTicker(null);
+            setSelectedFundCikState(null);
+            setSelectedUpdateCik(null);
+            setUpdateReturnToFund(false);
+            if (targetStock) {
+              const norm = targetStock.toUpperCase();
+              setSelectedStockTickerState(norm);
+              syncHash(activeTab, null, norm);
+            } else {
+              syncHash(activeTab, null, null);
+            }
+          }}
+          onClose={() => {
+            setReturnToStockTicker(null);
+            setSelectedFundCik(null);
+          }}
           onDiveDeeper={handleDiveDeeperFromFund}
           onSelectStock={handleSelectStock}
         />
@@ -685,12 +750,22 @@ export function App() {
           latestQuarterLabel={dataset.updatesOverview.latestQuarterLabel}
           onClose={() => setSelectedStockTicker(null)}
           onSelectFund={(cik) => {
+            const originStock = selectedStockTicker;
             setSelectedStockTickerState(null);
-            setSelectedFundCik(cik);
+            setSelectedUpdateCik(null);
+            setUpdateReturnToFund(false);
+            setSelectedFundCikState(cik);
+            setReturnToStockTicker(originStock);
+            syncHash(activeTab, cik, null);
           }}
           onJumpToIdeal={() => {
             setSelectedStockTickerState(null);
-            setActiveTab('ideal');
+            setSelectedFundCikState(null);
+            setSelectedUpdateCik(null);
+            setReturnToStockTicker(null);
+            setUpdateReturnToFund(false);
+            setActiveTabState('ideal');
+            syncHash('ideal', null, null);
           }}
         />
       )}
@@ -706,7 +781,7 @@ export function App() {
             if (e.target === e.currentTarget) setShowMethodology(false);
           }}
         >
-          <div className="drawer-panel" style={{ width: 'min(760px, 100vw)' }}>
+          <div ref={methodologyPanelRef} tabIndex={-1} className="drawer-panel" style={{ width: 'min(760px, 100vw)' }}>
             <div className="drawer-header">
               <div>
                 <h2 id="meth-title" style={{ margin: 0, fontSize: '1.25rem' }}>
@@ -735,7 +810,10 @@ export function App() {
               <ul>
                 <li><strong>45-Day Lag Actionable (Default):</strong> Rebalances only on actual SEC filing dates—and respects <code>13F-HR/A</code> confidential-treatment amendments from the exact amendment filing date, discarding stale restatements.</li>
                 <li><strong>Broad ETF Stripping &amp; Dual-Class Normalization:</strong> Broad index/sector/treasury ETFs (<code>SPY</code>, <code>QQQ</code>, <code>BIL</code>, <code>SHV</code>, etc.) are stripped from single-stock selection weights, and dual share classes (<code>GOOG</code>→<code>GOOGL</code>, etc.) are unified before concentration &amp; consensus scoring.</li>
-                <li><strong>Survivorship-Free Backtests:</strong> The Ideal Portfolio quarterly simulation includes historical qualified tech funds even if they later closed or drifted below 35% Tech, re-ranking managers at each historical date using only past prices.</li>
+                <li>
+                  <strong>Survivorship-Free Backtests:</strong> The Ideal Portfolio quarterly simulation includes historical qualified tech funds even if they later closed or drifted below 35% Tech, re-ranking managers at each historical date using only past prices
+                  {funnel?.pitHistoricalBacktestCount != null ? ` (${funnel.pitHistoricalBacktestCount.toLocaleString()} point-in-time historical funds indexed)` : ''}.
+                </li>
               </ul>
 
               <h3 style={{ color: 'var(--text-primary)' }}>4. Public APIs &amp; Stock Dossier Signals</h3>

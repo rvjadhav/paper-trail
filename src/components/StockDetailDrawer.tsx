@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import {
   Activity,
   ArrowUpRight,
@@ -16,13 +16,17 @@ import type {
 } from '../types/data';
 import { fetchStockDetail } from '../utils/dataLoader';
 import {
+  compactShares,
   entryZoneChipClass,
   formatPct,
   formatSignedPct,
+  formatSignedUsd,
   formatUsdCompact,
   returnClass,
+  stakeStatusChipClass,
   tierChipClass,
 } from '../utils/format';
+import { useModalFocusTrap } from '../utils/useModalFocusTrap';
 
 interface StockDetailDrawerProps {
   ticker: string;
@@ -41,6 +45,9 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
   onSelectFund,
   onJumpToIdeal,
 }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalFocusTrap(panelRef, true);
+
   const [holderFilter, setHolderFilter] = useState<'ALL' | 'ELITE'>('ALL');
   const [retryCount, setRetryCount] = useState(0);
   const requestKey = `${ticker.toUpperCase()}:${retryCount}`;
@@ -135,7 +142,7 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="drawer-panel">
+      <div ref={panelRef} tabIndex={-1} className="drawer-panel">
         {/* Header */}
         <div className="drawer-header">
           <div>
@@ -269,7 +276,18 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                   'Loading...'
                 )}
               </div>
-              <div className="metric-sub">Across {latestQuarterLabel} updates</div>
+              <div className="metric-sub">
+                {detail?.netEstFlowUsd != null ? (
+                  <>
+                    Net est. flow:{' '}
+                    <strong className={`mono ${returnClass(detail.netEstFlowUsd)}`}>
+                      {formatSignedUsd(detail.netEstFlowUsd)}
+                    </strong>
+                    {' · '}
+                  </>
+                ) : null}
+                Across {latestQuarterLabel} updates
+              </div>
             </div>
           </div>
 
@@ -478,6 +496,19 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                         <div key={al.id} className="alert-row-card">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                             <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
+                            {al.stakeStatus && (
+                              <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>
+                                {al.stakeStatus}
+                              </span>
+                            )}
+                            {al.percentOfClass != null && (
+                              <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
+                            )}
+                            {al.sharesOwned != null && al.sharesOwned > 0 && (
+                              <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                {compactShares(al.sharesOwned)} sh
+                              </span>
+                            )}
                             <button
                               type="button"
                               className="fund-link-btn"
@@ -489,7 +520,7 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                              Filed {al.filingDate}
+                              {al.eventDate ? `Event ${al.eventDate} · ` : ''}Filed {al.filingDate}
                             </span>
                             <a
                               href={al.edgarUrl}
@@ -669,8 +700,15 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                                     : formatSignedPct(mv.sharesDeltaPct, 1)}
                               </td>
                               <td className={`num mono ${returnClass(mv.valueDeltaUsd)}`}>
-                                {mv.valueDeltaUsd > 0 ? '+' : mv.valueDeltaUsd < 0 ? '-' : ''}
-                                {formatUsdCompact(Math.abs(mv.valueDeltaUsd))}
+                                <div>
+                                  {mv.valueDeltaUsd > 0 ? '+' : mv.valueDeltaUsd < 0 ? '-' : ''}
+                                  {formatUsdCompact(Math.abs(mv.valueDeltaUsd))}
+                                </div>
+                                {mv.estFlowUsd != null && mv.estFlowUsd !== 0 && (
+                                  <div className={returnClass(mv.estFlowUsd)} style={{ fontSize: '0.68rem' }}>
+                                    Flow {formatSignedUsd(mv.estFlowUsd)}
+                                  </div>
+                                )}
                               </td>
                               <td className="num mono">
                                 {mv.prevBookPct.toFixed(1)}% → <strong>{mv.currBookPct.toFixed(1)}%</strong>

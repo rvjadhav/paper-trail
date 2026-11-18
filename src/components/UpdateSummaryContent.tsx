@@ -8,7 +8,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import type { FundUpdateSummary, PositionMoveItem, StockIndexEntry } from '../types/data';
-import { formatUsdCompact } from '../utils/format';
+import { formatSignedUsd, formatUsdCompact } from '../utils/format';
 
 function renderMoveDelta(m: PositionMoveItem): string {
   if (m.action === 'NEW') return `${m.currBookPct.toFixed(1)}%`;
@@ -71,13 +71,19 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           <div className="card-mix-labels mono">
             <span>Common {u.currEquityBookPct.toFixed(1)}%</span>
             {u.currCallBookPct > 0 && (
-              <span style={{ color: 'var(--chart-teal)', fontWeight: 600 }}>
-                Calls {u.currCallBookPct.toFixed(1)}% ({formatUsdCompact(u.currCallUsd)})
+              <span
+                style={{ color: 'var(--chart-teal)', fontWeight: 600 }}
+                title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+              >
+                Calls {u.currCallBookPct.toFixed(1)}% ({formatUsdCompact(u.currCallUsd)} fair val)
               </span>
             )}
             {(u.currPutBookPct > 0 || u.prevPutBookPct > 0) && (
-              <span style={{ color: 'var(--warn-text)', fontWeight: 600 }}>
-                Puts {u.currPutBookPct.toFixed(1)}% ({formatUsdCompact(u.currPutUsd)} · vs {u.prevPutBookPct.toFixed(1)}%)
+              <span
+                style={{ color: 'var(--warn-text)', fontWeight: 600 }}
+                title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+              >
+                Puts {u.currPutBookPct.toFixed(1)}% ({formatUsdCompact(u.currPutUsd)} fair val · vs {u.prevPutBookPct.toFixed(1)}%)
               </span>
             )}
           </div>
@@ -179,7 +185,11 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           </div>
           <div className="move-bucket-items">
             {u.topAdded.slice(0, 4).map((m) => (
-              <div key={`a-${m.cusip}-${m.securityType}`} className="move-pill add">
+              <div
+                key={`a-${m.cusip}-${m.securityType}`}
+                className="move-pill add"
+                title={m.estFlowUsd != null ? `Est. flow at Q-VWAP: ${formatSignedUsd(m.estFlowUsd)}` : undefined}
+              >
                 {renderMoveTicker(m)}
                 <span className="mono mp-val ret-pos">
                   {renderMoveDelta(m)} · {formatUsdCompact(m.currValueUsd)}
@@ -196,7 +206,11 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           </div>
           <div className="move-bucket-items">
             {u.topTrimmed.slice(0, 4).map((m) => (
-              <div key={`t-${m.cusip}-${m.securityType}`} className="move-pill trim">
+              <div
+                key={`t-${m.cusip}-${m.securityType}`}
+                className="move-pill trim"
+                title={m.estFlowUsd != null ? `Est. flow at Q-VWAP: ${formatSignedUsd(m.estFlowUsd)}` : undefined}
+              >
                 {renderMoveTicker(m)}
                 <span className="mono mp-val ret-neg">
                   {renderMoveDelta(m)} · {formatUsdCompact(m.currValueUsd)}
@@ -213,7 +227,11 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
           </div>
           <div className="move-bucket-items">
             {u.topExited.slice(0, 4).map((m) => (
-              <div key={`e-${m.cusip}-${m.securityType}`} className="move-pill exit">
+              <div
+                key={`e-${m.cusip}-${m.securityType}`}
+                className="move-pill exit"
+                title={m.estFlowUsd != null ? `Est. outflow at Q-VWAP: ${formatSignedUsd(m.estFlowUsd)}` : undefined}
+              >
                 {renderMoveTicker(m)}
                 <span className="mono mp-val ret-neg">
                   was {formatUsdCompact(m.prevValueUsd)}

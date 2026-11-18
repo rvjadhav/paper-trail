@@ -24,6 +24,7 @@ interface RankingTabProps {
   rankings: Record<ReturnMode, Record<ReturnWindow, RankedWindowEntry[]>>;
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
   stocksIndex: Record<string, StockIndexEntry>;
+  latestQuarterCovered?: string;
   windowSize: ReturnWindow;
   onWindowChange: (w: ReturnWindow) => void;
   mode: ReturnMode;
@@ -34,6 +35,7 @@ interface RankingTabProps {
 
 type TierFilter = 'ELITE50' | 'TOP100' | 'ALL' | 'EXCLUDED';
 type SortMetric = 'skillScore' | 'return' | 'sortinoRatio' | 'infoRatioVsQqq' | 'battingAvgPct';
+type HorizonFilter = 'ALL' | '8Q' | '12Q' | '20Q';
 
 function getSortMetricValue(
   fund: FundSummary,
@@ -50,6 +52,7 @@ export const RankingTab: FC<RankingTabProps> = ({
   rankings,
   benchmarks,
   stocksIndex,
+  latestQuarterCovered,
   windowSize,
   onWindowChange,
   mode,
@@ -59,7 +62,19 @@ export const RankingTab: FC<RankingTabProps> = ({
 }) => {
   const [tierFilter, setTierFilter] = useState<TierFilter>('ELITE50');
   const [sortMetric, setSortMetric] = useState<SortMetric>('skillScore');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [horizonFilter, setHorizonFilter] = useState<HorizonFilter>('ALL');
+  const [freshOnly, setFreshOnly] = useState(false);
   const [search, setSearch] = useState('');
+
+  const isFundStale = (f: FundSummary): boolean =>
+    Boolean(f.isStaleQuarter ?? (latestQuarterCovered && f.latestQuarterLabel !== latestQuarterCovered));
+
+  const staleCount = useMemo(
+    () => funds.filter((f) => isFundStale(f)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [funds, latestQuarterCovered]
+  );
 
   const eliteCount = useMemo(
     () => funds.filter((f) => f.isLeaderboardEligible && f.fundTier === 'Elite 50').length,
@@ -77,6 +92,14 @@ export const RankingTab: FC<RankingTabProps> = ({
   const cohortRows = useMemo(() => {
     const q = search.trim().toLowerCase();
 
+    const matchesHorizonAndFreshness = (f: FundSummary) => {
+      if (freshOnly && isFundStale(f)) return false;
+      if (horizonFilter === '8Q' && f.quartersTracked < 8) return false;
+      if (horizonFilter === '12Q' && f.quartersTracked < 12) return false;
+      if (horizonFilter === '20Q' && f.quartersTracked < 20) return false;
+      return true;
+    };
+
     const matchesSearch = (f: FundSummary) => {
       if (!q) return true;
       const mgr = f.manager && f.manager !== 'SEC EDGAR Discovered' ? f.manager.toLowerCase() : '';
@@ -92,7 +115,7 @@ export const RankingTab: FC<RankingTabProps> = ({
         mgr.includes(q) ||
         f.styleTag.toLowerCase().includes(q) ||
         f.topHoldingsPreview.some((h) => h.ticker.toLowerCase().includes(q)) ||
-        f.searchableTickers.some((t) => t.toLowerCase().includes(q))
+        f.searchableTickers.some((t) => t.toLowerCase() === q)
       );
     };
 
@@ -104,7 +127,7 @@ export const RankingTab: FC<RankingTabProps> = ({
       }
       if (av === null) return 1;
       if (bv === null) return -1;
-      if (bv !== av) return bv - av;
+      if (bv !== av) return sortAsc ? av - bv : bv - av;
       const ask = a.metrics[mode].skillScore ?? -1;
       const bsk = b.metrics[mode].skillScore ?? -1;
       if (bsk !== ask) return bsk - ask;
@@ -113,9 +136,9 @@ export const RankingTab: FC<RankingTabProps> = ({
 
     let basePool: FundSummary[];
     if (tierFilter === 'EXCLUDED') {
-      basePool = funds.filter((f) => !f.isLeaderboardEligible).sort(comparator);
+      basePool = funds.filter((f) => !f.isLeaderboardEligible && matchesHorizonAndFreshness(f)).sort(comparator);
     } else {
-      const eligible = funds.filter((f) => f.isLeaderboardEligible);
+      const eligible = funds.filter((f) => f.isLeaderboardEligible && matchesHorizonAndFreshness(f));
       if (tierFilter === 'ELITE50') {
         basePool = eligible.filter((f) => f.fundTier === 'Elite 50').sort(comparator);
       } else if (tierFilter === 'TOP100') {
@@ -132,7 +155,8 @@ export const RankingTab: FC<RankingTabProps> = ({
         displayRank: tierFilter === 'EXCLUDED' ? null : idx + 1,
       }))
       .filter(({ fund }) => matchesSearch(fund));
-  }, [funds, tierFilter, sortMetric, mode, windowSize, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [funds, tierFilter, sortMetric, sortAsc, horizonFilter, freshOnly, latestQuarterCovered, mode, windowSize, search]);
 
   const matchingStocks = useMemo(() => {
     const raw = search.trim();
@@ -183,12 +207,22 @@ export const RankingTab: FC<RankingTabProps> = ({
   const xlkRet = benchmarks.XLK.returns[windowSize];
 
   const handleSortMetricClick = (metric: SortMetric) => {
-    setSortMetric(metric);
+    if (sortMetric === metric) {
+      setSortAsc((v) => !v);
+    } else {
+      setSortMetric(metric);
+      setSortAsc(false);
+    }
   };
 
   const handleWindowClick = (w: ReturnWindow) => {
-    onWindowChange(w);
-    setSortMetric('return');
+    if (windowSize === w && sortMetric === 'return') {
+      setSortAsc((v) => !v);
+    } else {
+      onWindowChange(w);
+      setSortMetric('return');
+      setSortAsc(false);
+    }
   };
 
   const handleExport = () => {
@@ -218,6 +252,7 @@ export const RankingTab: FC<RankingTabProps> = ({
         '3Y %',
         '5Y %',
         'Latest Period',
+        'Stale Quarter',
         'Exclusion Reason',
       ],
       cohortRows.map(({ fund, displayRank }) => [
@@ -244,6 +279,7 @@ export const RankingTab: FC<RankingTabProps> = ({
         fund.returns[mode]['3Y'] ?? '',
         fund.returns[mode]['5Y'] ?? '',
         fund.latestPeriod,
+        isFundStale(fund) ? 'Stale' : '',
         fund.exclusionReason ?? '',
       ])
     );
@@ -257,6 +293,8 @@ export const RankingTab: FC<RankingTabProps> = ({
         : tierFilter === 'ALL'
           ? `All ${eligibleCount} Leaderboard-Eligible Specialist Funds`
           : `Excluded Single-Stock / Ultra-Concentrated Books (${excludedCount})`;
+
+  const sortArrow = sortAsc ? '▲' : '▼';
 
   return (
     <section aria-label="Fund Rankings">
@@ -446,6 +484,41 @@ export const RankingTab: FC<RankingTabProps> = ({
               ))}
             </div>
 
+            <div className="segmented-group" role="group" aria-label="Track record horizon filter">
+              {(
+                [
+                  { id: 'ALL', label: 'All Hist' },
+                  { id: '8Q', label: '8Q+' },
+                  { id: '12Q', label: '12Q+' },
+                  { id: '20Q', label: '20Q+' },
+                ] as const
+              ).map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  id={`horizon-btn-${h.id.toLowerCase()}`}
+                  className={`seg-btn ${horizonFilter === h.id ? 'active' : ''}`}
+                  onClick={() => setHorizonFilter(h.id)}
+                  title={`Filter funds with at least ${h.id === 'ALL' ? '4+' : h.id.replace('Q', '')} quarters tracked`}
+                >
+                  {h.label}
+                </button>
+              ))}
+            </div>
+
+            {staleCount > 0 && latestQuarterCovered && (
+              <button
+                type="button"
+                id="ranking-fresh-toggle"
+                className={`action-btn ${freshOnly ? 'primary' : ''}`}
+                style={{ padding: '0.36rem 0.78rem', fontSize: '0.78rem' }}
+                onClick={() => setFreshOnly((v) => !v)}
+                title={`Hide ${staleCount} fund(s) whose latest filing lags ${latestQuarterCovered}`}
+              >
+                {freshOnly ? `Showing ${latestQuarterCovered} Only` : `Hide Stale (${staleCount})`}
+              </button>
+            )}
+
             <div className="segmented-group" role="group" aria-label="Sort ranking metric">
               {(
                 [
@@ -465,6 +538,16 @@ export const RankingTab: FC<RankingTabProps> = ({
                   {m.label}
                 </button>
               ))}
+              <button
+                type="button"
+                id="ranking-sort-dir-btn"
+                className="seg-btn mono"
+                onClick={() => setSortAsc((v) => !v)}
+                aria-label={`Toggle sort direction (currently ${sortAsc ? 'ascending' : 'descending'})`}
+                title={`Sort order: ${sortAsc ? 'Ascending (lowest first)' : 'Descending (highest first)'}`}
+              >
+                {sortArrow}
+              </button>
             </div>
           </div>
 
@@ -500,28 +583,28 @@ export const RankingTab: FC<RankingTabProps> = ({
                   onClick={() => handleSortMetricClick('skillScore')}
                   title="Composite Skill Score (0-100): 40% IR vs QQQ + 30% Batting Avg + 30% Sortino"
                 >
-                  Skill {sortMetric === 'skillScore' ? '▼' : ''}
+                  Skill {sortMetric === 'skillScore' ? sortArrow : ''}
                 </th>
                 <th
                   className={`num sortable ${sortMetric === 'sortinoRatio' ? 'active-col' : ''}`}
                   onClick={() => handleSortMetricClick('sortinoRatio')}
                   title="Sortino Ratio vs trailing 13W T-Bill yield (^IRX)"
                 >
-                  Sortino {sortMetric === 'sortinoRatio' ? '▼' : ''}
+                  Sortino {sortMetric === 'sortinoRatio' ? sortArrow : ''}
                 </th>
                 <th
                   className={`num sortable ${sortMetric === 'infoRatioVsQqq' ? 'active-col' : ''}`}
                   onClick={() => handleSortMetricClick('infoRatioVsQqq')}
                   title="Information Ratio vs QQQ"
                 >
-                  IR {sortMetric === 'infoRatioVsQqq' ? '▼' : ''}
+                  IR {sortMetric === 'infoRatioVsQqq' ? sortArrow : ''}
                 </th>
                 <th
                   className={`num sortable ${sortMetric === 'battingAvgPct' ? 'active-col' : ''}`}
                   onClick={() => handleSortMetricClick('battingAvgPct')}
                   title="% of quarters outperforming QQQ"
                 >
-                  Bat % {sortMetric === 'battingAvgPct' ? '▼' : ''}
+                  Bat % {sortMetric === 'battingAvgPct' ? sortArrow : ''}
                 </th>
                 <th className="num" title="Average quarterly portfolio turnover %">
                   Turn %
@@ -533,7 +616,7 @@ export const RankingTab: FC<RankingTabProps> = ({
                     onClick={() => handleWindowClick(w.id)}
                     title={`Rank by ${w.fullLabel}`}
                   >
-                    {w.label} {sortMetric === 'return' && windowSize === w.id ? '▼' : ''}
+                    {w.label} {sortMetric === 'return' && windowSize === w.id ? sortArrow : ''}
                   </th>
                 ))}
               </tr>
@@ -542,6 +625,7 @@ export const RankingTab: FC<RankingTabProps> = ({
               {cohortRows.map(({ fund, displayRank }) => {
                 const rets = fund.returns[mode];
                 const met = fund.metrics[mode];
+                const stale = isFundStale(fund);
                 return (
                   <tr key={fund.cik}>
                     <td>
@@ -575,6 +659,18 @@ export const RankingTab: FC<RankingTabProps> = ({
                           </>
                         )}
                         <span>{fund.latestQuarterLabel}</span>
+                        {stale && (
+                          <span
+                            className="chip warn"
+                            title={
+                              latestQuarterCovered
+                                ? `Latest filing (${fund.latestQuarterLabel}) lags dataset quarter (${latestQuarterCovered})`
+                                : `Stale filing quarter (${fund.latestQuarterLabel})`
+                            }
+                          >
+                            Stale
+                          </span>
+                        )}
                       </div>
                       {!fund.isLeaderboardEligible && fund.exclusionReason && (
                         <div style={{ fontSize: '0.71rem', color: 'var(--warn-text)', marginTop: '0.2rem' }}>
@@ -588,7 +684,7 @@ export const RankingTab: FC<RankingTabProps> = ({
                         {formatUsdCompact(fund.equityAumUsd)}
                       </div>
                       <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
-                        {fund.equityPositionCount} stocks · EffN {fund.effectivePositions}
+                        {fund.equityPositionCount} stocks · EffN {fund.effectivePositions} · {fund.quartersTracked}Q
                         {fund.etfSharePct > 0 ? ` · ${fund.etfSharePct.toFixed(0)}% ETF stripped` : ''}
                       </div>
                     </td>

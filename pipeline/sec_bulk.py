@@ -23,6 +23,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from funds_config import DUAL_CLASS_CANONICAL, NON_STOCK_ETFS, is_non_stock_etf
 from sec_client import (
     CACHE_DIR as SEC_CACHE_DIR,
     SEC_HEADERS,
@@ -40,6 +41,7 @@ from sec_client import (
 
 BULK_DIR = Path(__file__).resolve().parent / "cache" / "bulk"
 BULK_DIR.mkdir(parents=True, exist_ok=True)
+CUSIP_CACHE_PATH = Path(__file__).resolve().parent / "cusip_cache.json"
 ENTITY_META_PATH = SEC_CACHE_DIR / "entity_meta_cache.json"
 
 
@@ -686,6 +688,7 @@ def discover_universe_via_bulk(
     active_ciks: list[str] = []
     excluded_inst_count = 0
     history_pass_ciks: list[str] = []
+    inactive_hist_ciks: list[str] = []
 
     for cik10 in sorted(all_ciks_seen):
         is_curated = cik10 in curated_ciks
@@ -694,18 +697,28 @@ def discover_universe_via_bulk(
         latest_rd = max(periods.keys()) if periods else ""
         if not latest_rd and not has_post_bulk:
             continue
+        is_stale_inactive = False
         if not has_post_bulk:
             age_days = (today_date - datetime.strptime(latest_rd, "%Y-%m-%d").date()).days
             if age_days > 210:
-                continue
-        active_ciks.append(cik10)
+                is_stale_inactive = True
 
         # Operating-company / non-focused-institution filter (Curated exempt)
         if not is_curated:
             cname = cik_latest_name.get(cik10, "")
             if cik10 in op_ciks or (cname and _EXCLUDE_INSTITUTION_RE.search(cname)):
-                excluded_inst_count += 1
+                if not is_stale_inactive:
+                    active_ciks.append(cik10)
+                    excluded_inst_count += 1
                 continue
+
+        if is_stale_inactive:
+            # Retain closed/liquidated funds active for >=4Q during 2021-present strictly for PIT backtest
+            if len(periods) >= 4:
+                inactive_hist_ciks.append(cik10)
+            continue
+
+        active_ciks.append(cik10)
 
         # Distinct quarters since 2024-01-01 (credit post-bulk quarter if new filing arrived after bulk ZIP)
         recent_qtrs = sum(1 for rd in periods if rd >= "2024-01-01")
@@ -717,7 +730,7 @@ def discover_universe_via_bulk(
             if effective_qtrs >= 4 and periods:
                 history_pass_ciks.append(cik10)
 
-    # Pass B: Read latest bulk reportDate INFOTABLE rows for history_pass_ciks (only recent relevant ZIPs)
+    # Pass B: Read latest bulk reportDate INFOTABLE rows for active + inactive historical candidates
     zip_to_accs: dict[int, set[str]] = {}
     cik_target_rd: dict[str, str] = {}
     acc_to_cik_meta: dict[str, tuple[str, str, str, str, str, str, str]] = {}
@@ -733,6 +746,17 @@ def discover_universe_via_bulk(
             for fd, acc, form, amend_type, mgr_name, z_idx in periods[rd]:
                 zip_to_accs.setdefault(z_idx, set()).add(acc)
                 acc_to_cik_meta[acc] = (fd, acc, form, amend_type, mgr_name, rd, cik10)
+
+    for cik10 in inactive_hist_ciks:
+        periods = cik_periods.get(cik10, {})
+        if not periods:
+            continue
+        # Sample latest/mid period of inactive manager to test size/concentration/tech-focus without extra network calls
+        sorted_rds = sorted(periods.keys(), reverse=True)
+        rd = sorted_rds[min(1, len(sorted_rds) - 1)]
+        for fd, acc, form, amend_type, mgr_name, z_idx in periods[rd]:
+            zip_to_accs.setdefault(z_idx, set()).add(acc)
+            acc_to_cik_meta[acc] = (fd, acc, form, amend_type, mgr_name, rd, cik10)
 
     rows_by_acc: dict[str, list[dict[str, Any]]] = {}
     ratios_by_acc: dict[str, tuple[list[float], list[float]]] = {}
@@ -788,6 +812,41 @@ def discover_universe_via_bulk(
                         "shares": shares,
                         "secType": sec_type,
                     })
+
+    # Load cached CUSIP metadata once for fast Stage 1 ETF stripping, dual-class grouping & PIT ceiling checks
+    cached_cc: dict[str, Any] = {}
+    if CUSIP_CACHE_PATH.exists():
+        try:
+            cached_cc = json.loads(CUSIP_CACHE_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            cached_cc = {}
+
+    def _stage1_single_stock_stats(
+        eq_list: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], float, dict[str, float], int, float, float, int]:
+        filtered_rows: list[dict[str, Any]] = []
+        raw_by_c: dict[str, float] = {}
+        for r in eq_list:
+            c_id = r["cusip"]
+            cm = cached_cc.get(c_id) or {}
+            tk = str(cm.get("ticker") or "")
+            nm = str(cm.get("name") or r.get("issuer") or "")
+            sec = str(cm.get("sector") or "")
+            ind = str(cm.get("industry") or "")
+            if is_non_stock_etf(tk, nm, sec, ind):
+                continue
+            filtered_rows.append(r)
+            canon_key = DUAL_CLASS_CANONICAL.get(tk, tk) if (tk and not tk.startswith("CUSIP:")) else c_id
+            raw_by_c[canon_key] = raw_by_c.get(canon_key, 0.0) + float(r["valueUsd"])
+
+        single_eq_aum = sum(raw_by_c.values())
+        raw_pos = len(raw_by_c)
+        sorted_vals = sorted(raw_by_c.values(), reverse=True)
+        raw_top10 = (sum(sorted_vals[:10]) / single_eq_aum * 100.0) if single_eq_aum > 0 else 0.0
+        hhi = sum((v / single_eq_aum) ** 2 for v in raw_by_c.values()) if single_eq_aum > 0 else 0.0
+        raw_eff_n = (1.0 / hhi) if hhi > 0 else float(raw_pos)
+        sig_pos = sum(1 for v in raw_by_c.values() if single_eq_aum > 0 and (v / single_eq_aum) >= 0.0025)
+        return filtered_rows, single_eq_aum, raw_by_c, raw_pos, raw_top10, raw_eff_n, sig_pos
 
     # Reconstruct latest bulk filing per candidate CIK & apply deterministic Size + Concentration gates
     size_pass_count = 0
@@ -856,20 +915,12 @@ def discover_universe_via_bulk(
             excluded_inst_count += 1
             continue
 
-        # Slight 15% Q2->Q3 boundary buffer ($170M rep / $85M eq) at Stage 1 pre-screen; strict $200M/$100M enforced on final latest Q in Stage 3
-        if not (rep_aum >= 170_000_000 and eq_aum >= 85_000_000):
+        single_eq_rows, single_eq_aum, _, raw_pos, raw_top10, raw_eff_n, sig_pos = _stage1_single_stock_stats(eq_rows)
+
+        # Slight 15% Q2->Q3 boundary buffer ($170M rep / $85M single-stock eq) at Stage 1 pre-screen
+        if not (rep_aum >= 170_000_000 and single_eq_aum >= 85_000_000 and (eq_aum <= 0 or single_eq_aum / eq_aum >= 0.45)):
             continue
         size_pass_count += 1
-
-        raw_by_c: dict[str, float] = {}
-        for r in eq_rows:
-            raw_by_c[r["cusip"]] = raw_by_c.get(r["cusip"], 0.0) + r["valueUsd"]
-        raw_pos = len(raw_by_c)
-        sorted_vals = sorted(raw_by_c.values(), reverse=True)
-        raw_top10 = (sum(sorted_vals[:10]) / eq_aum * 100.0) if eq_aum > 0 else 0.0
-        hhi = sum((v / eq_aum) ** 2 for v in raw_by_c.values()) if eq_aum > 0 else 0.0
-        raw_eff_n = (1.0 / hhi) if hhi > 0 else float(raw_pos)
-        sig_pos = sum(1 for v in raw_by_c.values() if eq_aum > 0 and (v / eq_aum) >= 0.0025)
 
         # Exclude <5 stock VC lockups / single-stock SPVs AND bloated multi-hundred-stock generalists
         min_pos_ok = raw_pos >= 5 and raw_eff_n >= 1.4
@@ -887,7 +938,7 @@ def discover_universe_via_bulk(
         cand = {
             "cik": cik10,
             "name": fmt_name,
-            "manager": "SEC EDGAR Discovered",
+            "manager": "",
             "hq": "United States",
             "styleTag": "Discovered Tech Concentrated",
             "strategySummary": (
@@ -900,12 +951,62 @@ def discover_universe_via_bulk(
         stage1_results[cik10] = {
             "cand": cand,
             "latest": latest_filing,
-            "eqRows": eq_rows,
-            "eqAum": eq_aum,
+            "eqRows": single_eq_rows,
+            "eqAum": single_eq_aum,
             "repAum": rep_aum,
             "qualOk": True,
             "updateOnlyOk": False,
         }
+
+    # Pre-screen closed/liquidated historical managers (>=4Q during 2021-present) for survivorship-free PIT backtest
+    historical_pit_ciks: list[str] = []
+    for cik10 in inactive_hist_ciks:
+        periods = cik_periods.get(cik10, {})
+        if not periods:
+            continue
+        sorted_rds = sorted(periods.keys(), reverse=True)
+        rd = sorted_rds[min(1, len(sorted_rds) - 1)]
+        metas = [
+            acc_to_cik_meta[acc]
+            for (_, acc, _, _, _, _) in periods[rd]
+            if acc in acc_to_cik_meta
+        ]
+        sample_filing = _build_bulk_period_snapshots(metas, rows_by_acc, ratios_by_acc)
+        if not sample_filing:
+            continue
+        rep_aum = sum(r["valueUsd"] for r in sample_filing["rows"])
+        eq_rows = [r for r in sample_filing["rows"] if r["secType"] == "EQUITY" and r["valueUsd"] > 0]
+        eq_aum = sum(r["valueUsd"] for r in eq_rows)
+        opt_rows = [r for r in sample_filing["rows"] if r["secType"] in ("PUT", "CALL") and r["valueUsd"] > 0]
+        opt_aum = sum(r["valueUsd"] for r in opt_rows)
+        if (rep_aum > 0 and opt_aum / rep_aum > 0.50) or len(opt_rows) > 300:
+            continue
+        single_eq_rows, single_eq_aum, _, raw_pos, raw_top10, raw_eff_n, sig_pos = _stage1_single_stock_stats(eq_rows)
+        if not (rep_aum >= 170_000_000 and single_eq_aum >= 85_000_000 and (eq_aum <= 0 or single_eq_aum / eq_aum >= 0.45)):
+            continue
+        min_pos_ok = raw_pos >= 5 and raw_eff_n >= 3.5
+        conc_ok = raw_pos <= 260 and (
+            raw_pos <= 130
+            or (sig_pos <= 98 and raw_eff_n <= 58.0 and raw_top10 >= 33.0)
+            or raw_top10 >= 48.0
+        )
+        if not (min_pos_ok and conc_ok):
+            continue
+        # Fast cached Tech/TMT ceiling filter so only genuine tech-heavy defunct funds enter Stage 2 bulk extraction
+        known_non_tech = 0.0
+        known_tech = 0.0
+        for r in single_eq_rows:
+            cm = cached_cc.get(r["cusip"]) or {}
+            tk = str(cm.get("ticker") or "")
+            if not tk or tk.startswith("CUSIP:"):
+                continue
+            if cm.get("isTechTmt"):
+                known_tech += float(r["valueUsd"])
+            elif cm.get("sector"):
+                known_non_tech += float(r["valueUsd"])
+        max_tech = (1.0 - known_non_tech / single_eq_aum) * 100.0 if single_eq_aum > 0 else 0.0
+        if max_tech >= 35.0 and (known_tech > 0 or not cached_cc):
+            historical_pit_ciks.append(cik10)
 
     # Ensure Curated come first in all_candidates
     all_candidates.sort(key=lambda c: (0 if c.get("source") == "Curated Core" else 1, c["name"]))
@@ -914,7 +1015,8 @@ def discover_universe_via_bulk(
     print(
         f"[universe] Complete in {elapsed:.1f}s: {len(all_ciks_seen)} SEC 13F CIKs -> "
         f"{len(active_ciks)} active -> {len(history_pass_ciks)} manager/history pass -> "
-        f"{size_pass_count} scale pass -> {conc_pass_count} concentrated candidates (no artificial cap).",
+        f"{size_pass_count} scale pass -> {conc_pass_count} concentrated candidates "
+        f"(+{len(historical_pit_ciks)} historical closed PIT candidates).",
         flush=True,
     )
 
@@ -927,8 +1029,10 @@ def discover_universe_via_bulk(
         "fourPlusQuartersCount": len(history_pass_ciks),
         "sizeAndEquityPassCount": size_pass_count,
         "concentrationPassCount": conc_pass_count,
+        "historicalLiquidatedCount": len(historical_pit_ciks),
         "bulkDatasetsCount": len(bulk_paths),
         "bulkMaxFilingDate": max_bulk_filing_date,
+        "_historicalLiquidatedCiks": historical_pit_ciks,
     }
     return all_candidates, stage1_results, funnel_counts, post_bulk_by_cik
 
@@ -1214,17 +1318,21 @@ def ingest_target_histories(
     post_bulk_by_cik: dict[str, list[dict[str, str]]],
     today_date: date,
     min_report_date: str = "2020-12-31",
+    allow_stale_ciks: set[str] | None = None,
 ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
     """
     Assemble complete 2021-present clean quarterly filing sequences for all surviving Stage 2 targets
     by merging offline Bulk Data Set histories with incremental post-bulk master.idx / EFTS .txt filings,
     preserving true amendment metadata, per-row disclosedDate, and chronological amendmentEvents.
     """
+    stale_ok = allow_stale_ciks or set()
     target_set = set(target_ciks)
     bulk_histories, _ = extract_bulk_histories(target_set, bulk_paths, min_report_date=min_report_date)
 
     post_tasks: list[dict[str, str]] = []
     for cik10 in target_ciks:
+        if cik10 in stale_ok:
+            continue
         for item in post_bulk_by_cik.get(cik10, []):
             post_tasks.append(item)
 
@@ -1347,7 +1455,7 @@ def ingest_target_histories(
 
         latest_rd = cleaned[-1]["reportDate"]
         age_days = (today_date - datetime.strptime(latest_rd, "%Y-%m-%d").date()).days
-        if age_days <= 210:
+        if age_days <= 210 or cik10 in stale_ok:
             assembled[cik10] = cleaned
 
     stats = {

@@ -15,6 +15,7 @@ import {
   entryZoneChipClass,
   formatPct,
   formatSignedPct,
+  formatSignedUsd,
   formatUsdCompact,
   returnClass,
   tierChipClass,
@@ -34,6 +35,16 @@ type ScreenerSubTab = 'CONSENSUS' | 'CLUSTER' | 'HEAVY_ADDS' | 'EXITS' | 'CONTRA
 type CapFilter = 'ALL' | MarketCapTier;
 type EntryFilter = 'ALL' | 'VALUE' | 'EXTENDED' | 'CHASING';
 type ConsensusSortKey = 'aggregate' | 'holders' | 'totalValue' | 'ttm';
+type ScreenerSortKey = 'default' | 'netFlow' | 'holders' | 'ttm' | 'revYoY';
+
+function compareNullableNumbers(a: number | null | undefined, b: number | null | undefined, asc: boolean): number {
+  const an = a == null || !Number.isFinite(a) ? null : a;
+  const bn = b == null || !Number.isFinite(b) ? null : b;
+  if (an === null && bn === null) return 0;
+  if (an === null) return 1;
+  if (bn === null) return -1;
+  return asc ? an - bn : bn - an;
+}
 
 function matchesEntryFilter(
   zone: EntryZoneStatus | null | undefined,
@@ -66,6 +77,9 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
   const [subTab, setSubTab] = useState<ScreenerSubTab>('CONSENSUS');
   const [weightMode, setWeightMode] = useState<WeightMode>('equal');
   const [sortBy, setSortBy] = useState<ConsensusSortKey>('aggregate');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [screenerSortBy, setScreenerSortBy] = useState<ScreenerSortKey>('default');
+  const [screenerSortAsc, setScreenerSortAsc] = useState(false);
   const [capFilter, setCapFilter] = useState<CapFilter>('ALL');
   const [entryFilter, setEntryFilter] = useState<EntryFilter>('ALL');
   const [search, setSearch] = useState('');
@@ -89,14 +103,14 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         );
       })
       .sort((a, b) => {
-        if (sortBy === 'holders') return b.holderCount - a.holderCount;
-        if (sortBy === 'totalValue') return b.totalValueUsd - a.totalValueUsd;
-        if (sortBy === 'ttm') return (b.stockTtmPct ?? -999) - (a.stockTtmPct ?? -999);
+        if (sortBy === 'holders') return compareNullableNumbers(a.holderCount, b.holderCount, sortAsc);
+        if (sortBy === 'totalValue') return compareNullableNumbers(a.totalValueUsd, b.totalValueUsd, sortAsc);
+        if (sortBy === 'ttm') return compareNullableNumbers(a.stockTtmPct, b.stockTtmPct, sortAsc);
         const wa = weightMode === 'equal' ? a.equalAggregateWeightPct : a.aumAggregateWeightPct;
         const wb = weightMode === 'equal' ? b.equalAggregateWeightPct : b.aumAggregateWeightPct;
-        return wb - wa;
+        return compareNullableNumbers(wa, wb, sortAsc);
       });
-  }, [consensusList, capFilter, entryFilter, search, sortBy, weightMode]);
+  }, [consensusList, capFilter, entryFilter, search, sortBy, sortAsc, weightMode]);
 
   const activeScreenerList = useMemo<SignalScreenerEntry[]>(() => {
     const raw =
@@ -110,7 +124,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
               ? signalScreener.contrarianBets
               : [];
     const q = search.trim().toLowerCase();
-    return raw.filter((item) => {
+    const filtered = raw.filter((item) => {
       if (!matchesCapFilter(item.marketCapTier, capFilter)) return false;
       if (!matchesEntryFilter(item.entryZoneStatus, entryFilter)) return false;
       if (!q) return true;
@@ -123,7 +137,26 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         item.topBackers.some((b) => b.fundName.toLowerCase().includes(q))
       );
     });
-  }, [subTab, signalScreener, capFilter, entryFilter, search]);
+    if (screenerSortBy === 'default') return filtered;
+    return [...filtered].sort((a, b) => {
+      if (screenerSortBy === 'netFlow') {
+        const fa = a.netEstFlowUsd ?? a.netDeltaUsd;
+        const fb = b.netEstFlowUsd ?? b.netDeltaUsd;
+        return compareNullableNumbers(fa, fb, screenerSortAsc);
+      }
+      if (screenerSortBy === 'holders') {
+        return compareNullableNumbers(a.holderCount, b.holderCount, screenerSortAsc);
+      }
+      if (screenerSortBy === 'ttm') {
+        return compareNullableNumbers(a.stockTtmPct, b.stockTtmPct, screenerSortAsc);
+      }
+      return compareNullableNumbers(
+        a.fundamentals?.revenueGrowthYoYPct,
+        b.fundamentals?.revenueGrowthYoYPct,
+        screenerSortAsc
+      );
+    });
+  }, [subTab, signalScreener, capFilter, entryFilter, search, screenerSortBy, screenerSortAsc]);
 
   const poolSize = consensusList[0]?.totalRankedFundsPool ?? 0;
   const totalTop30Usd = useMemo(
@@ -249,7 +282,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         item.addedCount,
         item.trimmedCount,
         item.exitedCount,
-        item.netDeltaUsd,
+        item.netEstFlowUsd ?? item.netDeltaUsd,
         item.stockTtmPct ?? '',
       ])
     );
@@ -414,7 +447,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           </div>
 
           <div className="controls-row">
-            {subTab === 'CONSENSUS' && (
+            {subTab === 'CONSENSUS' ? (
               <>
                 <div className="segmented-group" role="group" aria-label="Aggregate weighting mode">
                   <button
@@ -440,6 +473,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                     [
                       { id: 'aggregate', label: 'Weight' },
                       { id: 'holders', label: 'Holders' },
+                      { id: 'totalValue', label: 'Total Held' },
                       { id: 'ttm', label: 'TTM' },
                     ] as const
                   ).map((s) => (
@@ -447,13 +481,56 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                       key={s.id}
                       type="button"
                       className={`seg-btn ${sortBy === s.id ? 'active' : ''}`}
-                      onClick={() => setSortBy(s.id)}
+                      onClick={() => {
+                        if (sortBy === s.id) setSortAsc((a) => !a);
+                        else {
+                          setSortBy(s.id);
+                          setSortAsc(false);
+                        }
+                      }}
                     >
                       {s.label}
+                      {sortBy === s.id ? (sortAsc ? ' ▲' : ' ▼') : ''}
                     </button>
                   ))}
                 </div>
               </>
+            ) : (
+              <div className="segmented-group" role="group" aria-label="Sort signal screener">
+                {(
+                  [
+                    { id: 'default', label: 'Signal Rank' },
+                    { id: 'netFlow', label: 'Net Flow' },
+                    { id: 'revYoY', label: 'Rev YoY' },
+                    { id: 'holders', label: 'Holders' },
+                    { id: 'ttm', label: 'TTM' },
+                  ] as const
+                ).map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`seg-btn ${screenerSortBy === s.id ? 'active' : ''}`}
+                    onClick={() => {
+                      if (s.id === 'default') {
+                        setScreenerSortBy('default');
+                        setScreenerSortAsc(false);
+                      } else if (screenerSortBy === s.id) {
+                        setScreenerSortAsc((a) => !a);
+                      } else {
+                        setScreenerSortBy(s.id);
+                        setScreenerSortAsc(false);
+                      }
+                    }}
+                  >
+                    {s.label}
+                    {screenerSortBy === s.id && s.id !== 'default'
+                      ? screenerSortAsc
+                        ? ' ▲'
+                        : ' ▼'
+                      : ''}
+                  </button>
+                ))}
+              </div>
             )}
 
             <div className="search-input-wrap">
@@ -485,12 +562,55 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   <th>Sub-Sector</th>
                   <th>Entry Zone (vs Q-VWAP)</th>
                   <th className="num">XBRL Rev / OpM</th>
-                  <th className="num">
-                    {weightMode === 'equal' ? 'Agg Wt (Eq)' : 'Agg Wt (AUM)'}
+                  <th
+                    className={`num sortable ${sortBy === 'aggregate' ? 'active-sort' : ''}`}
+                    onClick={() => {
+                      if (sortBy === 'aggregate') setSortAsc((a) => !a);
+                      else {
+                        setSortBy('aggregate');
+                        setSortAsc(false);
+                      }
+                    }}
+                  >
+                    {weightMode === 'equal' ? 'Agg Wt (Eq)' : 'Agg Wt (AUM)'}{' '}
+                    {sortBy === 'aggregate' ? (sortAsc ? '▲' : '▼') : ''}
                   </th>
-                  <th className="num">Holders</th>
-                  <th className="num">Total Held</th>
-                  <th className="num">Stock TTM</th>
+                  <th
+                    className={`num sortable ${sortBy === 'holders' ? 'active-sort' : ''}`}
+                    onClick={() => {
+                      if (sortBy === 'holders') setSortAsc((a) => !a);
+                      else {
+                        setSortBy('holders');
+                        setSortAsc(false);
+                      }
+                    }}
+                  >
+                    Holders {sortBy === 'holders' ? (sortAsc ? '▲' : '▼') : ''}
+                  </th>
+                  <th
+                    className={`num sortable ${sortBy === 'totalValue' ? 'active-sort' : ''}`}
+                    onClick={() => {
+                      if (sortBy === 'totalValue') setSortAsc((a) => !a);
+                      else {
+                        setSortBy('totalValue');
+                        setSortAsc(false);
+                      }
+                    }}
+                  >
+                    Total Held {sortBy === 'totalValue' ? (sortAsc ? '▲' : '▼') : ''}
+                  </th>
+                  <th
+                    className={`num sortable ${sortBy === 'ttm' ? 'active-sort' : ''}`}
+                    onClick={() => {
+                      if (sortBy === 'ttm') setSortAsc((a) => !a);
+                      else {
+                        setSortBy('ttm');
+                        setSortAsc(false);
+                      }
+                    }}
+                  >
+                    Stock TTM {sortBy === 'ttm' ? (sortAsc ? '▲' : '▼') : ''}
+                  </th>
                   <th>Backing Funds &amp; Weights</th>
                 </tr>
               </thead>
@@ -727,17 +847,62 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   <th>Stock</th>
                   <th>Sub-Sector</th>
                   <th>Entry Zone (Q-VWAP)</th>
-                  <th className="num">XBRL Rev / OpM</th>
+                  <th
+                    className={`num sortable ${screenerSortBy === 'revYoY' ? 'active-sort' : ''}`}
+                    onClick={() => {
+                      if (screenerSortBy === 'revYoY') setScreenerSortAsc((a) => !a);
+                      else {
+                        setScreenerSortBy('revYoY');
+                        setScreenerSortAsc(false);
+                      }
+                    }}
+                  >
+                    XBRL Rev / OpM {screenerSortBy === 'revYoY' ? (screenerSortAsc ? '▲' : '▼') : ''}
+                  </th>
                   <th>QoQ Signal Activity</th>
-                  <th className="num">Net Flow $</th>
-                  <th className="num">Holders / Max Wt</th>
-                  <th className="num">Stock TTM</th>
+                  <th
+                    className={`num sortable ${screenerSortBy === 'netFlow' ? 'active-sort' : ''}`}
+                    onClick={() => {
+                      if (screenerSortBy === 'netFlow') setScreenerSortAsc((a) => !a);
+                      else {
+                        setScreenerSortBy('netFlow');
+                        setScreenerSortAsc(false);
+                      }
+                    }}
+                  >
+                    Net Flow $ {screenerSortBy === 'netFlow' ? (screenerSortAsc ? '▲' : '▼') : ''}
+                  </th>
+                  <th
+                    className={`num sortable ${screenerSortBy === 'holders' ? 'active-sort' : ''}`}
+                    onClick={() => {
+                      if (screenerSortBy === 'holders') setScreenerSortAsc((a) => !a);
+                      else {
+                        setScreenerSortBy('holders');
+                        setScreenerSortAsc(false);
+                      }
+                    }}
+                  >
+                    Holders / Max Wt {screenerSortBy === 'holders' ? (screenerSortAsc ? '▲' : '▼') : ''}
+                  </th>
+                  <th
+                    className={`num sortable ${screenerSortBy === 'ttm' ? 'active-sort' : ''}`}
+                    onClick={() => {
+                      if (screenerSortBy === 'ttm') setScreenerSortAsc((a) => !a);
+                      else {
+                        setScreenerSortBy('ttm');
+                        setScreenerSortAsc(false);
+                      }
+                    }}
+                  >
+                    Stock TTM {screenerSortBy === 'ttm' ? (screenerSortAsc ? '▲' : '▼') : ''}
+                  </th>
                   <th>{subTab === 'CONTRARIAN' ? 'Top Specialist Backers' : 'Key Fund Movers'}</th>
                 </tr>
               </thead>
               <tbody>
                 {activeScreenerList.map((item, idx) => {
                   const isOpen = expandedTicker === item.ticker;
+                  const netFlow = item.netEstFlowUsd ?? item.netDeltaUsd;
                   const badgesSource =
                     subTab === 'CONTRARIAN' && item.topBackers.length > 0
                       ? item.topBackers.map((b) => ({
@@ -762,7 +927,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                             m.action === 'NEW'
                               ? `NEW ${m.currBookPct.toFixed(1)}%`
                               : m.action === 'EXITED'
-                                ? `EXIT (${formatUsdCompact(Math.abs(m.valueDeltaUsd))})`
+                                ? `EXIT (${formatUsdCompact(Math.abs(m.estFlowUsd ?? m.valueDeltaUsd))})`
                                 : `${m.action} ${m.sharesDeltaPct != null ? formatSignedPct(m.sharesDeltaPct, 0) : ''}`,
                           chipTone:
                             m.action === 'NEW' || m.action === 'ADDED' ? 'pos' : 'neg',
@@ -864,9 +1029,15 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                             )}
                           </div>
                         </td>
-                        <td className={`num mono ${returnClass(item.netDeltaUsd)}`}>
-                          {item.netDeltaUsd > 0 ? '+' : item.netDeltaUsd < 0 ? '-' : ''}
-                          {formatUsdCompact(Math.abs(item.netDeltaUsd))}
+                        <td
+                          className={`num mono ${returnClass(netFlow)}`}
+                          title={
+                            item.netEstFlowUsd != null
+                              ? `Q-VWAP est. flow (reported MV Δ: ${formatSignedUsd(item.netDeltaUsd)})`
+                              : undefined
+                          }
+                        >
+                          {formatSignedUsd(netFlow)}
                         </td>
                         <td className="num mono">
                           <div>
@@ -914,40 +1085,46 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                               </button>
                             </div>
                             <div className="holder-grid">
-                              {item.movers.map((mv, mi) => (
-                                <div key={`mv-${mv.cik}-${mi}`} className="holder-card">
-                                  <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                                      <button
-                                        type="button"
-                                        className="fund-link-btn"
-                                        style={{ fontSize: '0.81rem' }}
-                                        onClick={() => onSelectFund(mv.cik)}
-                                      >
-                                        {mv.fundName}
-                                      </button>
-                                      <span className={`chip ${tierChipClass(mv.fundTier)}`} style={{ fontSize: '0.64rem' }}>
-                                        {mv.fundTier}
+                              {item.movers.map((mv, mi) => {
+                                const mvFlow = mv.estFlowUsd ?? mv.valueDeltaUsd;
+                                return (
+                                  <div key={`mv-${mv.cik}-${mi}`} className="holder-card">
+                                    <div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                        <button
+                                          type="button"
+                                          className="fund-link-btn"
+                                          style={{ fontSize: '0.81rem' }}
+                                          onClick={() => onSelectFund(mv.cik)}
+                                        >
+                                          {mv.fundName}
+                                        </button>
+                                        <span className={`chip ${tierChipClass(mv.fundTier)}`} style={{ fontSize: '0.64rem' }}>
+                                          {mv.fundTier}
+                                        </span>
+                                      </div>
+                                      <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                                        Book: {mv.prevBookPct.toFixed(1)}% → {mv.currBookPct.toFixed(1)}%
+                                      </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                      <span className={`chip ${mv.action === 'NEW' || mv.action === 'ADDED' ? 'pos' : 'neg'}`}>
+                                        {mv.action}
+                                        {mv.sharesDeltaPct != null && mv.action !== 'NEW' && mv.action !== 'EXITED'
+                                          ? ` ${formatSignedPct(mv.sharesDeltaPct, 0)}`
+                                          : ''}
                                       </span>
-                                    </div>
-                                    <div className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                                      Book: {mv.prevBookPct.toFixed(1)}% → {mv.currBookPct.toFixed(1)}%
-                                    </div>
-                                  </div>
-                                  <div style={{ textAlign: 'right' }}>
-                                    <span className={`chip ${mv.action === 'NEW' || mv.action === 'ADDED' ? 'pos' : 'neg'}`}>
-                                      {mv.action}
-                                      {mv.sharesDeltaPct != null && mv.action !== 'NEW' && mv.action !== 'EXITED'
-                                        ? ` ${formatSignedPct(mv.sharesDeltaPct, 0)}`
-                                        : ''}
-                                    </span>
-                                    <div className={`mono ${returnClass(mv.valueDeltaUsd)}`} style={{ fontSize: '0.72rem', marginTop: '0.15rem' }}>
-                                      {mv.valueDeltaUsd >= 0 ? '+' : '-'}
-                                      {formatUsdCompact(Math.abs(mv.valueDeltaUsd))}
+                                      <div
+                                        className={`mono ${returnClass(mvFlow)}`}
+                                        style={{ fontSize: '0.72rem', marginTop: '0.15rem' }}
+                                        title={mv.estFlowUsd != null ? `Q-VWAP est. flow (MV Δ: ${formatSignedUsd(mv.valueDeltaUsd)})` : undefined}
+                                      >
+                                        {formatSignedUsd(mvFlow)}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                               {item.movers.length === 0 &&
                                 item.topBackers.map((bk) => (
                                   <div key={`bk-${bk.cik}`} className="holder-card">

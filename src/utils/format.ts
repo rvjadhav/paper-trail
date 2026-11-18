@@ -42,6 +42,12 @@ export function formatUsdCompact(val: number | null | undefined): string {
   return `$${val.toFixed(0)}`;
 }
 
+export function formatSignedUsd(val: number | null | undefined): string {
+  if (val == null || !Number.isFinite(val)) return '—';
+  if (val === 0) return '$0';
+  return `${val > 0 ? '+' : '-'}${formatUsdCompact(Math.abs(val))}`;
+}
+
 export function formatSignedPct(val: number | null | undefined, decimals = 1): string {
   if (val == null || !Number.isFinite(val)) return 'N/A';
   const sign = val > 0 ? '+' : '';
@@ -84,6 +90,14 @@ export function tierChipClass(tier: FundTier | string | undefined): string {
   if (tier === 'Elite 50') return 'elite';
   if (tier === 'Top 100') return 'tech';
   if (tier === 'Excluded') return 'warn';
+  return '';
+}
+
+export function stakeStatusChipClass(status: string | null | undefined): string {
+  if (!status) return '';
+  if (status.startsWith('Exited')) return 'neg';
+  if (status.startsWith('Reduced')) return 'warn';
+  if (status.startsWith('Active')) return 'pos';
   return '';
 }
 

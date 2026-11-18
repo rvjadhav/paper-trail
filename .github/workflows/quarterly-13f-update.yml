@@ -37,6 +37,9 @@ jobs:
       - name: Install Python pipeline dependencies
         run: pip install -r pipeline/requirements.txt
 
+      - name: Run Python pipeline unit tests
+        run: PYTHONPATH=pipeline python3 -m unittest discover -s pipeline -p "test_*.py" -v
+
       - name: Restore SEC EDGAR & Yahoo cache (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: actions/cache@v4
@@ -132,7 +135,7 @@ jobs:
           fi
           if ! git diff --cached --quiet; then
             git commit -m "chore(data): automated 13F/13D-13G & market data update"
-            git pull --rebase origin main || true
+            git fetch origin main && git rebase origin/main || { git rebase --abort; exit 1; }
             git push
           else
             echo "No dataset changes to commit."
@@ -144,10 +147,15 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      - name: Install npm dependencies & typecheck
+      - name: Install npm dependencies
         run: npm ci
 
-      - name: Build static bundle
+      - name: Lint and run frontend unit tests
+        run: |
+          npm run lint
+          npm test
+
+      - name: Typecheck & build static bundle
         run: npm run build
 
       - name: Configure GitHub Pages

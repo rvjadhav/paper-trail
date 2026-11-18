@@ -180,6 +180,19 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
   const yTicks = [minY, (minY + maxY) / 2, maxY];
   const activeIdx = hoverIdx !== null ? Math.min(dates.length - 1, Math.max(0, hoverIdx)) : dates.length - 1;
 
+  const handlePointerPosition = (svgEl: SVGSVGElement, clientX: number) => {
+    const rect = svgEl.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const relX = ((clientX - rect.left) / rect.width) * width;
+    const frac = (relX - padL) / plotW;
+    const idx = Math.round(frac * (dates.length - 1));
+    setHoverIdx(Math.min(dates.length - 1, Math.max(0, idx)));
+  };
+
+  const activeSeriesSummary = rebased
+    .map((r) => `${r.label} ${formatSignedPct(r.values[activeIdx], 1)}`)
+    .join(', ');
+
   return (
     <div className="chart-box">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -213,16 +226,58 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
       </div>
 
       <svg
+        className="chart-svg"
         viewBox={`0 0 ${width} ${height}`}
-        style={{ width: '100%', height: 'auto', display: 'block', cursor: 'crosshair' }}
-        onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const relX = ((e.clientX - rect.left) / rect.width) * width;
-          const frac = (relX - padL) / plotW;
-          const idx = Math.round(frac * (dates.length - 1));
-          setHoverIdx(Math.min(dates.length - 1, Math.max(0, idx)));
+        tabIndex={0}
+        role="img"
+        aria-label={`Cumulative return chart as of ${dates[activeIdx]}: ${activeSeriesSummary}. Use Left and Right arrow keys to scrub dates.`}
+        style={{ width: '100%', height: 'auto', display: 'block', cursor: 'crosshair', touchAction: 'none' }}
+        onPointerDown={(e) => {
+          try {
+            e.currentTarget.setPointerCapture?.(e.pointerId);
+          } catch {
+            // Ignore environments without pointer capture
+          }
+          handlePointerPosition(e.currentTarget, e.clientX);
         }}
+        onPointerMove={(e) => handlePointerPosition(e.currentTarget, e.clientX)}
+        onPointerUp={(e) => {
+          try {
+            if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }
+          } catch {
+            // Ignore
+          }
+          if (e.pointerType !== 'mouse') setHoverIdx(null);
+        }}
+        onPointerCancel={() => setHoverIdx(null)}
+        onPointerLeave={(e) => {
+          if (!e.pointerType || e.pointerType === 'mouse') setHoverIdx(null);
+        }}
+        onMouseMove={(e) => handlePointerPosition(e.currentTarget, e.clientX)}
         onMouseLeave={() => setHoverIdx(null)}
+        onKeyDown={(e) => {
+          if (dates.length === 0) return;
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            setHoverIdx((prev) => Math.max(0, (prev ?? dates.length - 1) - 1));
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            setHoverIdx((prev) =>
+              prev === null ? dates.length - 1 : Math.min(dates.length - 1, prev + 1)
+            );
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            setHoverIdx(0);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            setHoverIdx(dates.length - 1);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setHoverIdx(null);
+          }
+        }}
       >
         {/* Horizontal gridlines */}
         {yTicks.map((tv, i) => {
@@ -267,32 +322,40 @@ export const EquityCurveChart: FC<EquityCurveChartProps> = ({
           {dates[dates.length - 1]}
         </text>
 
-        {/* Lines */}
+        {/* Contiguous path segments broken across null gaps */}
         {rebased.map((r) => {
-          const pts: string[] = [];
+          const pathCommands: string[] = [];
+          let inSegment = false;
+          let segmentPoints = 0;
           r.values.forEach((v, idx) => {
-            if (v !== null) {
-              pts.push(`${xAt(idx).toFixed(1)},${yAt(v).toFixed(1)}`);
+            if (v === null) {
+              inSegment = false;
+              return;
             }
+            segmentPoints += 1;
+            const cmd = inSegment ? 'L' : 'M';
+            pathCommands.push(`${cmd}${xAt(idx).toFixed(1)},${yAt(v).toFixed(1)}`);
+            inSegment = true;
           });
-          if (pts.length < 2) return null;
+          if (segmentPoints < 2) return null;
           return (
-            <polyline
+            <path
               key={r.id}
+              data-series-id={r.id}
               fill="none"
               stroke={r.color}
               strokeWidth={r.dashed ? '1.75' : '2.4'}
               strokeDasharray={r.dashed ? '5 4' : undefined}
               strokeLinejoin="round"
               strokeLinecap="round"
-              points={pts.join(' ')}
+              d={pathCommands.join(' ')}
             />
           );
         })}
 
-        {/* Hover vertical crosshair */}
+        {/* Hover / Keyboard vertical crosshair */}
         {hoverIdx !== null && (
-          <g>
+          <g data-testid="chart-crosshair">
             <line
               x1={xAt(activeIdx)}
               y1={padT}
@@ -345,6 +408,12 @@ interface SectorBarProps {
 
 export const SectorBreakdownBar: FC<SectorBarProps> = ({ sectors }) => {
   const total = sectors.reduce((acc, s) => acc + s.weightPct, 0) || 100;
+  const topSectors = sectors.slice(0, 6);
+  const restSectors = sectors.slice(6);
+  const otherWeight = restSectors.reduce((acc, s) => acc + s.weightPct, 0);
+  const otherStocks = restSectors.reduce((acc, s) => acc + (s.stockCount ?? 0), 0);
+  const hasStockCounts = restSectors.some((s) => s.stockCount !== undefined);
+
   return (
     <div>
       <div className="sector-stack" role="img" aria-label="Sector weight breakdown">
@@ -360,7 +429,7 @@ export const SectorBreakdownBar: FC<SectorBarProps> = ({ sectors }) => {
         ))}
       </div>
       <div className="sector-legend">
-        {sectors.slice(0, 6).map((s) => (
+        {topSectors.map((s) => (
           <span key={s.sector}>
             <span className="sector-dot" style={{ backgroundColor: sectorColor(s.sector) }} />
             <strong>{s.sector}</strong>{' '}
@@ -370,6 +439,16 @@ export const SectorBreakdownBar: FC<SectorBarProps> = ({ sectors }) => {
             )}
           </span>
         ))}
+        {restSectors.length > 0 && (
+          <span key="other-bucket-summary" title={restSectors.map((r) => `${r.sector}: ${r.weightPct.toFixed(1)}%`).join(', ')}>
+            <span className="sector-dot" style={{ backgroundColor: sectorColor('Other') }} />
+            <strong>Other ({restSectors.length})</strong>{' '}
+            <span className="mono">{otherWeight.toFixed(1)}%</span>
+            {hasStockCounts && (
+              <span style={{ color: 'var(--text-muted)' }}> ({otherStocks})</span>
+            )}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -32,6 +32,7 @@ export interface FundHolding {
   reportedWeightPct: number;
   qoqSharesChangePct: number | null;
   qoqWeightDeltaPct: number | null;
+  estFlowUsd?: number | null;
   status: 'NEW' | 'ADDED' | 'UNCHANGED' | 'TRIMMED';
   pricePerShare: number | null;
 }
@@ -80,6 +81,10 @@ export interface MidQuarterAlert {
   ticker: string;
   issuerName: string;
   edgarUrl: string;
+  percentOfClass?: number | null;
+  sharesOwned?: number | null;
+  stakeStatus?: string | null;
+  eventDate?: string | null;
 }
 
 export interface FundSummary {
@@ -97,6 +102,7 @@ export interface FundSummary {
   exclusionReason: string | null;
   latestPeriod: string;
   latestQuarterLabel: string;
+  isStaleQuarter?: boolean;
   latestFilingDate: string;
   equityAumUsd: number;
   totalReportedUsd: number;
@@ -216,6 +222,7 @@ export interface SignalScreenerEntry {
   trimmedCount: number;
   exitedCount: number;
   netDeltaUsd: number;
+  netEstFlowUsd?: number;
   movers: Array<{
     cik: string;
     fundName: string;
@@ -224,6 +231,7 @@ export interface SignalScreenerEntry {
     currBookPct: number;
     prevBookPct: number;
     valueDeltaUsd: number;
+    estFlowUsd?: number;
     sharesDeltaPct: number | null;
   }>;
   topBackers: Array<{
@@ -328,7 +336,7 @@ export interface PositionMoveItem {
   ticker: string;
   name: string;
   sector: string;
-  industry: string;
+  industry?: string;
   securityType: SecurityType;
   action: MoveAction;
   prevShares: number;
@@ -338,6 +346,7 @@ export interface PositionMoveItem {
   prevValueUsd: number;
   currValueUsd: number;
   valueDeltaUsd: number;
+  estFlowUsd?: number;
   prevBookPct: number;
   currBookPct: number;
   bookDeltaPct: number;
@@ -471,6 +480,7 @@ export interface ConsensusMoveSummary {
   fundCount: number;
   totalCurrValueUsd: number;
   totalDeltaUsd: number;
+  totalEstFlowUsd?: number;
   funds: Array<{
     cik: string;
     fundName: string;
@@ -479,6 +489,7 @@ export interface ConsensusMoveSummary {
     currBookPct: number;
     prevBookPct: number;
     valueDeltaUsd: number;
+    estFlowUsd?: number;
     sharesDeltaPct: number | null;
   }>;
 }
@@ -546,6 +557,7 @@ export interface StockDetailMove {
   action: MoveAction;
   sharesDeltaPct: number | null;
   valueDeltaUsd: number;
+  estFlowUsd?: number;
   prevBookPct: number;
   currBookPct: number;
 }
@@ -581,6 +593,7 @@ export interface StockDetail {
   addedCount: number;
   trimmedCount: number;
   exitedCount: number;
+  netEstFlowUsd?: number;
   holders: StockDetailHolder[];
   recentMoves: StockDetailMove[];
   midQuarterAlerts: MidQuarterAlert[];
@@ -603,6 +616,7 @@ export interface UniverseFunnel {
   elite50Count: number;
   curatedQualifiedCount: number;
   discoveredQualifiedCount: number;
+  pitHistoricalBacktestCount?: number;
   rankedUnionQeCount: number;
   rankedUnionLagCount: number;
   updatesCardsCount: number;

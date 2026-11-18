@@ -2176,6 +2176,41 @@ html.theme-fallback-transition .site-footer {
   }
 }
 
+[hidden] {
+  display: none !important;
+}
+
+.drawer-panel:focus {
+  outline: none;
+}
+
+.chart-svg:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.rebalance-warn-box {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.72rem;
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 0.74rem;
+  line-height: 1.45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.rebalance-mode-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: flex-end;
+  margin-bottom: 0.75rem;
+}
+
 @media (max-width: 720px) {
   .vwap-kpis,
   .xbrl-grid {

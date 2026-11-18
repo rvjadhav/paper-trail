@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,10 +22,12 @@ import {
   downloadCsv,
   formatPct,
   formatSignedPct,
+  formatSignedUsd,
   formatUsdCompact,
   returnClass,
   tierChipClass,
 } from '../utils/format';
+import { useModalFocusTrap } from '../utils/useModalFocusTrap';
 
 interface UpdateDetailDrawerProps {
   update: FundUpdateSummary;
@@ -62,6 +64,9 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
   onSelectStock,
   fromFundDrawer = false,
 }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalFocusTrap(panelRef, true);
+
   const [filter, setFilter] = useState<DiffFilter>('ALL');
   const [sortBy, setSortBy] = useState<DiffSort>('maxValue');
   const [sortAsc, setSortAsc] = useState(false);
@@ -170,6 +175,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
         `${update.prevQuarterLabel} Value (USD)`,
         `${update.quarterLabel} Value (USD)`,
         'Value Delta (USD)',
+        'Est. Flow (USD)',
         `${update.prevQuarterLabel} Book %`,
         `${update.quarterLabel} Book %`,
         'Book Delta (pts)',
@@ -186,6 +192,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
         m.prevValueUsd,
         m.currValueUsd,
         m.valueDeltaUsd,
+        m.estFlowUsd ?? '',
         m.prevBookPct,
         m.currBookPct,
         m.bookDeltaPct,
@@ -244,7 +251,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="drawer-panel">
+      <div ref={panelRef} tabIndex={-1} className="drawer-panel">
         {/* Sticky Frosted Header */}
         <div className="drawer-header">
           <div>
@@ -279,10 +286,14 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
             </div>
 
             <div className="fund-meta-line" style={{ marginTop: '0.35rem', fontSize: '0.82rem' }}>
-              <span>
-                <strong>{update.manager}</strong>
-              </span>
-              <span>·</span>
+              {update.manager && update.manager !== 'SEC EDGAR Discovered' && (
+                <>
+                  <span>
+                    <strong>{update.manager}</strong>
+                  </span>
+                  <span>·</span>
+                </>
+              )}
               <span>{update.prevQuarterLabel} → {update.quarterLabel}</span>
               <span>·</span>
               <span className="mono">
@@ -354,7 +365,12 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
             </div>
 
             <div className="metric-card">
-              <div className="metric-label">Put Hedges (% of Book)</div>
+              <div
+                className="metric-label"
+                title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+              >
+                Put Hedges (13F Fair Value %)
+              </div>
               <div className="metric-value">
                 <span className={update.currPutBookPct > 0 ? 'warn-text' : ''}>
                   {formatPct(update.currPutBookPct, 1)}
@@ -374,19 +390,24 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
               </div>
               <div className="metric-sub mono">
                 {update.currPutUsd > 0
-                  ? `${formatUsdCompact(update.currPutUsd)} (vs ${formatUsdCompact(update.prevPutUsd)} / ${update.prevPutBookPct.toFixed(1)}%)`
+                  ? `${formatUsdCompact(update.currPutUsd)} fair val (vs ${formatUsdCompact(update.prevPutUsd)} / ${update.prevPutBookPct.toFixed(1)}%)`
                   : 'No disclosed put hedges'}
               </div>
             </div>
 
             <div className="metric-card">
-              <div className="metric-label">Call Options (% of Book)</div>
+              <div
+                className="metric-label"
+                title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+              >
+                Call Options (13F Fair Value %)
+              </div>
               <div className="metric-value">
                 <span>{formatPct(update.currCallBookPct, 1)}</span>
               </div>
               <div className="metric-sub mono">
                 {update.currCallUsd > 0
-                  ? `${formatUsdCompact(update.currCallUsd)} (vs ${formatUsdCompact(update.prevCallUsd)} / ${update.prevCallBookPct.toFixed(1)}%)`
+                  ? `${formatUsdCompact(update.currCallUsd)} fair val (vs ${formatUsdCompact(update.prevCallUsd)} / ${update.prevCallBookPct.toFixed(1)}%)`
                   : 'No disclosed call positions'}
               </div>
             </div>
@@ -686,8 +707,15 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
                           </td>
 
                           <td className={`num mono ${returnClass(m.valueDeltaUsd)}`}>
-                            {m.valueDeltaUsd > 0 ? '+' : m.valueDeltaUsd < 0 ? '-' : ''}
-                            {formatUsdCompact(Math.abs(m.valueDeltaUsd))}
+                            <div>
+                              {m.valueDeltaUsd > 0 ? '+' : m.valueDeltaUsd < 0 ? '-' : ''}
+                              {formatUsdCompact(Math.abs(m.valueDeltaUsd))}
+                            </div>
+                            {m.estFlowUsd != null && m.estFlowUsd !== 0 && (
+                              <div className={returnClass(m.estFlowUsd)} style={{ fontSize: '0.68rem' }}>
+                                Flow {formatSignedUsd(m.estFlowUsd)}
+                              </div>
+                            )}
                           </td>
 
                           <td className="num mono">

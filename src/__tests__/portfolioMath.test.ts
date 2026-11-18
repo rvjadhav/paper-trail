@@ -1,0 +1,183 @@
+import { describe, expect, it } from 'vitest';
+import type { IdealPortfolioPosition, StockIndexEntry } from '../types/data';
+import {
+  buildConstrainedPortfolio,
+  computeRebalancePlan,
+  parseHoldingsInput,
+  type DynamicPosition,
+} from '../utils/portfolioMath';
+
+function makePosition(
+  ticker: string,
+  subSector: string,
+  weightPct: number,
+  rawScore: number,
+  priceUsd = 100
+): IdealPortfolioPosition {
+  return {
+    rank: 1,
+    ticker,
+    cusip: `CUSIP-${ticker}`,
+    name: `${ticker} Corp`,
+    sector: 'Technology',
+    subSector,
+    industry: subSector,
+    isTechTmt: true,
+    rawScore,
+    inflectionScore: rawScore,
+    idealWeightPct: weightPct,
+    convictionScore: 80,
+    holderCount: 12,
+    netNew: 2,
+    netAdd: 3,
+    netTrim: 0,
+    avgFundWeightPct: 4.5,
+    maxFundWeightPct: 9.0,
+    topHolderName: 'Tiger Global',
+    rationaleTag: 'Core Consensus',
+    topBackers: [],
+    stockTtmPct: 24.5,
+    priceUsd,
+    marketCapUsd: 500_000_000_000,
+    marketCapTier: 'Mega >$200B',
+  };
+}
+
+function makeDynamic(
+  ticker: string,
+  subSector: string,
+  weightPct: number,
+  priceUsd = 100
+): DynamicPosition {
+  return {
+    ...makePosition(ticker, subSector, weightPct, weightPct * 10, priceUsd),
+    dynamicWeightPct: weightPct,
+    weightVsDefaultPct: 0,
+  };
+}
+
+describe('portfolioMath', () => {
+  it('normalizes dual-class aliases and reports unparsed/unknown warnings', () => {
+    const known = new Set(['GOOGL', 'BRK-B', 'FOXA', 'NWSA', 'NVDA']);
+    const parsed = parseHoldingsInput(
+      [
+        '# comment ignored',
+        'GOOG 20000',
+        'BRKB 15%',
+        'FOX 5000, NWS 3000',
+        'ZZZZ 4000',
+        'NOT_A_VALID_LINE',
+      ].join('\n'),
+      100_000,
+      known
+    );
+
+    expect(parsed.holdings.get('GOOGL')).toBe(20_000);
+    expect(parsed.holdings.get('BRK-B')).toBe(15_000);
+    expect(parsed.holdings.get('FOXA')).toBe(5_000);
+    expect(parsed.holdings.get('NWSA')).toBe(3_000);
+    expect(parsed.holdings.get('ZZZZ')).toBe(4_000);
+    expect(parsed.normalizedAliases).toEqual([
+      { from: 'GOOG', to: 'GOOGL' },
+      { from: 'BRKB', to: 'BRK-B' },
+      { from: 'FOX', to: 'FOXA' },
+      { from: 'NWS', to: 'NWSA' },
+    ]);
+    expect(parsed.unknownTickers).toEqual(['ZZZZ']);
+    expect(parsed.unparsedLines).toEqual(['NOT_A_VALID_LINE']);
+  });
+
+  it('deploys only fresh cash with zero sells/trims in buyOnly mode', () => {
+    const activePositions: DynamicPosition[] = [
+      makeDynamic('NVDA', 'Semiconductors', 40, 100),
+      makeDynamic('MSFT', 'Enterprise Software', 35, 200),
+      makeDynamic('META', 'Platforms & Interactive', 25, 250),
+    ];
+    const holdingsMap = new Map<string, number>([
+      ['NVDA', 50_000], // overweight vs 40%
+      ['MSFT', 20_000], // underweight vs 35%
+      ['INTC', 10_000], // outside target model — must NOT generate EXIT/TRIM in buyOnly
+    ]);
+    const stocksIndex: Record<string, StockIndexEntry> = {};
+
+    const plan = computeRebalancePlan({
+      holdingsMap,
+      activePositions,
+      stocksIndex,
+      capitalUsd: 100_000,
+      mode: 'buyOnly',
+      newCashUsd: 10_000,
+      driftTolerancePct: 0.5,
+    });
+
+    expect(plan).not.toBeNull();
+    expect(plan!.totalSellUsd).toBe(0);
+    expect(plan!.postDeployUsd).toBe(90_000);
+    expect(Math.round(plan!.totalBuyUsd)).toBe(10_000);
+    expect(plan!.rows.every((r) => r.deltaUsd >= 0)).toBe(true);
+    expect(plan!.rows.some((r) => r.action === 'TRIM' || r.action === 'EXIT')).toBe(false);
+
+    const nvdaRow = plan!.rows.find((r) => r.ticker === 'NVDA');
+    const intcRow = plan!.rows.find((r) => r.ticker === 'INTC');
+    const metaRow = plan!.rows.find((r) => r.ticker === 'META');
+    expect(nvdaRow?.action).toBe('HOLD');
+    expect(intcRow?.action).toBe('HOLD');
+    expect(metaRow?.action).toBe('BUY');
+    expect(metaRow!.deltaUsd).toBeGreaterThan(0);
+  });
+
+  it('applies driftTolerancePct in full rebalance mode to suppress small churn trades', () => {
+    const activePositions: DynamicPosition[] = [
+      makeDynamic('NVDA', 'Semiconductors', 50, 100),
+      makeDynamic('MSFT', 'Enterprise Software', 50, 100),
+    ];
+    // Target is $50,000 each; holding $49,700 (0.3% drift) & $50,300 (0.3% drift)
+    const holdingsMap = new Map<string, number>([
+      ['NVDA', 49_700],
+      ['MSFT', 50_300],
+    ]);
+
+    const tolerantPlan = computeRebalancePlan({
+      holdingsMap,
+      activePositions,
+      stocksIndex: {},
+      capitalUsd: 100_000,
+      mode: 'full',
+      newCashUsd: 0,
+      driftTolerancePct: 0.5,
+    });
+    expect(tolerantPlan!.rows.every((r) => r.action === 'HOLD')).toBe(true);
+    expect(tolerantPlan!.totalBuyUsd).toBe(0);
+    expect(tolerantPlan!.totalSellUsd).toBe(0);
+
+    const tightPlan = computeRebalancePlan({
+      holdingsMap,
+      activePositions,
+      stocksIndex: {},
+      capitalUsd: 100_000,
+      mode: 'full',
+      newCashUsd: 0,
+      driftTolerancePct: 0.25,
+    });
+    expect(tightPlan!.rows.find((r) => r.ticker === 'NVDA')?.action).toBe('ADD');
+    expect(tightPlan!.rows.find((r) => r.ticker === 'MSFT')?.action).toBe('TRIM');
+  });
+
+  it('builds constrained weights summing strictly to 100.00% under stock & sector caps', () => {
+    const pool: IdealPortfolioPosition[] = Array.from({ length: 25 }, (_, i) =>
+      makePosition(
+        `STK${i}`,
+        i < 12 ? 'Semiconductors' : i < 20 ? 'Enterprise Software' : 'Platforms & Interactive',
+        4,
+        100 - i * 3
+      )
+    );
+    const defaultMap = new Map(pool.map((p) => [p.ticker, p.idealWeightPct]));
+    const { positions } = buildConstrainedPortfolio(pool, 'ALL', 'rawScore', 20, 8, 35, defaultMap);
+
+    expect(positions).toHaveLength(20);
+    const totalWeight = positions.reduce((s, p) => s + p.dynamicWeightPct, 0);
+    expect(Math.round(totalWeight * 100) / 100).toBe(100);
+    expect(Math.max(...positions.map((p) => p.dynamicWeightPct))).toBeLessThanOrEqual(8.01);
+  });
+});

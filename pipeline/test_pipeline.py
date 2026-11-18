@@ -615,6 +615,311 @@ class TestSignalsAndEnrichment(unittest.TestCase):
         self.assertFalse(math.isnan(float(bt_nav[-1])))
 
 
+class TestAuditedFixesP0P1(unittest.TestCase):
+    def _mock_filing(self, cik: str, rd: str, fd: str, holdings: list[tuple[str, float, float]]) -> dict:
+        return {
+            "cik": cik,
+            "entityName": f"FUND {cik}",
+            "form": "13F-HR",
+            "amendmentType": "",
+            "reportDate": rd,
+            "filingDate": fd,
+            "originalFilingDate": fd,
+            "latestAmendmentDate": fd,
+            "accessionNumber": f"{cik}-26-{rd[-5:].replace('-', '')}",
+            "rows": [
+                {
+                    "cusip": c,
+                    "issuer": c,
+                    "title": "COM",
+                    "secType": "EQUITY",
+                    "shares": sh,
+                    "valueUsd": val,
+                }
+                for c, sh, val in holdings
+            ],
+        }
+
+    def test_split_adjustments_est_flow_and_dust_stub_suppression(self) -> None:
+        splits_map = {
+            "NVDA": [{"date": "2024-06-10", "factor": 10.0, "ratio": "10:1"}],
+            "SMCI": [{"date": "2024-10-01", "factor": 10.0, "ratio": "10:1"}],
+            "REV": [{"date": "2024-08-01", "factor": 0.2, "ratio": "1:5"}],
+        }
+        fac_f, lbl_f = security_resolver.split_factor_between("NVDA", "2024-03-31", "2024-06-30", splits_map)
+        self.assertAlmostEqual(fac_f, 10.0)
+        self.assertEqual(lbl_f, "10:1")
+
+        # Exact boundary matching: split on prev_end excluded, on curr_end included
+        fac_r, lbl_r = security_resolver.split_factor_between("REV", "2024-06-30", "2024-09-30", splits_map)
+        self.assertAlmostEqual(fac_r, 0.2)
+        self.assertEqual(lbl_r, "1:5")
+        fac_out, _ = security_resolver.split_factor_between("SMCI", "2024-06-30", "2024-09-30", splits_map)
+        self.assertAlmostEqual(fac_out, 1.0)
+
+        cusip_meta = {
+            "C_NVDA": {"ticker": "NVDA", "name": "NVIDIA", "sector": "Technology", "industry": "Semiconductors", "isTechTmt": True},
+            "C_REV": {"ticker": "REV", "name": "RevCo", "sector": "Technology", "industry": "Software—Application", "isTechTmt": True},
+            "C_STUB": {"ticker": "STUB", "name": "StubCo", "sector": "Technology", "industry": "Software—Infrastructure", "isTechTmt": True},
+        }
+        cand = {"cik": "0001000001", "name": "Alpha Tech", "manager": "M1", "styleTag": "TMT"}
+        # Q1->Q2: NVDA 10:1 split (100k -> 1,000k shares = flat!), REV 1:5 reverse split (500k -> 100k = flat!), STUB 10 sh ($1k) -> 10k sh ($1M) = dust scale
+        prev_fl = self._mock_filing("0001000001", "2024-03-31", "2024-05-15", [
+            ("C_NVDA", 100_000, 90_000_000.0),
+            ("C_REV", 500_000, 10_000_000.0),
+            ("C_STUB", 10, 1_000.0),
+        ])
+        curr_fl = self._mock_filing("0001000001", "2024-08-31", "2024-10-15", [
+            ("C_NVDA", 1_000_000, 110_000_000.0),
+            ("C_REV", 100_000, 10_000_000.0),
+            ("C_STUB", 10_000, 1_000_000.0),
+        ])
+        u = build_data.build_fund_update_entry(cand, [prev_fl, curr_fl], cusip_meta, True, ["TTM"], splits_map=splits_map)
+        assert u is not None
+        by_t = {m["ticker"]: m for m in u["allMoves"]}
+        self.assertEqual(by_t["NVDA"]["action"], "UNCHANGED")
+        self.assertAlmostEqual(by_t["NVDA"]["estFlowUsd"], 0.0, places=2)
+        self.assertIn("10:1 split", by_t["NVDA"]["tagNote"] or "")
+        self.assertEqual(by_t["REV"]["action"], "UNCHANGED")
+        self.assertEqual(by_t["STUB"]["action"], "ADDED")
+        self.assertEqual(by_t["STUB"]["tagNote"], "Scaled from starter stub")
+        self.assertAlmostEqual(by_t["STUB"]["estFlowUsd"], 999_000.0, places=2)
+        notes_joined = " ".join(u["narrativeFocusNotes"])
+        self.assertIn("scaled from starter stub", notes_joined)
+        self.assertNotIn("99,900%", notes_joined)
+
+    def test_xbrl_v2_tag_migration_ytd_decomp_missing_capex_and_fpi_eur(self) -> None:
+        # 1) Tag migration (stale SalesRevenueNet ends 2022, active RevenueFromContract... has 2025/2026) + YTD OCF + missing CapEx
+        migrated_facts = {
+            "facts": {
+                "us-gaap": {
+                    "RevenueFromContractWithCustomerExcludingAssessedTax": {"units": {"USD": [
+                        {"start": "2025-10-01", "end": "2025-12-31", "filed": "2026-02-01", "val": 120.0},
+                        {"start": "2026-01-01", "end": "2026-03-31", "filed": "2026-05-01", "val": 130.0},
+                        {"start": "2026-04-01", "end": "2026-06-30", "filed": "2026-08-01", "val": 140.0},
+                        {"start": "2026-07-01", "end": "2026-09-30", "filed": "2026-10-28", "val": 150.0},
+                        {"start": "2024-10-01", "end": "2024-12-31", "filed": "2025-02-01", "val": 100.0},
+                        {"start": "2025-01-01", "end": "2025-03-31", "filed": "2025-05-01", "val": 105.0},
+                        {"start": "2025-04-01", "end": "2025-06-30", "filed": "2025-08-01", "val": 110.0},
+                        {"start": "2025-07-01", "end": "2025-09-30", "filed": "2025-10-28", "val": 115.0},
+                    ]}},
+                    "SalesRevenueNet": {"units": {"USD": [
+                        {"start": "2021-01-01", "end": "2021-12-31", "filed": "2022-02-01", "val": 50.0},
+                        {"start": "2022-01-01", "end": "2022-12-31", "filed": "2023-02-01", "val": 60.0},
+                    ]}},
+                    # YTD cumulative OCF statements (Q1 90d, 6M 181d, 9M 273d, FY 365d) -> decomposed cleanly to standalone quarters
+                    "NetCashProvidedByUsedInOperatingActivities": {"units": {"USD": [
+                        {"start": "2025-01-01", "end": "2025-09-30", "filed": "2025-10-28", "val": 75.0},
+                        {"start": "2025-01-01", "end": "2025-12-31", "filed": "2026-02-01", "val": 105.0},  # Q4_25 = 30
+                        {"start": "2026-01-01", "end": "2026-03-31", "filed": "2026-05-01", "val": 32.0},   # Q1_26 = 32
+                        {"start": "2026-01-01", "end": "2026-06-30", "filed": "2026-08-01", "val": 66.0},   # Q2_26 = 34
+                        {"start": "2026-01-01", "end": "2026-09-30", "filed": "2026-10-28", "val": 102.0},  # Q3_26 = 36 -> TTM OCF = 132
+                    ]}},
+                    "OperatingIncomeLoss": {"units": {"USD": [
+                        {"start": "2025-10-01", "end": "2025-12-31", "filed": "2026-02-01", "val": 24.0},
+                        {"start": "2026-01-01", "end": "2026-03-31", "filed": "2026-05-01", "val": 26.0},
+                        {"start": "2026-04-01", "end": "2026-06-30", "filed": "2026-08-01", "val": 28.0},
+                        {"start": "2026-07-01", "end": "2026-09-30", "filed": "2026-10-28", "val": 30.0},
+                    ]}},
+                }
+            }
+        }
+        xb = enrichment._parse_company_xbrl_facts(migrated_facts)
+        # Current TTM = 540 vs Prior TTM = 430 -> +25.6% YoY; Operating margin = 108/540 = 20.0%
+        self.assertAlmostEqual(xb["revenueTtmUsd"], 540.0)
+        self.assertAlmostEqual(xb["revenueGrowthYoYPct"], 25.6, places=1)
+        self.assertAlmostEqual(xb["operatingMarginPct"], 20.0, places=1)
+        # Missing CapEx must NEVER be fabricated as 0.0 -> fcfMarginPct remains None
+        self.assertIsNone(xb["fcfMarginPct"])
+
+        # 2) Foreign private issuer reporting IFRS in EUR -> revenueTtmUsd=None, matched-currency margins computed
+        fpi_facts = {
+            "facts": {
+                "ifrs-full": {
+                    "Revenue": {"units": {"EUR": [
+                        {"start": "2025-01-01", "end": "2025-12-31", "filed": "2026-03-01", "val": 200.0},
+                        {"start": "2024-01-01", "end": "2024-12-31", "filed": "2025-03-01", "val": 160.0},
+                    ]}},
+                    "ProfitLossFromOperatingActivities": {"units": {"EUR": [
+                        {"start": "2025-01-01", "end": "2025-12-31", "filed": "2026-03-01", "val": 60.0},
+                    ]}},
+                    "CashFlowsFromUsedInOperatingActivities": {"units": {"EUR": [
+                        {"start": "2025-01-01", "end": "2025-12-31", "filed": "2026-03-01", "val": 80.0},
+                    ]}},
+                    "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities": {"units": {"EUR": [
+                        {"start": "2025-01-01", "end": "2025-12-31", "filed": "2026-03-01", "val": 20.0},
+                    ]}},
+                }
+            }
+        }
+        xb_fpi = enrichment._parse_company_xbrl_facts(fpi_facts)
+        self.assertIsNone(xb_fpi["revenueTtmUsd"])
+        self.assertAlmostEqual(xb_fpi["revenueGrowthYoYPct"], 25.0)
+        self.assertAlmostEqual(xb_fpi["operatingMarginPct"], 30.0)
+        self.assertAlmostEqual(xb_fpi["fcfMarginPct"], 30.0)
+
+    def test_schedule_13dg_xml_parsing_and_cusip_fallback(self) -> None:
+        sample_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+        <edgarSubmission>
+          <formData>
+            <coverPageHeader>
+              <issuerInfo>
+                <issuerCusipNumber>67066G104</issuerCusipNumber>
+              </issuerInfo>
+              <eventDateRequiresFilingThisStatement>11/10/2026</eventDateRequiresFilingThisStatement>
+            </coverPageHeader>
+            <coverPageHeaderReportingPersonDetails>
+              <reportingPersonBeneficiallyOwnedAggregateNumberOfShares>0</reportingPersonBeneficiallyOwnedAggregateNumberOfShares>
+              <classPercent>0.0</classPercent>
+            </coverPageHeaderReportingPersonDetails>
+          </formData>
+        </edgarSubmission>
+        """
+        parsed = enrichment._parse_13dg_primary_xml(sample_xml)
+        self.assertEqual(parsed["percentOfClass"], 0.0)
+        self.assertEqual(parsed["sharesOwned"], 0)
+        self.assertEqual(parsed["subjectCusip"], "67066G104")
+        self.assertEqual(parsed["eventDate"], "2026-11-10")
+
+        sample_hdr = b"<SUBMISSION><SUBJECT-COMPANY><CONFORMED-NAME>Unknown Name LLC<CIK>0009998888</SUBJECT-COMPANY>"
+        fake_sub = {
+            "filings": {
+                "recent": {
+                    "form": ["SCHEDULE 13G/A"],
+                    "accessionNumber": ["0001000001-26-000777"],
+                    "filingDate": ["2026-11-15"],
+                    "primaryDocument": ["xslSCHEDULE_13G_X01/primary_doc.xml"],
+                }
+            }
+        }
+        with tempfile.TemporaryDirectory() as td:
+            hdr_cache_p = Path(td) / "hdr_cache.json"
+            def _fake_fetch_bytes(url: str, **_kwargs) -> bytes:
+                return sample_xml if url.endswith("primary_doc.xml") else sample_hdr
+
+            with (
+                mock.patch.object(enrichment, "MIDQUARTER_HDR_CACHE_PATH", hdr_cache_p),
+                mock.patch.object(enrichment, "get_submissions", return_value=fake_sub),
+                mock.patch.object(enrichment, "fetch_bytes", side_effect=_fake_fetch_bytes),
+            ):
+                alerts = enrichment.fetch_midquarter_alerts(
+                    elite_ciks=["0001000001"],
+                    fund_names_by_cik={"0001000001": "Atreides Management"},
+                    cik_to_ticker_map={},
+                    name_to_ticker_map={},
+                    today_date=date(2026, 11, 17),
+                    since_days=30,
+                    cusip_to_ticker_map={"67066G104": "NVDA"},
+                )
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0]["ticker"], "NVDA")
+        self.assertEqual(alerts[0]["stakeStatus"], "Exited (0%)")
+        self.assertEqual(alerts[0]["percentOfClass"], 0.0)
+        self.assertEqual(alerts[0]["eventDate"], "2026-11-10")
+
+    def test_updates_overview_signed_est_flow_filtering(self) -> None:
+        cusip_meta = {
+            "C_TRIM": {"ticker": "RKLB", "name": "Rocket Lab", "sector": "Industrials", "industry": "Aerospace & Defense", "isTechTmt": False},
+            "C_ADD": {"ticker": "SNOW", "name": "Snowflake", "sector": "Technology", "industry": "Software—Application", "isTechTmt": True},
+        }
+        # Fund 1 & 2 both trim RKLB (-20% shares) while RKLB rallies +100% -> valueDeltaUsd > 0, estFlowUsd < 0!
+        # And both add SNOW (+33% shares) while SNOW dips -40% -> valueDeltaUsd < 0, estFlowUsd > 0!
+        updates = []
+        for idx in range(1, 3):
+            cik = f"000100000{idx}"
+            cand = {"cik": cik, "name": f"Fund {idx}", "manager": f"M{idx}", "styleTag": "TMT"}
+            prev_fl = self._mock_filing(cik, "2026-06-30", "2026-08-14", [
+                ("C_TRIM", 1_000, 10_000_000.0),
+                ("C_ADD", 1_000, 20_000_000.0),
+            ])
+            curr_fl = self._mock_filing(cik, "2026-09-30", "2026-11-16", [
+                ("C_TRIM", 800, 16_000_000.0),
+                ("C_ADD", 1_333, 16_000_000.0),
+            ])
+            u = build_data.build_fund_update_entry(cand, [prev_fl, curr_fl], cusip_meta, True, ["TTM"])
+            assert u is not None
+            updates.append(u)
+
+        ov = build_data.build_updates_overview(updates, total_eligible=2)
+        exits_t = {x["ticker"]: x for x in ov["consensusExitsAndTrims"]}
+        adds_t = {x["ticker"]: x for x in ov["consensusHeavyAdds"]}
+        self.assertIn("RKLB", exits_t)
+        self.assertLess(exits_t["RKLB"]["totalEstFlowUsd"], 0.0)
+        self.assertIn("SNOW", adds_t)
+        self.assertGreater(adds_t["SNOW"]["totalEstFlowUsd"], 0.0)
+
+    def test_weekend_statutory_deadline_and_pit_skill_backtest(self) -> None:
+        # 2026-09-30 + 45d = 2026-11-14 (Saturday) -> rolls to Monday 2026-11-16
+        self.assertEqual(build_data.statutory_deadline_date("2026-09-30"), "2026-11-16")
+        # 2025-09-30 + 45d = 2025-11-14 (Friday) -> stays 2025-11-14
+        self.assertEqual(build_data.statutory_deadline_date("2025-09-30"), "2025-11-14")
+
+        cal_dates: list[str] = []
+        d_cur = date(2024, 1, 2)
+        while len(cal_dates) < 280:
+            if d_cur.weekday() < 5:
+                cal_dates.append(d_cur.strftime("%Y-%m-%d"))
+            d_cur += timedelta(days=1)
+        n_dates = len(cal_dates)
+        tickers = ["NVDA", "MSFT", "AAPL", "CRWD", "META"]
+        aligned_prices = {
+            tk: (np.array([100.0 + 0.15 * i + idx for i in range(n_dates)], dtype=np.float64), 0, n_dates - 1)
+            for idx, tk in enumerate(tickers)
+        }
+        qqq_nav = np.array([100.0 + 0.08 * i for i in range(n_dates)], dtype=np.float64)
+        rf_ann_arr = np.full(n_dates, 4.5, dtype=np.float64)
+        splits_map = {"NVDA": [{"date": "2024-06-10", "factor": 10.0, "ratio": "10:1"}]}
+
+        ciks = [f"000200000{i}" for i in range(1, 7)]
+        snaps_by_cik: dict[str, list[dict]] = {}
+        navs_by_cik: dict[str, np.ndarray] = {}
+        for idx_c, cik in enumerate(ciks):
+            snaps_by_cik[cik] = [
+                {
+                    "effDate": "2024-05-15",
+                    "reportDate": "2024-03-31",
+                    "weights": {tk: 0.2 for tk in tickers},
+                    "shares": {tk: 100.0 for tk in tickers},
+                    "eqAum": 500_000_000.0,
+                    "techPct": 100.0,
+                    "effN": 5.0,
+                    "maxSingle": 20.0,
+                    "posCount": 5,
+                },
+                {
+                    "effDate": "2024-08-14",
+                    "reportDate": "2024-06-30",
+                    "weights": {tk: 0.2 for tk in tickers},
+                    "shares": {"NVDA": 1000.0, "MSFT": 100.0, "AAPL": 100.0, "CRWD": 100.0, "META": 100.0},
+                    "eqAum": 550_000_000.0,
+                    "techPct": 100.0,
+                    "effN": 5.0,
+                    "maxSingle": 20.0,
+                    "posCount": 5,
+                },
+            ]
+            navs_by_cik[cik] = np.array([100.0 * (1.0 + 0.0012 * j * (idx_c + 1)) for j in range(n_dates)], dtype=np.float64)
+
+        segs = build_data.run_ideal_portfolio_backtest(
+            bt_mode="filing_lag",
+            all_quarters=["2024-06-30", "2024-09-30"],
+            all_bt_ciks=ciks,
+            snaps_by_cik=snaps_by_cik,
+            navs_by_cik=navs_by_cik,
+            cal_dates=cal_dates,
+            as_of_date=cal_dates[-1],
+            aligned_prices=aligned_prices,
+            ticker_is_tech={tk: True for tk in tickers},
+            curated_bt_ciks=set(),
+            splits_map=splits_map,
+            rf_ann_arr=rf_ann_arr,
+            qqq_nav=qqq_nav,
+        )
+        self.assertGreaterEqual(len(segs), 1)
+        self.assertAlmostEqual(sum(segs[0][1].values()), 1.0, places=3)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 

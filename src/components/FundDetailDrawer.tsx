@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import {
   AlertTriangle,
   ArrowDown,
+  ArrowLeft,
   Download,
   ExternalLink,
   Radio,
@@ -19,14 +20,18 @@ import type {
 } from '../types/data';
 import { fetchFundShard } from '../utils/dataLoader';
 import {
+  compactShares,
   downloadCsv,
   formatPct,
   formatShares,
   formatSignedPct,
+  formatSignedUsd,
   formatUsdCompact,
   returnClass,
+  stakeStatusChipClass,
   tierChipClass,
 } from '../utils/format';
+import { useModalFocusTrap } from '../utils/useModalFocusTrap';
 import { EquityCurveChart, SectorBreakdownBar } from './SvgCharts';
 import { UpdateSummaryContent } from './UpdateSummaryContent';
 
@@ -36,6 +41,8 @@ interface FundDetailDrawerProps {
   mode: ReturnMode;
   benchmarks: Record<'QQQ' | 'SPY' | 'XLK', BenchmarkSeries>;
   stocksIndex: Record<string, StockIndexEntry>;
+  returnToStockTicker?: string | null;
+  onReturnToStock?: () => void;
   onClose: () => void;
   onDiveDeeper: (cik: string) => void;
   onSelectStock: (ticker: string) => void;
@@ -50,10 +57,15 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
   mode,
   benchmarks,
   stocksIndex,
+  returnToStockTicker,
+  onReturnToStock,
   onClose,
   onDiveDeeper,
   onSelectStock,
 }) => {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalFocusTrap(panelRef, true);
+
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<HoldingFilter>('ALL');
   const [sortBy, setSortBy] = useState<HoldingSort>('weightPct');
@@ -145,7 +157,7 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
     if (!holdings.length) return;
     downloadCsv(
       `${fund.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${fund.latestPeriod}-13f.csv`,
-      ['Ticker', 'Company', 'CUSIP', 'Type', 'Sector', 'Shares', 'Value (USD)', 'Equity Weight (%)', 'QoQ Shares Change (%)', 'Status'],
+      ['Ticker', 'Company', 'CUSIP', 'Type', 'Sector', 'Shares', 'Value (USD)', 'Equity Weight (%)', 'QoQ Shares Change (%)', 'Est. Flow (USD)', 'Status'],
       holdings.map((h: FundHolding) => [
         h.ticker,
         h.name,
@@ -156,6 +168,7 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
         h.valueUsd,
         h.weightPct,
         h.qoqSharesChangePct ?? '',
+        h.estFlowUsd ?? '',
         h.status,
       ])
     );
@@ -171,7 +184,7 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="drawer-panel">
+      <div ref={panelRef} tabIndex={-1} className="drawer-panel">
         <div className="drawer-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
@@ -196,7 +209,9 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
               )}
             </div>
             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-              <strong>{fund.legalName}</strong> · Manager: {fund.manager} · {fund.hq} ·{' '}
+              <strong>{fund.legalName}</strong>
+              {fund.manager && fund.manager !== 'SEC EDGAR Discovered' ? ` · Manager: ${fund.manager}` : ''}
+              {fund.hq ? ` · ${fund.hq}` : ''} ·{' '}
               <a
                 href={fund.edgarUrl}
                 target="_blank"
@@ -210,9 +225,20 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
               {fund.strategySummary}
             </p>
           </div>
-          <button type="button" className="close-btn" onClick={onClose} aria-label="Close fund details">
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+            {returnToStockTicker && onReturnToStock && (
+              <button
+                type="button"
+                className="action-btn back-to-profile-btn"
+                onClick={onReturnToStock}
+              >
+                <ArrowLeft size={13} /> Back to {returnToStockTicker} Dossier
+              </button>
+            )}
+            <button type="button" className="close-btn" onClick={onClose} aria-label="Close fund details">
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="drawer-body">
@@ -387,6 +413,9 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
                   <div key={al.id} className="alert-row-card">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                       <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
+                      {al.stakeStatus && (
+                        <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>{al.stakeStatus}</span>
+                      )}
                       {al.ticker && stocksIndex[al.ticker] ? (
                         <button
                           type="button"
@@ -398,11 +427,19 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
                       ) : al.ticker ? (
                         <span className="ticker-badge">{al.ticker}</span>
                       ) : null}
+                      {al.percentOfClass != null && (
+                        <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
+                      )}
+                      {al.sharesOwned != null && al.sharesOwned > 0 && (
+                        <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {compactShares(al.sharesOwned)} sh
+                        </span>
+                      )}
                       <span style={{ fontWeight: 600, fontSize: '0.86rem' }}>{al.issuerName}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                        Filed {al.filingDate}
+                        {al.eventDate ? `Event ${al.eventDate} · ` : ''}Filed {al.filingDate}
                       </span>
                       <a
                         href={al.edgarUrl}
@@ -546,7 +583,12 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
                             </div>
                           </td>
                           <td className={`num mono ${returnClass(h.qoqSharesChangePct)}`}>
-                            {h.status === 'NEW' ? 'NEW' : formatSignedPct(h.qoqSharesChangePct, 1)}
+                            <div>{h.status === 'NEW' ? 'NEW' : formatSignedPct(h.qoqSharesChangePct, 1)}</div>
+                            {h.estFlowUsd != null && h.estFlowUsd !== 0 && (
+                              <div className={returnClass(h.estFlowUsd)} style={{ fontSize: '0.68rem' }}>
+                                Flow {formatSignedUsd(h.estFlowUsd)}
+                              </div>
+                            )}
                           </td>
                           <td>
                             <span
@@ -598,7 +640,7 @@ export const FundDetailDrawer: FC<FundDetailDrawerProps> = ({
                       <th className="num">Positions</th>
                       <th className="num">Top 10 %</th>
                       <th className="num">Tech/TMT %</th>
-                      <th className="num">Est. Quarter Ret</th>
+                      <th className="num">Quarter-End Est. Ret (%)</th>
                       <th className="num">QQQ Quarter</th>
                     </tr>
                   </thead>

@@ -6,6 +6,7 @@ enrichment, and historical daily adjusted-close price fetching.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import time
@@ -17,12 +18,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from funds_config import TECH_TMT_EXTRA_TICKERS, is_non_stock_etf
+from funds_config import DUAL_CLASS_CANONICAL, TECH_TMT_EXTRA_TICKERS, is_non_stock_etf
 
 CACHE_ROOT = Path(__file__).resolve().parent / "cache"
 PRICE_CACHE_DIR = CACHE_ROOT / "prices"
 PRICE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-SEC_COMPANY_TICKERS_PATH = CACHE_ROOT / "sec" / "company_tickers.json"
+SEC_CACHE_DIR = CACHE_ROOT / "sec"
+SEC_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+SEC_COMPANY_TICKERS_PATH = SEC_CACHE_DIR / "company_tickers.json"
+NASDAQ_SCREENER_CACHE_PATH = SEC_CACHE_DIR / "nasdaq_screener.json"
 
 CUSIP_CACHE_PATH = Path(__file__).resolve().parent / "cusip_cache.json"
 TICKER_META_PATH = Path(__file__).resolve().parent / "ticker_meta_cache.json"
@@ -783,23 +787,28 @@ def resolve_cusips(
 def fetch_daily_prices(ticker: str, start_ts: int = 1609459200, max_age_hours: float = 20.0) -> dict[str, float] | None:
     """
     Fetch daily split- and dividend-adjusted close prices (YYYY-MM-DD -> adjclose)
-    from Yahoo Finance v8 chart API.
-    Simultaneously saves split-adjusted OHLCV [adjclose, adjlow, adjhigh, volume]
-    to cache/prices/ohlcv_<ticker>.json so Quarter VWAP & Entry Zone metrics add zero requests.
+    from Yahoo Finance v8 chart API (for total-return portfolio NAV backtesting).
+    Simultaneously saves pure split-adjusted, un-dividend-adjusted OHLCV [close, low, high, volume]
+    to cache/prices/ohlcv_<ticker>.json and corporate split events to cache/prices/splits_<ticker>.json
+    so Quarter VWAP & QoQ share-delta adjustments stay immune to dividend distortion and split noise.
     """
     if not ticker or ticker.startswith("CUSIP:"):
         return None
     safe_name = re.sub(r"[^A-Za-z0-9_.-]", "_", ticker)
     cpath = PRICE_CACHE_DIR / f"{safe_name}.json"
     opath = PRICE_CACHE_DIR / f"ohlcv_{safe_name}.json"
-    if cpath.exists() and opath.exists():
+    spath = PRICE_CACHE_DIR / f"splits_{safe_name}.json"
+    if cpath.exists() and opath.exists() and spath.exists():
         age_hours = (time.time() - cpath.stat().st_mtime) / 3600.0
         if age_hours <= max_age_hours:
             data = json.loads(cpath.read_text(encoding="utf-8"))
             return data if data else None
 
     end_ts = int(time.time()) + 86400
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(ticker)}?period1={start_ts}&period2={end_ts}&interval=1d"
+    url = (
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(ticker)}"
+        f"?period1={start_ts}&period2={end_ts}&interval=1d&events=splits"
+    )
     for attempt in range(3):
         req = urllib.request.Request(url, headers=YF_HEADERS)
         try:
@@ -819,6 +828,27 @@ def fetch_daily_prices(ticker: str, start_ts: int = 1609459200, max_age_hours: f
             prices_raw = adj_list if adj_list else close_list
             if not timestamps or not prices_raw:
                 break
+
+            raw_splits = (result.get("events") or {}).get("splits") or {}
+            splits_out: list[dict[str, Any]] = []
+            for sp in raw_splits.values():
+                if not isinstance(sp, dict):
+                    continue
+                try:
+                    num = float(sp.get("numerator") or 0.0)
+                    den = float(sp.get("denominator") or 0.0)
+                    ts_sp = int(sp.get("date") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if num > 0 and den > 0 and ts_sp > 0:
+                    s_dt = datetime.fromtimestamp(ts_sp, tz=timezone.utc).strftime("%Y-%m-%d")
+                    splits_out.append({
+                        "date": s_dt,
+                        "factor": round(num / den, 8),
+                        "ratio": str(sp.get("splitRatio") or f"{num:g}:{den:g}"),
+                    })
+            splits_out.sort(key=lambda x: x["date"])
+
             out: dict[str, float] = {}
             ohlcv_out: dict[str, list[float]] = {}
             n_pts = len(timestamps)
@@ -830,19 +860,27 @@ def fetch_daily_prices(ticker: str, start_ts: int = 1609459200, max_age_hours: f
                 adj_c = float(px)
                 out[dt] = adj_c
 
-                raw_c = close_list[idx_t] if idx_t < len(close_list) else None
-                raw_l = low_list[idx_t] if idx_t < len(low_list) else None
-                raw_h = high_list[idx_t] if idx_t < len(high_list) else None
-                raw_v = vol_list[idx_t] if idx_t < len(vol_list) else None
-                factor = (adj_c / float(raw_c)) if (raw_c and float(raw_c) > 0) else 1.0
-                adj_l = float(raw_l) * factor if (raw_l and float(raw_l) > 0) else adj_c
-                adj_h = float(raw_h) * factor if (raw_h and float(raw_h) > 0) else adj_c
-                vol = float(raw_v) if (raw_v and float(raw_v) >= 0) else 0.0
-                ohlcv_out[dt] = [round(adj_c, 4), round(min(adj_l, adj_c), 4), round(max(adj_h, adj_c), 4), round(vol, 0)]
+                # Yahoo quote.* fields are split-adjusted ONLY (un-dividend-adjusted), ideal for Quarter VWAP
+                raw_c_val = close_list[idx_t] if idx_t < len(close_list) else None
+                raw_l_val = low_list[idx_t] if idx_t < len(low_list) else None
+                raw_h_val = high_list[idx_t] if idx_t < len(high_list) else None
+                raw_v_val = vol_list[idx_t] if idx_t < len(vol_list) else None
+
+                split_c = float(raw_c_val) if (raw_c_val and float(raw_c_val) > 0) else adj_c
+                split_l = float(raw_l_val) if (raw_l_val and float(raw_l_val) > 0) else split_c
+                split_h = float(raw_h_val) if (raw_h_val and float(raw_h_val) > 0) else split_c
+                vol = float(raw_v_val) if (raw_v_val and float(raw_v_val) >= 0) else 0.0
+                ohlcv_out[dt] = [
+                    round(split_c, 4),
+                    round(min(split_l, split_c), 4),
+                    round(max(split_h, split_c), 4),
+                    round(vol, 0),
+                ]
 
             if out:
                 cpath.write_text(json.dumps(out), encoding="utf-8")
                 opath.write_text(json.dumps(ohlcv_out, separators=(",", ":")), encoding="utf-8")
+                spath.write_text(json.dumps(splits_out, separators=(",", ":")), encoding="utf-8")
                 return out
             break
         except urllib.error.HTTPError as e:
@@ -860,12 +898,13 @@ def fetch_daily_prices(ticker: str, start_ts: int = 1609459200, max_age_hours: f
 
     cpath.write_text("{}", encoding="utf-8")
     opath.write_text("{}", encoding="utf-8")
+    spath.write_text("[]", encoding="utf-8")
     return None
 
 
 def fetch_all_prices(tickers: list[str]) -> dict[str, dict[str, float]]:
     clean_tickers = sorted({t for t in tickers if t and not t.startswith("CUSIP:")})
-    print(f"[prices] Fetching daily adjusted prices & OHLCV for {len(clean_tickers)} tickers...", flush=True)
+    print(f"[prices] Fetching daily adjusted prices, splits & OHLCV for {len(clean_tickers)} tickers...", flush=True)
     prices: dict[str, dict[str, float]] = {}
     with ThreadPoolExecutor(max_workers=16) as ex:
         fut_map = {ex.submit(fetch_daily_prices, t): t for t in clean_tickers}
@@ -884,7 +923,7 @@ def fetch_all_prices(tickers: list[str]) -> dict[str, dict[str, float]]:
 
 
 def load_cached_ohlcv(tickers: list[str]) -> dict[str, dict[str, list[float]]]:
-    """Load split-adjusted OHLCV series ([adjclose, adjlow, adjhigh, volume]) cached alongside prices."""
+    """Load split-adjusted OHLCV series ([close, low, high, volume]) cached alongside prices."""
     out: dict[str, dict[str, list[float]]] = {}
     for t in tickers:
         if not t or t.startswith("CUSIP:"):
@@ -899,3 +938,124 @@ def load_cached_ohlcv(tickers: list[str]) -> dict[str, dict[str, list[float]]]:
             except Exception:
                 pass
     return out
+
+
+def load_cached_splits(tickers: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """Load Yahoo Finance corporate split histories cached alongside daily prices."""
+    out: dict[str, list[dict[str, Any]]] = {}
+    for t in tickers:
+        if not t or t.startswith("CUSIP:"):
+            continue
+        safe_name = re.sub(r"[^A-Za-z0-9_.-]", "_", t)
+        spath = PRICE_CACHE_DIR / f"splits_{safe_name}.json"
+        if spath.exists():
+            try:
+                data = json.loads(spath.read_text(encoding="utf-8"))
+                if isinstance(data, list) and data:
+                    out[t] = data
+            except Exception:
+                pass
+    return out
+
+
+def split_factor_between(
+    ticker: str,
+    prev_end: str,
+    curr_end: str,
+    splits_map: dict[str, list[dict[str, Any]]] | None,
+) -> tuple[float, str]:
+    """
+    Compute cumulative share-multiplier for any corporate splits occurring strictly after `prev_end`
+    and on/before `curr_end`. Returns (factor, combined_ratio_label).
+    """
+    if not splits_map or not prev_end or not curr_end or prev_end >= curr_end:
+        return 1.0, ""
+    canon_t = DUAL_CLASS_CANONICAL.get(ticker, ticker)
+    events = splits_map.get(ticker) or splits_map.get(canon_t) or []
+    factor = 1.0
+    ratios: list[str] = []
+    for sp in events:
+        dt = str(sp.get("date") or "")
+        if prev_end < dt <= curr_end:
+            try:
+                f = float(sp.get("factor") or 1.0)
+            except (TypeError, ValueError):
+                f = 1.0
+            if f > 0 and abs(f - 1.0) > 1e-6:
+                factor *= f
+                if sp.get("ratio"):
+                    ratios.append(str(sp["ratio"]))
+    if not math.isfinite(factor) or factor <= 0:
+        return 1.0, ""
+    return factor, "×".join(ratios)
+
+
+def fetch_nasdaq_market_caps(max_age_hours: float = 24.0) -> dict[str, float]:
+    """
+    Fetch authoritative US equity + ADR market capitalizations from Nasdaq's public screener feed
+    (~7,200+ exchange-listed stocks and ADRs) so ADRs like TSM/ASML/BABA never suffer ordinary-share mismatches.
+    """
+    if NASDAQ_SCREENER_CACHE_PATH.exists():
+        age_hours = (time.time() - NASDAQ_SCREENER_CACHE_PATH.stat().st_mtime) / 3600.0
+        if age_hours <= max_age_hours:
+            try:
+                cached = json.loads(NASDAQ_SCREENER_CACHE_PATH.read_text(encoding="utf-8"))
+                if isinstance(cached, dict) and len(cached) >= 1000:
+                    return {str(k): float(v) for k, v in cached.items() if float(v) > 0}
+            except Exception:
+                pass
+
+    url = "https://api.nasdaq.com/api/screener/stocks?tableonly=true&download=true"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://www.nasdaq.com",
+        "Referer": "https://www.nasdaq.com/",
+    }
+    mc_map: dict[str, float] = {}
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            rows = (payload.get("data") or {}).get("rows") or []
+            for row in rows:
+                sym = str(row.get("symbol") or "").strip()
+                raw_mc = row.get("marketCap")
+                if not sym or raw_mc in (None, "", "NA", "0", "0.00"):
+                    continue
+                try:
+                    mc = float(str(raw_mc).replace(",", "").replace("$", ""))
+                except (TypeError, ValueError):
+                    continue
+                if mc <= 0 or not math.isfinite(mc):
+                    continue
+                yf_sym = normalize_yf_ticker(sym)
+                canon = DUAL_CLASS_CANONICAL.get(yf_sym, yf_sym)
+                for k in (yf_sym, canon):
+                    if k and k not in mc_map:
+                        mc_map[k] = round(mc, 0)
+                    elif k and k == canon and mc > mc_map[k]:
+                        mc_map[k] = round(mc, 0)
+            if len(mc_map) >= 1000:
+                NASDAQ_SCREENER_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+                NASDAQ_SCREENER_CACHE_PATH.write_text(
+                    json.dumps(mc_map, separators=(",", ":")),
+                    encoding="utf-8",
+                )
+                print(f"[market-caps] Loaded {len(mc_map)} authoritative US/ADR market caps from Nasdaq screener.", flush=True)
+                return mc_map
+        except Exception:
+            if attempt < 2:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+
+    if NASDAQ_SCREENER_CACHE_PATH.exists():
+        try:
+            cached = json.loads(NASDAQ_SCREENER_CACHE_PATH.read_text(encoding="utf-8"))
+            if isinstance(cached, dict):
+                return {str(k): float(v) for k, v in cached.items() if float(v) > 0}
+        except Exception:
+            pass
+    return {}
+

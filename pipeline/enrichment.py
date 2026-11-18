@@ -19,7 +19,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sec_client import CACHE_DIR as SEC_CACHE_DIR, fetch_bytes, fetch_json, get_submissions
+from sec_client import CACHE_DIR as SEC_CACHE_DIR, _parse_xml_root, fetch_bytes, fetch_json, get_submissions
 from security_resolver import (
     _US_VALID_TICKER_RE,
     _normalize_legal_name,
@@ -30,6 +30,7 @@ from security_resolver import (
 )
 
 FUNDAMENTALS_CACHE_PATH = Path(__file__).resolve().parent / "fundamentals_cache.json"
+XBRL_PARSER_VERSION = 2
 MIDQUARTER_HDR_CACHE_PATH = SEC_CACHE_DIR / "hdr_13dg_cache.json"
 _13DG_FORM_RE = re.compile(r"^(?:SCHEDULE|SC)\s*13([DG])(?:/A)?$", re.I)
 
@@ -211,12 +212,15 @@ def load_ticker_cik_mappings() -> tuple[dict[str, str], dict[str, str], dict[str
     return ticker_to_cik, cik_to_ticker, name_to_ticker
 
 
-def _extract_latest_point_fact(facts_root: dict[str, Any], concept_list: list[tuple[str, str]], unit_keys: tuple[str, ...]) -> float | None:
+def _extract_latest_point_fact(
+    facts_root: dict[str, Any],
+    concept_list: list[tuple[str, str]],
+    unit_keys: tuple[str, ...],
+) -> float | None:
     facts_by_ns = facts_root.get("facts") or {}
-    best_end = ""
-    best_filed = ""
+    best_rank: tuple[str, str, int] = ("", "", -9999)
     best_val: float | None = None
-    for ns, concept in concept_list:
+    for prio_idx, (ns, concept) in enumerate(concept_list):
         c_node = (facts_by_ns.get(ns) or {}).get(concept) or {}
         units = c_node.get("units") or {}
         for uk in unit_keys:
@@ -233,57 +237,97 @@ def _extract_latest_point_fact(facts_root: dict[str, Any], concept_list: list[tu
                     continue
                 if fval <= 0:
                     continue
-                if (end, filed) > (best_end, best_filed):
-                    best_end = end
-                    best_filed = filed
+                cand_rank = (end, filed, -prio_idx)
+                if cand_rank > best_rank:
+                    best_rank = cand_rank
                     best_val = fval
-        if best_val is not None:
-            return best_val
     return best_val
 
 
-def _extract_ttm_and_prior(
+def _expand_unit_keys(units: dict[str, Any], unit_keys: tuple[str, ...]) -> list[str]:
+    if unit_keys == ("CURRENCY",):
+        keys: list[str] = []
+        if "USD" in units:
+            keys.append("USD")
+        for uk in units.keys():
+            if uk != "USD" and re.fullmatch(r"[A-Z]{3}", str(uk)):
+                keys.append(str(uk))
+        return keys
+    return [uk for uk in unit_keys if uk in units]
+
+
+def _extract_ttm_and_prior_with_unit(
     facts_root: dict[str, Any],
     concept_list: list[tuple[str, str]],
     unit_keys: tuple[str, ...],
-) -> tuple[float | None, float | None, str]:
+) -> tuple[float | None, float | None, str, str]:
     """
-    Extract (ttm_current, ttm_prior_1y, as_of_end_date) for a flow metric cleanly using either:
-      1) Sum of 4 latest contiguous ~90d quarterly periods vs prior 4 quarterly periods
-      2) Latest annual 10-K/20-F full-year period vs prior annual full-year period
+    Extract (ttm_current, ttm_prior_1y, as_of_end_date, unit_used) across ALL listed concepts,
+    ranking candidates by data recency so tag migrations (e.g. RevenueFromContract... -> Revenues)
+    never stall on legacy tags. Decomposes 6M/9M/12M YTD cumulative statements (common in
+    Cash Flows) into standalone ~90d quarters when standalone quarterly rows are omitted.
     """
     facts_by_ns = facts_root.get("facts") or {}
-    for ns, concept in concept_list:
+    candidates: list[tuple[float, float | None, str, str, int]] = []
+
+    for prio_idx, (ns, concept) in enumerate(concept_list):
         c_node = (facts_by_ns.get(ns) or {}).get(concept) or {}
         units = c_node.get("units") or {}
-        for uk in unit_keys:
+        for uk in _expand_unit_keys(units, unit_keys):
             rows = units.get(uk) or []
             if not rows:
                 continue
             q_by_end: dict[str, tuple[str, float]] = {}
             a_by_end: dict[str, tuple[str, float]] = {}
+            ytd_by_span: dict[tuple[str, str], tuple[str, float]] = {}
             for r in rows:
-                start_s = str(r.get("start") or "")
-                end_s = str(r.get("end") or "")
+                start_s = str(r.get("start") or "")[:10]
+                end_s = str(r.get("end") or "")[:10]
                 filed_s = str(r.get("filed") or "")
                 val = r.get("val")
                 if not start_s or not end_s or val is None:
                     continue
                 try:
-                    d0 = datetime.strptime(start_s[:10], "%Y-%m-%d").date()
-                    d1 = datetime.strptime(end_s[:10], "%Y-%m-%d").date()
+                    d0 = datetime.strptime(start_s, "%Y-%m-%d").date()
+                    d1 = datetime.strptime(end_s, "%Y-%m-%d").date()
                     fval = float(val)
                 except Exception:
                     continue
                 dur = (d1 - d0).days
+                if dur <= 0:
+                    continue
+                prev_span = ytd_by_span.get((start_s, end_s))
+                if prev_span is None or filed_s > prev_span[0]:
+                    ytd_by_span[(start_s, end_s)] = (filed_s, fval)
+
                 if 70 <= dur <= 115:
-                    prev = q_by_end.get(end_s[:10])
+                    prev = q_by_end.get(end_s)
                     if prev is None or filed_s > prev[0]:
-                        q_by_end[end_s[:10]] = (filed_s, fval)
+                        q_by_end[end_s] = (filed_s, fval)
                 elif 330 <= dur <= 400:
-                    prev = a_by_end.get(end_s[:10])
+                    prev = a_by_end.get(end_s)
                     if prev is None or filed_s > prev[0]:
-                        a_by_end[end_s[:10]] = (filed_s, fval)
+                        a_by_end[end_s] = (filed_s, fval)
+
+            # Decompose YTD cumulative periods sharing the exact fiscal-year start_s
+            by_fy_start: dict[str, list[tuple[str, str, float]]] = {}
+            for (st, en), (fd, fv) in ytd_by_span.items():
+                by_fy_start.setdefault(st, []).append((en, fd, fv))
+            for st, span_list in by_fy_start.items():
+                span_list.sort(key=lambda x: x[0])
+                for idx_s in range(1, len(span_list)):
+                    prev_en, _, prev_fv = span_list[idx_s - 1]
+                    cur_en, cur_fd, cur_fv = span_list[idx_s]
+                    if cur_en in q_by_end:
+                        continue
+                    try:
+                        d_prev = datetime.strptime(prev_en, "%Y-%m-%d").date()
+                        d_cur = datetime.strptime(cur_en, "%Y-%m-%d").date()
+                    except Exception:
+                        continue
+                    step_days = (d_cur - d_prev).days
+                    if 70 <= step_days <= 115:
+                        q_by_end[cur_en] = (cur_fd, cur_fv - prev_fv)
 
             q_dates = sorted(q_by_end.keys(), reverse=True)
             distinct_qs: list[tuple[str, float]] = []
@@ -322,13 +366,36 @@ def _extract_ttm_and_prior(
                         q7_dt = datetime.strptime(distinct_qs[7][0], "%Y-%m-%d").date()
                         if (q3_dt - q4_dt).days <= 130 and (q4_dt - q7_dt).days <= 320:
                             ttm_prev = sum(v for _, v in distinct_qs[4:8])
-                    if ttm_prev is None and len(distinct_as) >= 2:
-                        return ttm_cur, None, distinct_qs[0][0]
-                    return ttm_cur, ttm_prev, distinct_qs[0][0]
+                    candidates.append((ttm_cur, ttm_prev, distinct_qs[0][0], uk, prio_idx))
+                    continue
 
             if distinct_as:
-                return distinct_as[0][1], (distinct_as[1][1] if len(distinct_as) >= 2 else None), distinct_as[0][0]
-    return None, None, ""
+                candidates.append((
+                    distinct_as[0][1],
+                    distinct_as[1][1] if len(distinct_as) >= 2 else None,
+                    distinct_as[0][0],
+                    uk,
+                    prio_idx,
+                ))
+
+    if not candidates:
+        return None, None, "", ""
+
+    def _cand_key(c: tuple[float, float | None, str, str, int]) -> tuple[int, str, int, int]:
+        return (1 if c[3] == "USD" else 0, c[2], 1 if c[1] is not None else 0, -c[4])
+
+    # Among USD candidates (if any exist) vs primary reporting currency, pick newest end date (tie-break by YoY & priority)
+    best = max(candidates, key=_cand_key)
+    return best[0], best[1], best[2], best[3]
+
+
+def _extract_ttm_and_prior(
+    facts_root: dict[str, Any],
+    concept_list: list[tuple[str, str]],
+    unit_keys: tuple[str, ...],
+) -> tuple[float | None, float | None, str]:
+    cur, prev, end, _ = _extract_ttm_and_prior_with_unit(facts_root, concept_list, unit_keys)
+    return cur, prev, end
 
 
 def _extract_annual_only(
@@ -336,12 +403,13 @@ def _extract_annual_only(
     concept_list: list[tuple[str, str]],
     unit_keys: tuple[str, ...],
 ) -> tuple[float | None, float | None, str]:
-    """Extract latest full-year (10-K/20-F, 330-400 days) current, prior, and period end date."""
+    """Extract latest full-year (10-K/20-F, 330-400 days) current, prior, and period end date across ALL concepts."""
     facts_by_ns = facts_root.get("facts") or {}
-    for ns, concept in concept_list:
+    candidates: list[tuple[float, float | None, str, str, int]] = []
+    for prio_idx, (ns, concept) in enumerate(concept_list):
         c_node = (facts_by_ns.get(ns) or {}).get(concept) or {}
         units = c_node.get("units") or {}
-        for uk in unit_keys:
+        for uk in _expand_unit_keys(units, unit_keys):
             rows = units.get(uk) or []
             a_by_end: dict[str, tuple[str, float]] = {}
             for r in rows:
@@ -368,8 +436,17 @@ def _extract_annual_only(
                 if len(distinct_as) >= 2:
                     break
             if distinct_as:
-                return distinct_as[0][1], (distinct_as[1][1] if len(distinct_as) >= 2 else None), distinct_as[0][0]
-    return None, None, ""
+                candidates.append((
+                    distinct_as[0][1],
+                    distinct_as[1][1] if len(distinct_as) >= 2 else None,
+                    distinct_as[0][0],
+                    uk,
+                    prio_idx,
+                ))
+    if not candidates:
+        return None, None, ""
+    best = max(candidates, key=lambda c: (1 if c[3] == "USD" else 0, c[2], 1 if c[1] is not None else 0, -c[4]))
+    return best[0], best[1], best[2]
 
 
 def _parse_company_xbrl_facts(raw_facts: dict[str, Any]) -> dict[str, Any]:
@@ -380,6 +457,26 @@ def _parse_company_xbrl_facts(raw_facts: dict[str, Any]) -> dict[str, Any]:
         ("us-gaap", "RevenueFromContractWithCustomerIncludingAssessedTax"),
         ("ifrs-full", "Revenue"),
     ]
+    op_concepts = [
+        ("us-gaap", "OperatingIncomeLoss"),
+        ("ifrs-full", "ProfitLossFromOperatingActivities"),
+    ]
+    ocf_concepts = [
+        ("us-gaap", "NetCashProvidedByUsedInOperatingActivities"),
+        ("ifrs-full", "CashFlowsFromUsedInOperatingActivities"),
+    ]
+    capex_concepts = [
+        ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
+        ("us-gaap", "PaymentsToAcquireProductiveAssets"),
+        ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipmentAndIntangibleAssets"),
+        ("ifrs-full", "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"),
+    ]
+    rd_concepts = [
+        ("us-gaap", "ResearchAndDevelopmentExpense"),
+        ("us-gaap", "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"),
+        ("ifrs-full", "ResearchAndDevelopmentExpense"),
+    ]
+
     shares_out = _extract_latest_point_fact(
         raw_facts,
         [
@@ -391,69 +488,35 @@ def _parse_company_xbrl_facts(raw_facts: dict[str, Any]) -> dict[str, Any]:
         ("shares",),
     )
 
-    rev_cur, rev_prev, rev_end = _extract_ttm_and_prior(raw_facts, rev_concepts, ("USD",))
-    rev_ann, rev_ann_prev, rev_ann_end = _extract_annual_only(raw_facts, rev_concepts, ("USD",))
+    rev_cur, rev_prev, rev_end, rev_unit = _extract_ttm_and_prior_with_unit(raw_facts, rev_concepts, ("CURRENCY",))
+    ann_unit_keys = (rev_unit,) if rev_unit else ("CURRENCY",)
+    rev_ann, rev_ann_prev, rev_ann_end = _extract_annual_only(raw_facts, rev_concepts, ann_unit_keys)
     if rev_prev is None and rev_ann and rev_ann_prev and (not rev_end or rev_end == rev_ann_end):
         rev_cur, rev_prev, rev_end = rev_ann, rev_ann_prev, rev_ann_end
 
-    op_cur, _, op_end = _extract_ttm_and_prior(
-        raw_facts,
-        [("us-gaap", "OperatingIncomeLoss"), ("ifrs-full", "ProfitLossFromOperatingActivities")],
-        ("USD",),
-    )
+    flow_unit_keys = (rev_unit,) if rev_unit else ("USD",)
+
+    op_cur, _, op_end, _ = _extract_ttm_and_prior_with_unit(raw_facts, op_concepts, flow_unit_keys)
     if op_cur is not None and op_end != rev_end:
-        op_ann, _, op_ann_end = _extract_annual_only(
-            raw_facts,
-            [("us-gaap", "OperatingIncomeLoss"), ("ifrs-full", "ProfitLossFromOperatingActivities")],
-            ("USD",),
-        )
+        op_ann, _, op_ann_end = _extract_annual_only(raw_facts, op_concepts, flow_unit_keys)
         if op_ann is not None and rev_ann and op_ann_end == rev_ann_end:
             op_cur, op_end = op_ann, op_ann_end
 
-    # Use matched full-year OCF & CapEx if standalone 90d OCF quarters aren't available
-    ocf_cur, _, ocf_end = _extract_ttm_and_prior(
-        raw_facts,
-        [("us-gaap", "NetCashProvidedByUsedInOperatingActivities"), ("ifrs-full", "CashFlowsFromUsedInOperatingActivities")],
-        ("USD",),
-    )
-    capex_cur, _, capex_end = _extract_ttm_and_prior(
-        raw_facts,
-        [
-            ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
-            ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipmentAndIntangibleAssets"),
-            ("ifrs-full", "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"),
-        ],
-        ("USD",),
-    )
+    ocf_cur, _, ocf_end, _ = _extract_ttm_and_prior_with_unit(raw_facts, ocf_concepts, flow_unit_keys)
+    capex_cur, _, capex_end, _ = _extract_ttm_and_prior_with_unit(raw_facts, capex_concepts, flow_unit_keys)
     if ocf_cur is not None and ocf_end != rev_end:
-        ocf_ann, _, ocf_ann_end = _extract_annual_only(
-            raw_facts,
-            [("us-gaap", "NetCashProvidedByUsedInOperatingActivities"), ("ifrs-full", "CashFlowsFromUsedInOperatingActivities")],
-            ("USD",),
-        )
-        cap_ann, _, cap_ann_end = _extract_annual_only(
-            raw_facts,
-            [
-                ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipment"),
-                ("us-gaap", "PaymentsToAcquirePropertyPlantAndEquipmentAndIntangibleAssets"),
-                ("ifrs-full", "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"),
-            ],
-            ("USD",),
-        )
+        ocf_ann, _, ocf_ann_end = _extract_annual_only(raw_facts, ocf_concepts, flow_unit_keys)
+        cap_ann, _, cap_ann_end = _extract_annual_only(raw_facts, capex_concepts, flow_unit_keys)
         if ocf_ann is not None and ocf_ann_end == rev_ann_end:
             ocf_cur, ocf_end = ocf_ann, ocf_ann_end
             if cap_ann is not None and cap_ann_end == ocf_ann_end:
                 capex_cur, capex_end = cap_ann, cap_ann_end
 
-    rd_cur, _, rd_end = _extract_ttm_and_prior(
-        raw_facts,
-        [
-            ("us-gaap", "ResearchAndDevelopmentExpense"),
-            ("us-gaap", "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"),
-            ("ifrs-full", "ResearchAndDevelopmentExpense"),
-        ],
-        ("USD",),
-    )
+    rd_cur, _, rd_end, _ = _extract_ttm_and_prior_with_unit(raw_facts, rd_concepts, flow_unit_keys)
+    if rd_cur is not None and rd_end != rev_end:
+        rd_ann, _, rd_ann_end = _extract_annual_only(raw_facts, rd_concepts, flow_unit_keys)
+        if rd_ann is not None and rev_ann and rd_ann_end == rev_ann_end:
+            rd_cur, rd_end = rd_ann, rd_ann_end
 
     dil_cur, dil_prev, _ = _extract_ttm_and_prior(
         raw_facts,
@@ -481,11 +544,11 @@ def _parse_company_xbrl_facts(raw_facts: dict[str, Any]) -> dict[str, Any]:
         if -250.0 <= om <= 95.0:
             op_margin = round(om, 1)
 
+    # Require matched CapEx reporting end-date (never fabricate 0.0 CapEx when missing)
     fcf_margin = None
     fcf_den = rev_cur if (ocf_end == rev_end and rev_cur) else (rev_ann if (ocf_end == rev_ann_end and rev_ann) else None)
-    if ocf_cur is not None and fcf_den and fcf_den > 0:
-        cap_matched = abs(capex_cur) if (capex_cur is not None and capex_end == ocf_end) else 0.0
-        fm = ((ocf_cur - cap_matched) / fcf_den) * 100.0
+    if ocf_cur is not None and fcf_den and fcf_den > 0 and capex_cur is not None and capex_end == ocf_end:
+        fm = ((ocf_cur - abs(capex_cur)) / fcf_den) * 100.0
         if -250.0 <= fm <= 95.0:
             fcf_margin = round(fm, 1)
 
@@ -502,9 +565,16 @@ def _parse_company_xbrl_facts(raw_facts: dict[str, Any]) -> dict[str, Any]:
         if -40.0 <= dp <= 100.0:
             dilution_pct = round(dp, 1)
 
+    rev_usd_val = None
+    if rev_unit == "USD":
+        if rev_cur:
+            rev_usd_val = round(rev_cur, 0)
+        elif rev_ann:
+            rev_usd_val = round(rev_ann, 0)
+
     return {
         "sharesOutstanding": round(shares_out) if shares_out else None,
-        "revenueTtmUsd": round(rev_cur, 0) if rev_cur else (round(rev_ann, 0) if rev_ann else None),
+        "revenueTtmUsd": rev_usd_val,
         "revenueGrowthYoYPct": rev_growth,
         "operatingMarginPct": op_margin,
         "fcfMarginPct": fcf_margin,
@@ -520,7 +590,7 @@ def fetch_xbrl_fundamentals_batch(
 ) -> dict[str, dict[str, Any]]:
     """
     Fetch & parse SEC EDGAR XBRL CompanyFacts for candidate/signal US stocks.
-    Cached persistently in pipeline/fundamentals_cache.json with a 7-day TTL.
+    Cached persistently in pipeline/fundamentals_cache.json with a 7-day TTL and parser version check.
     """
     cache = load_json_dict(FUNDAMENTALS_CACHE_PATH)
     now_ts = time.time()
@@ -532,7 +602,11 @@ def fetch_xbrl_fundamentals_batch(
         if not cik10:
             continue
         ent = cache.get(t)
-        if ent and (now_ts - float(ent.get("_ts", 0.0))) <= max_age_sec:
+        if (
+            ent
+            and ent.get("_ver") == XBRL_PARSER_VERSION
+            and (now_ts - float(ent.get("_ts", 0.0))) <= max_age_sec
+        ):
             continue
         to_fetch.append((t, cik10))
 
@@ -548,10 +622,11 @@ def fetch_xbrl_fundamentals_batch(
                 )
                 parsed = _parse_company_xbrl_facts(raw)
                 parsed["cik"] = cik10
+                parsed["_ver"] = XBRL_PARSER_VERSION
                 parsed["_ts"] = now_ts
                 return t, parsed
             except Exception:
-                return t, {"_ts": now_ts, "cik": cik10}
+                return t, {"_ts": now_ts, "_ver": XBRL_PARSER_VERSION, "cik": cik10}
 
         with ThreadPoolExecutor(max_workers=4) as ex:
             for idx_done, (t, parsed) in enumerate(ex.map(_fetch_one, to_fetch), 1):
@@ -562,10 +637,71 @@ def fetch_xbrl_fundamentals_batch(
                     print(f"[xbrl] Progress {idx_done}/{len(to_fetch)} facts parsed...", flush=True)
 
     return {
-        t: {k: v for k, v in cache[t].items() if k != "_ts"}
+        t: {k: v for k, v in cache[t].items() if k not in ("_ts", "_ver")}
         for t in tickers
         if t in cache and cache[t]
     }
+
+
+def _parse_13dg_primary_xml(raw_xml: bytes) -> dict[str, Any]:
+    """
+    Parse SEC Schedule 13D/13G XML filing to extract ownership % (classPercent),
+    beneficial shares owned, subject CUSIP, and event date.
+    """
+    out: dict[str, Any] = {
+        "percentOfClass": None,
+        "sharesOwned": None,
+        "subjectCusip": "",
+        "eventDate": "",
+    }
+    try:
+        root = _parse_xml_root(raw_xml)
+    except Exception:
+        return out
+    if root is None:
+        return out
+
+    pct_vals: list[float] = []
+    sh_vals: list[float] = []
+    for el in root.iter():
+        if not isinstance(el.tag, str):
+            continue
+        lname = el.tag.rsplit("}", 1)[-1]
+        txt = el.text.strip() if el.text else ""
+        if not txt:
+            continue
+        if lname in ("classPercent", "percentOfClass"):
+            cleaned = re.sub(r"[^0-9.-]", "", txt)
+            try:
+                pv = float(cleaned)
+                if 0.0 <= pv <= 100.0:
+                    pct_vals.append(round(pv, 2))
+            except ValueError:
+                pass
+        elif lname in ("reportingPersonBeneficiallyOwnedAggregateNumberOfShares", "aggregateAmountOwned"):
+            cleaned = re.sub(r"[^0-9.]", "", txt.replace(",", ""))
+            try:
+                sv = float(cleaned)
+                if sv >= 0:
+                    sh_vals.append(round(sv))
+            except ValueError:
+                pass
+        elif lname in ("issuerCusipNumber", "cusipNo") and not out["subjectCusip"]:
+            c_clean = re.sub(r"[^A-Za-z0-9]", "", txt).upper()[:9]
+            if len(c_clean) >= 6:
+                out["subjectCusip"] = c_clean.zfill(9)
+        elif lname in ("eventDateRequiresFilingThisStatement", "dateOfEvent") and not out["eventDate"]:
+            m_mdy = re.fullmatch(r"(\d{2})/(\d{2})/(\d{4})", txt)
+            if m_mdy:
+                out["eventDate"] = f"{m_mdy.group(3)}-{m_mdy.group(1)}-{m_mdy.group(2)}"
+            elif re.fullmatch(r"\d{4}-\d{2}-\d{2}", txt):
+                out["eventDate"] = txt
+
+    if pct_vals:
+        out["percentOfClass"] = max(pct_vals)
+    if sh_vals:
+        out["sharesOwned"] = max(sh_vals)
+    return out
 
 
 def fetch_midquarter_alerts(
@@ -575,11 +711,12 @@ def fetch_midquarter_alerts(
     name_to_ticker_map: dict[str, str],
     today_date: date,
     since_days: int = 95,
+    cusip_to_ticker_map: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Scan recent SEC submissions for Elite-50 funds for live mid-quarter Schedule 13D / 13G
-    filings (>= 5% beneficial ownership stakes reported within 5–10 days vs 45-day 13F lag).
-    Resolves subject company issuer/CUSIP -> ticker via compact ~2KB .hdr.sgml headers.
+    filings reported within 5–10 days vs 45-day 13F lag.
+    Extracts subject company from .hdr.sgml AND beneficial ownership % / shares / CUSIP from primary_doc.xml.
     """
     if not elite_ciks:
         return []
@@ -598,7 +735,8 @@ def fetch_midquarter_alerts(
         forms = recent.get("form") or []
         accs = recent.get("accessionNumber") or []
         fds = recent.get("filingDate") or []
-        for form, acc, fdate in zip(forms, accs, fds):
+        pdocs = recent.get("primaryDocument") or [""] * len(forms)
+        for form, acc, fdate, pdoc in zip(forms, accs, fds, pdocs):
             if not form or not acc or not fdate or fdate < cutoff_str:
                 continue
             m = _13DG_FORM_RE.match(str(form).strip())
@@ -611,37 +749,68 @@ def fetch_midquarter_alerts(
                 "isActivist": m.group(1).upper() == "D",
                 "filingDate": str(fdate).strip(),
                 "accessionNumber": str(acc).strip(),
+                "primaryDoc": str(pdoc or "").strip(),
             })
 
     if not candidate_filings:
         return []
 
-    need_hdr = [it for it in candidate_filings if it["accessionNumber"] not in hdr_cache]
-    if need_hdr:
-        print(f"[alerts-13dg] Resolving subject companies for {len(need_hdr)} mid-quarter Schedule 13D/13G filings...", flush=True)
-        def _fetch_hdr(item: dict[str, Any]) -> tuple[str, dict[str, str]]:
+    need_fetch = [
+        it for it in candidate_filings
+        if it["accessionNumber"] not in hdr_cache
+        or (it.get("primaryDoc") and not (hdr_cache.get(it["accessionNumber"]) or {}).get("stakeChecked"))
+    ]
+    if need_fetch:
+        print(f"[alerts-13dg] Resolving subject companies & ownership stakes for {len(need_fetch)} mid-quarter Schedule 13D/13G filings...", flush=True)
+        def _fetch_hdr_and_xml(item: dict[str, Any]) -> tuple[str, dict[str, Any]]:
             cik10 = item["filerCik"]
             acc = item["accessionNumber"]
             acc_nd = acc.replace("-", "")
-            url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{acc}.hdr.sgml"
-            try:
-                raw = fetch_bytes(url, cache_key=f"hdr_{cik10}_{acc_nd}.sgml", max_age_hours=24 * 365).decode("utf-8", errors="replace")
-                m_sub = re.search(
-                    r"<SUBJECT-COMPANY>.*?<CONFORMED-NAME>([^\r\n<]+).*?<CIK>(\d+)",
-                    raw,
-                    flags=re.S | re.I,
-                )
-                if m_sub:
-                    return acc, {
-                        "subjectName": m_sub.group(1).strip(),
-                        "subjectCik": f"{int(m_sub.group(2)):010d}",
-                    }
-            except Exception:
-                pass
-            return acc, {"subjectName": "", "subjectCik": ""}
+            existing = dict(hdr_cache.get(acc) or {})
+            info: dict[str, Any] = {
+                "subjectName": existing.get("subjectName", ""),
+                "subjectCik": existing.get("subjectCik", ""),
+                "percentOfClass": existing.get("percentOfClass"),
+                "sharesOwned": existing.get("sharesOwned"),
+                "subjectCusip": existing.get("subjectCusip", ""),
+                "eventDate": existing.get("eventDate", ""),
+                "stakeChecked": True,
+            }
+            if not info["subjectCik"] and not info["subjectName"]:
+                url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{acc}.hdr.sgml"
+                try:
+                    raw = fetch_bytes(url, cache_key=f"hdr_{cik10}_{acc_nd}.sgml", max_age_hours=24 * 365).decode("utf-8", errors="replace")
+                    m_sub = re.search(
+                        r"<SUBJECT-COMPANY>.*?<CONFORMED-NAME>([^\r\n<]+).*?<CIK>(\d+)",
+                        raw,
+                        flags=re.S | re.I,
+                    )
+                    if m_sub:
+                        info["subjectName"] = m_sub.group(1).strip()
+                        info["subjectCik"] = f"{int(m_sub.group(2)):010d}"
+                except Exception:
+                    pass
+
+            pdoc = str(item.get("primaryDoc") or "").split("/")[-1].strip()
+            if pdoc.lower().endswith(".xml"):
+                xml_url = f"https://www.sec.gov/Archives/edgar/data/{int(cik10)}/{acc_nd}/{pdoc}"
+                try:
+                    raw_xml = fetch_bytes(xml_url, cache_key=f"xml13dg_{cik10}_{acc_nd}.xml", max_age_hours=24 * 365)
+                    parsed_xml = _parse_13dg_primary_xml(raw_xml)
+                    if parsed_xml["percentOfClass"] is not None:
+                        info["percentOfClass"] = parsed_xml["percentOfClass"]
+                    if parsed_xml["sharesOwned"] is not None:
+                        info["sharesOwned"] = parsed_xml["sharesOwned"]
+                    if parsed_xml["subjectCusip"]:
+                        info["subjectCusip"] = parsed_xml["subjectCusip"]
+                    if parsed_xml["eventDate"]:
+                        info["eventDate"] = parsed_xml["eventDate"]
+                except Exception:
+                    pass
+            return acc, info
 
         with ThreadPoolExecutor(max_workers=6) as ex:
-            for acc, info in ex.map(_fetch_hdr, need_hdr):
+            for acc, info in ex.map(_fetch_hdr_and_xml, need_fetch):
                 hdr_cache[acc] = info
                 hdr_dirty = True
 
@@ -657,9 +826,19 @@ def fetch_midquarter_alerts(
     for it in candidate_filings:
         acc = it["accessionNumber"]
         hinfo = hdr_cache.get(acc, {})
-        sub_cik = hinfo.get("subjectCik", "")
-        sub_name = hinfo.get("subjectName", "")
-        ticker = cik_to_ticker_map.get(sub_cik) or name_to_ticker_map.get(_normalize_legal_name(sub_name)) or ""
+        sub_cik = str(hinfo.get("subjectCik") or "")
+        sub_name = str(hinfo.get("subjectName") or "")
+        sub_cusip = str(hinfo.get("subjectCusip") or "")
+        pct_cls = hinfo.get("percentOfClass")
+        sh_owned = hinfo.get("sharesOwned")
+        ev_date = str(hinfo.get("eventDate") or "")
+
+        ticker = (
+            cik_to_ticker_map.get(sub_cik)
+            or (cusip_to_ticker_map.get(sub_cusip) if (cusip_to_ticker_map and sub_cusip) else "")
+            or name_to_ticker_map.get(_normalize_legal_name(sub_name))
+            or ""
+        )
         if not ticker and sub_cik:
             if sub_cik not in sub_ticker_cache:
                 fallback_t = ""
@@ -676,6 +855,17 @@ def fetch_midquarter_alerts(
             ticker = sub_ticker_cache[sub_cik]
         if not ticker and not sub_name:
             continue
+
+        if pct_cls is not None:
+            if float(pct_cls) <= 0.05:
+                stake_status = "Exited (0%)"
+            elif float(pct_cls) < 5.0:
+                stake_status = "Reduced (<5%)"
+            else:
+                stake_status = "Active (≥5%)"
+        else:
+            stake_status = "Filed"
+
         acc_nd = acc.replace("-", "")
         alerts.append({
             "id": f"{it['filerCik']}_{acc}",
@@ -688,6 +878,10 @@ def fetch_midquarter_alerts(
             "subjectCik": sub_cik,
             "ticker": ticker,
             "issuerName": sub_name,
+            "percentOfClass": pct_cls,
+            "sharesOwned": sh_owned,
+            "stakeStatus": stake_status,
+            "eventDate": ev_date or None,
             "edgarUrl": f"https://www.sec.gov/Archives/edgar/data/{int(it['filerCik'])}/{acc_nd}/",
         })
 
