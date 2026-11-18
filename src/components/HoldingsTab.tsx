@@ -97,6 +97,8 @@ type ScreenerSortKey =
   | 'revYoY'
   | 'vsVwap';
 
+const MATRIX_PAGE_SIZE = 150;
+
 const VERDICT_ORDER: ActionVerdict[] = [
   'STRONG ACCUMULATE',
   'ACCUMULATE ON DIP',
@@ -169,6 +171,8 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
   onSelectStock,
 }) => {
   const [subTab, setSubTab] = useState<ScreenerSubTab>('MATRIX');
+  const [showAllHeld, setShowAllHeld] = useState(false);
+  const [matrixVisibleLimit, setMatrixVisibleLimit] = useState<number>(MATRIX_PAGE_SIZE);
   const [weightMode, setWeightMode] = useState<WeightMode>('equal');
   const [matrixSortBy, setMatrixSortBy] = useState<MatrixSortKey>('actionScore');
   const [matrixSortAsc, setMatrixSortAsc] = useState(false);
@@ -188,7 +192,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
   const consensusList = useMemo(() => topHoldings[mode] ?? [], [topHoldings, mode]);
   const skillMap = useMemo(() => buildFundSkillMap(funds, mode), [funds, mode]);
 
-  const unifiedList = useMemo<UnifiedConvictionRow[]>(
+  const curatedList = useMemo<UnifiedConvictionRow[]>(
     () =>
       buildUnifiedConvictionList({
         topHoldings,
@@ -201,9 +205,34 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     [topHoldings, signalScreener, idealPortfolio, stocksIndex, funds, mode]
   );
 
+  const allHeldCount = useMemo(() => {
+    const tickers = new Set(curatedList.map((r) => r.ticker.toUpperCase()));
+    for (const [key, entry] of Object.entries(stocksIndex)) {
+      if ((entry.eliteHoldersCount ?? 0) < 1 || entry.holderCount <= 0) continue;
+      const tk = (entry.ticker || key).trim().toUpperCase();
+      if (tk) tickers.add(tk);
+    }
+    return tickers.size;
+  }, [curatedList, stocksIndex]);
+
+  const allHeldList = useMemo<UnifiedConvictionRow[]>(() => {
+    if (!showAllHeld) return curatedList;
+    return buildUnifiedConvictionList({
+      topHoldings,
+      signalScreener,
+      idealPortfolio,
+      stocksIndex,
+      funds,
+      mode,
+      includeAllEliteHeld: true,
+    });
+  }, [showAllHeld, curatedList, topHoldings, signalScreener, idealPortfolio, stocksIndex, funds, mode]);
+
+  const matrixList = showAllHeld ? allHeldList : curatedList;
+
   const unifiedByTicker = useMemo(
-    () => buildConvictionLookupMap(unifiedList),
-    [unifiedList]
+    () => buildConvictionLookupMap(curatedList),
+    [curatedList]
   );
 
   const getConsensusActionability = (item: ConsensusHolding) =>
@@ -238,7 +267,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     let lag = 0;
     let fomo = 0;
     if (subTab === 'MATRIX') {
-      for (const item of unifiedList) {
+      for (const item of matrixList) {
         if (item.alphaDecayStatus === 'LAG_ADVANTAGE') lag += 1;
         else if (item.alphaDecayStatus === 'FOMO_TRAP') fomo += 1;
       }
@@ -254,12 +283,12 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
       else if (st === 'FOMO_TRAP') fomo += 1;
     }
     return { lag, fomo };
-  }, [subTab, unifiedList, consensusList, rawScreenerPool, unifiedByTicker, quarterLabel]);
+  }, [subTab, matrixList, consensusList, rawScreenerPool, unifiedByTicker, quarterLabel]);
 
   const convergenceCount = useMemo(() => {
     const source =
       subTab === 'MATRIX'
-        ? unifiedList
+        ? matrixList
         : subTab === 'CONSENSUS'
           ? consensusList
           : rawScreenerPool;
@@ -270,7 +299,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
       }
     }
     return cnt;
-  }, [subTab, unifiedList, consensusList, rawScreenerPool, dualConvictionByTicker, form4Signals]);
+  }, [subTab, matrixList, consensusList, rawScreenerPool, dualConvictionByTicker, form4Signals]);
 
   const verdictCounts = useMemo(() => {
     const counts: Record<ActionVerdict, number> = {
@@ -281,7 +310,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
       'EXIT SIGNAL': 0,
     };
     if (subTab === 'MATRIX') {
-      for (const item of unifiedList) counts[item.actionVerdict] += 1;
+      for (const item of matrixList) counts[item.actionVerdict] += 1;
     } else if (subTab === 'CONSENSUS') {
       for (const item of consensusList) {
         const v = (
@@ -308,11 +337,11 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
       }
     }
     return counts;
-  }, [subTab, unifiedList, consensusList, rawScreenerPool, unifiedByTicker, skillMap, quarterLabel]);
+  }, [subTab, matrixList, consensusList, rawScreenerPool, unifiedByTicker, skillMap, quarterLabel]);
 
   const filteredMatrix = useMemo<UnifiedConvictionRow[]>(() => {
     const q = search.trim().toLowerCase();
-    return unifiedList
+    return matrixList
       .filter((item) => {
         if (!matchesCapFilter(item.marketCapTier, capFilter)) return false;
         if (!matchesEntryFilter(item.entryZoneStatus, entryFilter)) return false;
@@ -330,35 +359,36 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           item.name.toLowerCase().includes(q) ||
           item.sector.toLowerCase().includes(q) ||
           item.subSector.toLowerCase().includes(q) ||
+          (item.signalVerdict ? item.signalVerdict.toLowerCase().includes(q) : false) ||
           item.topHoldersPreview.some((h) => h.fundName.toLowerCase().includes(q))
         );
       })
       .sort((a, b) => {
         if (matrixSortBy === 'flowPillar') {
           return compareNullableNumbers(
-            a.actionability.pillars.flowImpulse,
-            b.actionability.pillars.flowImpulse,
+            a.hasExactPillars ? a.actionability.pillars.flowImpulse : null,
+            b.hasExactPillars ? b.actionability.pillars.flowImpulse : null,
             matrixSortAsc
           );
         }
         if (matrixSortBy === 'pricePillar') {
           return compareNullableNumbers(
-            a.actionability.pillars.priceDiscipline,
-            b.actionability.pillars.priceDiscipline,
+            a.hasExactPillars ? a.actionability.pillars.priceDiscipline : null,
+            b.hasExactPillars ? b.actionability.pillars.priceDiscipline : null,
             matrixSortAsc
           );
         }
         if (matrixSortBy === 'xbrlPillar') {
           return compareNullableNumbers(
-            a.actionability.pillars.xbrlQuality,
-            b.actionability.pillars.xbrlQuality,
+            a.hasExactPillars ? a.actionability.pillars.xbrlQuality : null,
+            b.hasExactPillars ? b.actionability.pillars.xbrlQuality : null,
             matrixSortAsc
           );
         }
         if (matrixSortBy === 'persistPillar') {
           return compareNullableNumbers(
-            a.actionability.pillars.thesisPersistence,
-            b.actionability.pillars.thesisPersistence,
+            a.hasExactPillars ? a.actionability.pillars.thesisPersistence : null,
+            b.hasExactPillars ? b.actionability.pillars.thesisPersistence : null,
             matrixSortAsc
           );
         }
@@ -378,7 +408,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         return diff !== 0 ? diff : b.eliteHoldersCount - a.eliteHoldersCount;
       });
   }, [
-    unifiedList,
+    matrixList,
     capFilter,
     entryFilter,
     alphaFilter,
@@ -390,6 +420,11 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     matrixSortBy,
     matrixSortAsc,
   ]);
+
+  const visibleMatrixRows = useMemo(
+    () => filteredMatrix.slice(0, matrixVisibleLimit),
+    [filteredMatrix, matrixVisibleLimit]
+  );
 
   const filteredConsensus = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -589,15 +624,15 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     let strong = 0;
     let dip = 0;
     let warnExit = 0;
-    for (const r of unifiedList) {
+    for (const r of matrixList) {
       if (r.actionVerdict === 'STRONG ACCUMULATE') strong += 1;
       else if (r.actionVerdict === 'ACCUMULATE ON DIP') dip += 1;
       else if (r.actionVerdict === 'DISTRIBUTION WARNING' || r.actionVerdict === 'EXIT SIGNAL') {
         warnExit += 1;
       }
     }
-    return { strong, dip, warnExit, topStock: unifiedList[0] ?? null };
-  }, [unifiedList]);
+    return { strong, dip, warnExit, topStock: matrixList[0] ?? null };
+  }, [matrixList]);
 
   const renderTickerButton = (ticker: string) => {
     if (stocksIndex[ticker]) {
@@ -660,7 +695,9 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
 
     if (subTab === 'MATRIX') {
       downloadCsv(
-        `paper-trail-conviction-matrix-${mode}.csv`,
+        showAllHeld
+          ? `paper-trail-all-held-stocks-${mode}.csv`
+          : `paper-trail-conviction-matrix-${mode}.csv`,
         [
           'Rank',
           'Ticker',
@@ -673,6 +710,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           'Pillar 2 Price Discipline (/25)',
           'Pillar 3 XBRL Quality (/25)',
           'Pillar 4 Thesis Persistence (/25)',
+          'Signal Verdict (Index)',
           'Signals / Sources',
           'Convergence Signal',
           'Form 4 Insider Signal',
@@ -689,6 +727,8 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           'Share Dilution YoY (%)',
           'Holders',
           'Elite 50 Holders',
+          'Elite 50 Buyers',
+          'Elite 50 Sellers',
           'New Buys',
           'Added',
           'Trimmed',
@@ -706,10 +746,11 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
             item.marketCapTier ?? '',
             item.actionVerdict,
             item.actionabilityScore,
-            item.actionability.pillars.flowImpulse,
-            item.actionability.pillars.priceDiscipline,
-            item.actionability.pillars.xbrlQuality,
-            item.actionability.pillars.thesisPersistence,
+            item.hasExactPillars ? item.actionability.pillars.flowImpulse : '',
+            item.hasExactPillars ? item.actionability.pillars.priceDiscipline : '',
+            item.hasExactPillars ? item.actionability.pillars.xbrlQuality : '',
+            item.hasExactPillars ? item.actionability.pillars.thesisPersistence : '',
+            item.signalVerdict ?? '',
             item.sourceTags.join(' | '),
             convStr,
             f4Str,
@@ -726,10 +767,12 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
             item.fundamentals?.shareDilutionYoYPct ?? '',
             item.holderCount,
             item.eliteHoldersCount,
-            item.newCount,
-            item.addedCount,
-            item.trimmedCount,
-            item.exitedCount,
+            item.eliteBuyersCount,
+            item.eliteSellersCount,
+            item.isIndexOnly ? '' : item.newCount,
+            item.isIndexOnly ? '' : item.addedCount,
+            item.isIndexOnly ? '' : item.trimmedCount,
+            item.isIndexOnly ? '' : item.exitedCount,
             item.netFlowUsd ?? '',
             item.stockTtmPct ?? '',
           ];
@@ -878,9 +921,12 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     );
   };
 
+  const indexOnlyExtraCount = Math.max(0, allHeldCount - curatedList.length);
   const screenerDescription =
     subTab === 'MATRIX'
-      ? `Unified 4-pillar Conviction Matrix scoring ${unifiedList.length} tracked stocks (0–100) across Flow Impulse, Q-VWAP Price Discipline, XBRL Quality & Thesis Persistence.`
+      ? showAllHeld
+        ? `Unified Conviction Matrix displaying all ${matrixList.length} Elite-50-held stocks from stocksIndex (${curatedList.length} full 4-pillar curated signals${indexOnlyExtraCount > 0 ? ` + ${indexOnlyExtraCount} additional stocksIndex equities` : ''}). Click any ticker for its full Stock Dossier.`
+        : `Unified 4-pillar Conviction Matrix scoring ${curatedList.length} curated signal stocks (0–100) across Flow Impulse, Q-VWAP Price Discipline, XBRL Quality & Thesis Persistence.`
       : subTab === 'CONSENSUS'
         ? `Aggregated across all ${poolSize} ranked funds placing in Top 100 of any window. Click any ticker for Stock Dossier.`
         : subTab === 'CLUSTER'
@@ -900,10 +946,43 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         </div>
 
         <div className="controls-row">
+          <div className="segmented-group" role="group" aria-label="Stock universe scope">
+            <button
+              type="button"
+              id="holdings-scope-curated"
+              className={`seg-btn ${subTab === 'MATRIX' && !showAllHeld ? 'active' : ''}`}
+              aria-pressed={subTab === 'MATRIX' && !showAllHeld}
+              title="Curated signal cohorts (Top Consensus, Signal Screener, and Ideal Portfolio)"
+              onClick={() => {
+                setShowAllHeld(false);
+                setSubTab('MATRIX');
+                setExpandedTicker(null);
+                setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+              }}
+            >
+              Curated Signals ({curatedList.length})
+            </button>
+            <button
+              type="button"
+              id="holdings-scope-all-held"
+              className={`seg-btn ${subTab === 'MATRIX' && showAllHeld ? 'active' : ''}`}
+              aria-pressed={subTab === 'MATRIX' && showAllHeld}
+              title="All stocks in stocksIndex held by at least 1 Elite 50 fund"
+              onClick={() => {
+                setShowAllHeld(true);
+                setSubTab('MATRIX');
+                setExpandedTicker(null);
+                setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+              }}
+            >
+              All Held Stocks ({allHeldCount})
+            </button>
+          </div>
+
           <div className="segmented-group" role="group" aria-label="Screener views">
             {(
               [
-                { id: 'MATRIX', label: `Conviction Matrix (${unifiedList.length})` },
+                { id: 'MATRIX', label: `Conviction Matrix (${matrixList.length})` },
                 { id: 'CONSENSUS', label: `Top 30 Consensus` },
                 { id: 'CLUSTER', label: `Cluster Buys (${signalScreener.clusterInitiations.length})` },
                 { id: 'HEAVY_ADDS', label: `Heavy Adds (${signalScreener.heavyAdds.length})` },
@@ -931,7 +1010,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
       {/* KPI Strip */}
       <div className="metrics-strip">
         <div className="metric-card">
-          <div className="metric-label">Conviction Verdicts ({unifiedList.length} Stocks)</div>
+          <div className="metric-label">Conviction Verdicts ({matrixList.length} Stocks)</div>
           <div className="metric-value mono" style={{ fontSize: '1.15rem', gap: '0.42rem', flexWrap: 'wrap' }}>
             <span className="chip pos">{matrixVerdictTotals.strong} Strong</span>
             <span className="chip tech">{matrixVerdictTotals.dip} Buy Dip</span>
@@ -982,7 +1061,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                 type="button"
                 className={`seg-btn ${mode === 'filing_lag' ? 'active' : ''}`}
                 style={{ padding: '0.26rem 0.6rem', fontSize: '0.74rem' }}
-                onClick={() => onModeChange('filing_lag')}
+                onClick={() => {
+                  setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                  onModeChange('filing_lag');
+                }}
               >
                 45-Day Lag Pool
               </button>
@@ -990,7 +1072,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                 type="button"
                 className={`seg-btn ${mode === 'quarter_end' ? 'active' : ''}`}
                 style={{ padding: '0.26rem 0.6rem', fontSize: '0.74rem' }}
-                onClick={() => onModeChange('quarter_end')}
+                onClick={() => {
+                  setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                  onModeChange('quarter_end');
+                }}
               >
                 Quarter-End Pool
               </button>
@@ -1009,7 +1094,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                 type="button"
                 id="verdict-filter-all"
                 className={`seg-btn ${verdictFilter === 'ALL' ? 'active' : ''}`}
-                onClick={() => setVerdictFilter('ALL')}
+                onClick={() => {
+                  setVerdictFilter('ALL');
+                  setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                }}
               >
                 All Verdicts
               </button>
@@ -1019,7 +1107,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   type="button"
                   id={`verdict-filter-${vd.toLowerCase().replace(/\s+/g, '-')}`}
                   className={`seg-btn ${verdictFilter === vd ? 'active' : ''}`}
-                  onClick={() => setVerdictFilter(vd)}
+                  onClick={() => {
+                    setVerdictFilter(vd);
+                    setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                  }}
                 >
                   {actionVerdictShortLabel(vd)} ({verdictCounts[vd]})
                 </button>
@@ -1039,7 +1130,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   key={c.id}
                   type="button"
                   className={`seg-btn ${capFilter === c.id ? 'active' : ''}`}
-                  onClick={() => setCapFilter(c.id)}
+                  onClick={() => {
+                    setCapFilter(c.id);
+                    setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                  }}
                 >
                   {c.label}
                 </button>
@@ -1059,7 +1153,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   key={ez.id}
                   type="button"
                   className={`seg-btn ${entryFilter === ez.id ? 'active' : ''}`}
-                  onClick={() => setEntryFilter(ez.id)}
+                  onClick={() => {
+                    setEntryFilter(ez.id);
+                    setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                  }}
                 >
                   {ez.label}
                 </button>
@@ -1079,7 +1176,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   type="button"
                   id={`alpha-filter-${af.id.toLowerCase()}`}
                   className={`seg-btn ${alphaFilter === af.id ? 'active' : ''}`}
-                  onClick={() => setAlphaFilter(af.id)}
+                  onClick={() => {
+                    setAlphaFilter(af.id);
+                    setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                  }}
                 >
                   {af.label}
                 </button>
@@ -1092,7 +1192,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                 id="convergence-filter-toggle"
                 className={`seg-btn ${convergenceOnly ? 'active' : ''}`}
                 aria-pressed={convergenceOnly}
-                onClick={() => setConvergenceOnly((v) => !v)}
+                onClick={() => {
+                  setConvergenceOnly((v) => !v);
+                  setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                }}
                 title="Filter to tickers with concurrent Form 4 open-market insider purchases or mid-quarter Schedule 13D activist catalysts"
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.32rem' }}
               >
@@ -1122,6 +1225,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                     type="button"
                     className={`seg-btn ${matrixSortBy === s.id ? 'active' : ''}`}
                     onClick={() => {
+                      setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
                       if (matrixSortBy === s.id) setMatrixSortAsc((a) => !a);
                       else {
                         setMatrixSortBy(s.id);
@@ -1231,7 +1335,10 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                 className="search-input"
                 placeholder="Filter ticker, sub-sector, fund..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
+                }}
               />
             </div>
 
@@ -1243,8 +1350,9 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
 
         {/* CONVICTION MATRIX TABLE (UNIFIED 4-PILLAR ACTIONABILITY) */}
         {subTab === 'MATRIX' ? (
-          <div className="table-scroll">
-            <table className="data-table">
+          <>
+            <div className="table-scroll">
+              <table className="data-table">
               <thead>
                 <tr>
                   <th></th>
@@ -1253,6 +1361,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   <th
                     className={`sortable ${matrixSortBy === 'actionScore' ? 'active-sort' : ''}`}
                     onClick={() => {
+                      setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
                       if (matrixSortBy === 'actionScore') setMatrixSortAsc((a) => !a);
                       else {
                         setMatrixSortBy('actionScore');
@@ -1269,6 +1378,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   <th
                     className={`num sortable ${matrixSortBy === 'netFlow' ? 'active-sort' : ''}`}
                     onClick={() => {
+                      setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
                       if (matrixSortBy === 'netFlow') setMatrixSortAsc((a) => !a);
                       else {
                         setMatrixSortBy('netFlow');
@@ -1281,6 +1391,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   <th
                     className={`sortable ${matrixSortBy === 'vsVwap' ? 'active-sort' : ''}`}
                     onClick={() => {
+                      setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
                       if (matrixSortBy === 'vsVwap') setMatrixSortAsc((a) => !a);
                       else {
                         setMatrixSortBy('vsVwap');
@@ -1294,6 +1405,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   <th
                     className={`num sortable ${matrixSortBy === 'holders' ? 'active-sort' : ''}`}
                     onClick={() => {
+                      setMatrixVisibleLimit(MATRIX_PAGE_SIZE);
                       if (matrixSortBy === 'holders') setMatrixSortAsc((a) => !a);
                       else {
                         setMatrixSortBy('holders');
@@ -1307,7 +1419,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {filteredMatrix.map((item, idx) => {
+                {visibleMatrixRows.map((item, idx) => {
                   const isOpen = expandedTicker === item.ticker;
                   const act = item.actionability;
                   const p = act.pillars;
@@ -1364,9 +1476,11 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                                       ? 'neg'
                                       : tag === 'Cluster Buy' || tag === 'Ideal Portfolio'
                                         ? 'pos'
-                                        : tag === 'Heavy Add' || tag === 'Top Consensus'
-                                          ? 'tech'
-                                          : ''
+                                        : tag === 'Elite 50 Held'
+                                          ? 'elite'
+                                          : tag === 'Heavy Add' || tag === 'Top Consensus'
+                                            ? 'tech'
+                                            : ''
                                   }`}
                                   style={{ fontSize: '0.62rem' }}
                                 >
@@ -1391,32 +1505,51 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                           </div>
                         </td>
                         <td style={{ minWidth: '185px' }}>
-                          <div className="pillar-mini-strip mono">
-                            <span
-                              className={`pillar-mini-chip ${miniPillarTone(p.flowImpulse)}`}
-                              title={`Smart-Money Flow Impulse: ${p.flowImpulse.toFixed(1)}/25`}
-                            >
-                              F {p.flowImpulse.toFixed(0)}
-                            </span>
-                            <span
-                              className={`pillar-mini-chip ${miniPillarTone(p.priceDiscipline)}`}
-                              title={`Price Discipline (Q-VWAP): ${p.priceDiscipline.toFixed(1)}/25`}
-                            >
-                              P {p.priceDiscipline.toFixed(0)}
-                            </span>
-                            <span
-                              className={`pillar-mini-chip ${miniPillarTone(p.xbrlQuality)}`}
-                              title={`XBRL Quality Gate: ${p.xbrlQuality.toFixed(1)}/25`}
-                            >
-                              Q {p.xbrlQuality.toFixed(0)}
-                            </span>
-                            <span
-                              className={`pillar-mini-chip ${miniPillarTone(p.thesisPersistence)}`}
-                              title={`Thesis Persistence: ${p.thesisPersistence.toFixed(1)}/25`}
-                            >
-                              T {p.thesisPersistence.toFixed(0)}
-                            </span>
-                          </div>
+                          {item.hasExactPillars ? (
+                            <div className="pillar-mini-strip mono">
+                              <span
+                                className={`pillar-mini-chip ${miniPillarTone(p.flowImpulse)}`}
+                                title={`Smart-Money Flow Impulse: ${p.flowImpulse.toFixed(1)}/25`}
+                              >
+                                F {p.flowImpulse.toFixed(0)}
+                              </span>
+                              <span
+                                className={`pillar-mini-chip ${miniPillarTone(p.priceDiscipline)}`}
+                                title={`Price Discipline (Q-VWAP): ${p.priceDiscipline.toFixed(1)}/25`}
+                              >
+                                P {p.priceDiscipline.toFixed(0)}
+                              </span>
+                              <span
+                                className={`pillar-mini-chip ${miniPillarTone(p.xbrlQuality)}`}
+                                title={`XBRL Quality Gate: ${p.xbrlQuality.toFixed(1)}/25`}
+                              >
+                                Q {p.xbrlQuality.toFixed(0)}
+                              </span>
+                              <span
+                                className={`pillar-mini-chip ${miniPillarTone(p.thesisPersistence)}`}
+                                title={`Thesis Persistence: ${p.thesisPersistence.toFixed(1)}/25`}
+                              >
+                                T {p.thesisPersistence.toFixed(0)}
+                              </span>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.28rem', flexWrap: 'wrap' }}>
+                              {item.signalVerdict && (
+                                <span className="chip" style={{ fontSize: '0.64rem' }}>
+                                  {item.signalVerdict}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className="chip clickable"
+                                style={{ fontSize: '0.64rem' }}
+                                onClick={() => onSelectStock(item.ticker)}
+                                title={`Open ${item.ticker} Stock Dossier for full 4-pillar breakdown`}
+                              >
+                                4 Pillars in Dossier →
+                              </button>
+                            </div>
+                          )}
                           {act.thesisPersistence && act.thesisPersistence.quartersObserved > 0 && (
                             <div className="mono" style={{ fontSize: '0.67rem', color: 'var(--text-muted)', marginTop: '0.18rem' }}>
                               {act.thesisPersistence.consecutiveNetBuyQuarters >= 2
@@ -1434,19 +1567,47 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                           >
                             {item.netFlowUsd != null ? formatSignedUsd(item.netFlowUsd) : '—'}
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.24rem', flexWrap: 'wrap', marginTop: '0.16rem' }}>
-                            {item.newCount > 0 && (
-                              <span className="chip pos" style={{ fontSize: '0.62rem' }}>+{item.newCount}N</span>
-                            )}
-                            {item.addedCount > 0 && (
-                              <span className="chip tech" style={{ fontSize: '0.62rem' }}>+{item.addedCount}A</span>
-                            )}
-                            {(item.trimmedCount > 0 || item.exitedCount > 0) && (
-                              <span className="chip neg" style={{ fontSize: '0.62rem' }}>
-                                -{item.trimmedCount}T{item.exitedCount > 0 ? `/${item.exitedCount}X` : ''}
-                              </span>
-                            )}
-                          </div>
+                          {item.isIndexOnly ? (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.24rem', flexWrap: 'wrap', marginTop: '0.16rem' }}>
+                              {item.eliteBuyersCount > 0 && (
+                                <span
+                                  className="chip pos"
+                                  style={{ fontSize: '0.62rem' }}
+                                  title="Elite 50 funds initiating or adding QoQ"
+                                >
+                                  +{item.eliteBuyersCount}E buy
+                                </span>
+                              )}
+                              {item.eliteSellersCount > 0 && (
+                                <span
+                                  className="chip neg"
+                                  style={{ fontSize: '0.62rem' }}
+                                  title="Elite 50 funds trimming or exiting QoQ"
+                                >
+                                  -{item.eliteSellersCount}E sell
+                                </span>
+                              )}
+                              {item.eliteBuyersCount === 0 && item.eliteSellersCount === 0 && (
+                                <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                                  Index summary
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.24rem', flexWrap: 'wrap', marginTop: '0.16rem' }}>
+                              {item.newCount > 0 && (
+                                <span className="chip pos" style={{ fontSize: '0.62rem' }}>+{item.newCount}N</span>
+                              )}
+                              {item.addedCount > 0 && (
+                                <span className="chip tech" style={{ fontSize: '0.62rem' }}>+{item.addedCount}A</span>
+                              )}
+                              {(item.trimmedCount > 0 || item.exitedCount > 0) && (
+                                <span className="chip neg" style={{ fontSize: '0.62rem' }}>
+                                  -{item.trimmedCount}T{item.exitedCount > 0 ? `/${item.exitedCount}X` : ''}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td style={{ minWidth: '170px' }}>
                           {item.entryZoneStatus || item.alphaDecayStatus !== 'NEUTRAL' ? (
@@ -1466,10 +1627,13 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                                   </span>
                                 )}
                               </div>
-                              <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                                {item.pctVsQuarterVwap != null ? `${formatSignedPct(item.pctVsQuarterVwap)} vs ` : ''}
-                                {item.estQuarterVwap != null ? `$${item.estQuarterVwap.toFixed(2)}` : ''}
-                              </div>
+                              {(item.pctVsQuarterVwap != null || item.estQuarterVwap != null) && (
+                                <div className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                                  {item.pctVsQuarterVwap != null
+                                    ? `${formatSignedPct(item.pctVsQuarterVwap)} vs ${item.estQuarterVwap != null ? `$${item.estQuarterVwap.toFixed(2)}` : 'Q-VWAP'}`
+                                    : `$${item.estQuarterVwap!.toFixed(2)} Q-VWAP`}
+                                </div>
+                              )}
                               {(item.filingToTodayPct != null || item.avgEliteHoldingQuarters != null) && (
                                 <div className="mono" style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>
                                   {item.filingToTodayPct != null ? `Fil→Now ${formatSignedPct(item.filingToTodayPct)}` : ''}
@@ -1501,6 +1665,13 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                                   : ''}
                               </div>
                             </div>
+                          ) : item.isIndexOnly ? (
+                            <span
+                              className="ret-muted"
+                              title="Full SEC XBRL fundamentals load in the Stock Dossier"
+                            >
+                              Via Dossier
+                            </span>
                           ) : (
                             <span className="ret-muted">Neutral (12.5)</span>
                           )}
@@ -1510,23 +1681,47 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                             <strong>{item.holderCount}</strong> ({item.eliteHoldersCount} Elite)
                           </div>
                           <div className={returnClass(item.stockTtmPct)} style={{ fontSize: '0.7rem' }}>
-                            TTM {formatSignedPct(item.stockTtmPct, 1)}
+                            TTM {item.stockTtmPct != null ? formatSignedPct(item.stockTtmPct, 1) : '—'}
                           </div>
                         </td>
                         <td style={{ minWidth: '255px' }}>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.26rem' }}>
-                            {item.topHoldersPreview.slice(0, 3).map((h, hi) => (
+                            {item.topHoldersPreview.length > 0 ? (
+                              <>
+                                {item.topHoldersPreview.slice(0, 3).map((h, hi) => (
+                                  <button
+                                    key={`${h.cik}-${hi}`}
+                                    type="button"
+                                    className={`chip clickable ${h.chipTone}`}
+                                    onClick={() => onSelectFund(h.cik)}
+                                    title={`Open ${h.fundName} (${h.fundTier})`}
+                                  >
+                                    <span>{h.fundName}</span>
+                                    <strong className="mono">{h.meta}</strong>
+                                  </button>
+                                ))}
+                                {item.topHoldersPreview.length > 3 && (
+                                  <button
+                                    type="button"
+                                    className="chip clickable"
+                                    onClick={() =>
+                                      setExpandedTicker(isOpen ? null : item.ticker)
+                                    }
+                                  >
+                                    +{item.topHoldersPreview.length - 3} more
+                                  </button>
+                                )}
+                              </>
+                            ) : (
                               <button
-                                key={`${h.cik}-${hi}`}
                                 type="button"
-                                className={`chip clickable ${h.chipTone}`}
-                                onClick={() => onSelectFund(h.cik)}
-                                title={`Open ${h.fundName} (${h.fundTier})`}
+                                className="chip clickable"
+                                onClick={() => onSelectStock(item.ticker)}
+                                title={`Open ${item.ticker} Stock Dossier to inspect all ${item.holderCount} holders`}
                               >
-                                <span>{h.fundName}</span>
-                                <strong className="mono">{h.meta}</strong>
+                                View {item.holderCount} {item.holderCount === 1 ? 'Holder' : 'Holders'} →
                               </button>
-                            ))}
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1551,56 +1746,111 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                               </button>
                             </div>
 
-                            <div className="pillar-grid" style={{ marginBottom: '0.65rem' }}>
-                              <div className="pillar-card">
-                                <div className="pillar-head">
-                                  <span>1. Flow Impulse</span>
-                                  <strong className="mono">{p.flowImpulse.toFixed(1)}/25</strong>
+                            {item.hasExactPillars ? (
+                              <div className="pillar-grid" style={{ marginBottom: '0.65rem' }}>
+                                <div className="pillar-card">
+                                  <div className="pillar-head">
+                                    <span>1. Flow Impulse</span>
+                                    <strong className="mono">{p.flowImpulse.toFixed(1)}/25</strong>
+                                  </div>
+                                  <div className="pillar-bar-track">
+                                    <div
+                                      className={`pillar-bar-fill ${miniPillarTone(p.flowImpulse)}`}
+                                      style={{ width: `${Math.min(100, (p.flowImpulse / 25) * 100)}%` }}
+                                    />
+                                  </div>
                                 </div>
-                                <div className="pillar-bar-track">
-                                  <div
-                                    className={`pillar-bar-fill ${miniPillarTone(p.flowImpulse)}`}
-                                    style={{ width: `${Math.min(100, (p.flowImpulse / 25) * 100)}%` }}
-                                  />
+                                <div className="pillar-card">
+                                  <div className="pillar-head">
+                                    <span>2. Price Discipline</span>
+                                    <strong className="mono">{p.priceDiscipline.toFixed(1)}/25</strong>
+                                  </div>
+                                  <div className="pillar-bar-track">
+                                    <div
+                                      className={`pillar-bar-fill ${miniPillarTone(p.priceDiscipline)}`}
+                                      style={{ width: `${Math.min(100, (p.priceDiscipline / 25) * 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="pillar-card">
+                                  <div className="pillar-head">
+                                    <span>3. XBRL Quality</span>
+                                    <strong className="mono">{p.xbrlQuality.toFixed(1)}/25</strong>
+                                  </div>
+                                  <div className="pillar-bar-track">
+                                    <div
+                                      className={`pillar-bar-fill ${miniPillarTone(p.xbrlQuality)}`}
+                                      style={{ width: `${Math.min(100, (p.xbrlQuality / 25) * 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="pillar-card">
+                                  <div className="pillar-head">
+                                    <span>4. Persistence</span>
+                                    <strong className="mono">{p.thesisPersistence.toFixed(1)}/25</strong>
+                                  </div>
+                                  <div className="pillar-bar-track">
+                                    <div
+                                      className={`pillar-bar-fill ${miniPillarTone(p.thesisPersistence)}`}
+                                      style={{ width: `${Math.min(100, (p.thesisPersistence / 25) * 100)}%` }}
+                                    />
+                                  </div>
                                 </div>
                               </div>
-                              <div className="pillar-card">
-                                <div className="pillar-head">
-                                  <span>2. Price Discipline</span>
-                                  <strong className="mono">{p.priceDiscipline.toFixed(1)}/25</strong>
+                            ) : (
+                              <div className="pillar-grid" style={{ marginBottom: '0.65rem' }}>
+                                <div className="pillar-card">
+                                  <div className="pillar-head">
+                                    <span>Index Signal</span>
+                                    <strong className="mono">{item.signalVerdict || 'Tracked Equity'}</strong>
+                                  </div>
+                                  <div className="pillar-sub">
+                                    {item.holderCount} funds ({item.eliteHoldersCount} Elite 50)
+                                    {item.marketCapTier ? ` · ${item.marketCapTier}` : ''}
+                                  </div>
                                 </div>
-                                <div className="pillar-bar-track">
-                                  <div
-                                    className={`pillar-bar-fill ${miniPillarTone(p.priceDiscipline)}`}
-                                    style={{ width: `${Math.min(100, (p.priceDiscipline / 25) * 100)}%` }}
-                                  />
+                                <div className="pillar-card">
+                                  <div className="pillar-head">
+                                    <span>Elite 50 QoQ Activity</span>
+                                    <strong className="mono">
+                                      +{item.eliteBuyersCount} Buy / -{item.eliteSellersCount} Sell
+                                    </strong>
+                                  </div>
+                                  <div className="pillar-sub">From Elite-50 13F position deltas</div>
+                                </div>
+                                <div className="pillar-card">
+                                  <div className="pillar-head">
+                                    <span>Q-VWAP &amp; Filing Lag</span>
+                                    <strong className="mono">
+                                      {item.pctVsQuarterVwap != null
+                                        ? `${formatSignedPct(item.pctVsQuarterVwap)} vs Q-VWAP`
+                                        : '—'}
+                                    </strong>
+                                  </div>
+                                  <div className="pillar-sub">
+                                    {item.entryZoneStatus ?? 'No VWAP band'}
+                                    {item.filingToTodayPct != null
+                                      ? ` · Fil→Now ${formatSignedPct(item.filingToTodayPct)}`
+                                      : ''}
+                                  </div>
+                                </div>
+                                <div className="pillar-card">
+                                  <div className="pillar-head">
+                                    <span>Persistence / Hold</span>
+                                    <strong className="mono">
+                                      {item.avgEliteHoldingQuarters != null
+                                        ? `${item.avgEliteHoldingQuarters.toFixed(1)}Q avg hold`
+                                        : 'Via Dossier'}
+                                    </strong>
+                                  </div>
+                                  <div className="pillar-sub">
+                                    {act.thesisPersistence && act.thesisPersistence.quartersObserved > 0
+                                      ? act.thesisPersistence.summary
+                                      : 'Full 4Q persistence & XBRL in Dossier'}
+                                  </div>
                                 </div>
                               </div>
-                              <div className="pillar-card">
-                                <div className="pillar-head">
-                                  <span>3. XBRL Quality</span>
-                                  <strong className="mono">{p.xbrlQuality.toFixed(1)}/25</strong>
-                                </div>
-                                <div className="pillar-bar-track">
-                                  <div
-                                    className={`pillar-bar-fill ${miniPillarTone(p.xbrlQuality)}`}
-                                    style={{ width: `${Math.min(100, (p.xbrlQuality / 25) * 100)}%` }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="pillar-card">
-                                <div className="pillar-head">
-                                  <span>4. Persistence</span>
-                                  <strong className="mono">{p.thesisPersistence.toFixed(1)}/25</strong>
-                                </div>
-                                <div className="pillar-bar-track">
-                                  <div
-                                    className={`pillar-bar-fill ${miniPillarTone(p.thesisPersistence)}`}
-                                    style={{ width: `${Math.min(100, (p.thesisPersistence / 25) * 100)}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
+                            )}
 
                             <div
                               className={`alpha-decay-banner ${actionVerdictChipClass(item.actionVerdict)}`}
@@ -1641,6 +1891,12 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                                 ))}
                               </div>
                             )}
+
+                            {item.isIndexOnly && item.holderCount > item.topHoldersPreview.length && (
+                              <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                                Showing {item.topHoldersPreview.length} matched fund summaries from summary index. Open the Stock Dossier above to inspect all {item.holderCount} institutional holders, share deltas &amp; exact portfolio weights.
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )}
@@ -1655,8 +1911,45 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   </tr>
                 )}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            {filteredMatrix.length > matrixVisibleLimit && (
+              <div
+                style={{
+                  padding: '0.85rem 1.25rem',
+                  borderTop: '1px solid var(--border-hairline)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                  flexWrap: 'wrap',
+                  background: 'var(--bg-strip-subtle)',
+                }}
+              >
+                <span className="mono" style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                  Showing {visibleMatrixRows.length} of {filteredMatrix.length} matching stocks
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="action-btn"
+                    style={{ padding: '0.32rem 0.78rem', fontSize: '0.75rem' }}
+                    onClick={() => setMatrixVisibleLimit((n) => n + MATRIX_PAGE_SIZE)}
+                  >
+                    Show Next {Math.min(MATRIX_PAGE_SIZE, filteredMatrix.length - matrixVisibleLimit)}
+                  </button>
+                  <button
+                    type="button"
+                    className="action-btn"
+                    style={{ padding: '0.32rem 0.78rem', fontSize: '0.75rem' }}
+                    onClick={() => setMatrixVisibleLimit(filteredMatrix.length)}
+                  >
+                    Show All {filteredMatrix.length}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         ) : subTab === 'CONSENSUS' ? (
           <div className="table-scroll">
             <table className="data-table">

@@ -181,6 +181,74 @@ function makeConsensusHolding(overrides: Partial<ConsensusHolding> = {}): Consen
   };
 }
 
+function makeFundSummary(overrides: Partial<FundSummary> = {}): FundSummary {
+  return {
+    cik: '0001',
+    shard: '1',
+    name: 'Alpha Tech',
+    legalName: 'Alpha Tech LP',
+    manager: 'Jane Doe',
+    hq: 'SF',
+    styleTag: 'Tech',
+    strategySummary: 'Tech growth',
+    source: 'Curated Core',
+    fundTier: 'Elite 50',
+    isLeaderboardEligible: true,
+    exclusionReason: null,
+    latestPeriod: '2026-09-30',
+    latestQuarterLabel: '2026 Q3',
+    latestFilingDate: '2026-11-16',
+    equityAumUsd: 2_000_000_000,
+    totalReportedUsd: 2_000_000_000,
+    equityPositionCount: 15,
+    totalPositionCount: 15,
+    top10WeightPct: 75,
+    effectivePositions: 9,
+    techTmtPct: 92,
+    etfSharePct: 0,
+    quartersTracked: 12,
+    returns: {
+      quarter_end: { YTD: 20, TTM: 25, '18M': 30, '2Y': 35, '3Y': 45, '5Y': 70 },
+      filing_lag: { YTD: 21, TTM: 26, '18M': 31, '2Y': 36, '3Y': 47, '5Y': 72 },
+    },
+    metrics: {
+      quarter_end: {
+        cagrPct: 20,
+        maxDrawdownPct: -10,
+        sharpeProxy: 1.5,
+        sortinoRatio: 2.2,
+        infoRatioVsQqq: 0.9,
+        betaVsQqq: 1.1,
+        alphaVsQqqPct: 5,
+        annualizedVolPct: 18,
+        battingAvgPct: 70,
+        avgTurnoverPct: 12,
+        skillScore: 92,
+        skillRank: 1,
+      },
+      filing_lag: {
+        cagrPct: 21,
+        maxDrawdownPct: -10,
+        sharpeProxy: 1.6,
+        sortinoRatio: 2.3,
+        infoRatioVsQqq: 1.0,
+        betaVsQqq: 1.1,
+        alphaVsQqqPct: 6,
+        annualizedVolPct: 18,
+        battingAvgPct: 72,
+        avgTurnoverPct: 12,
+        skillScore: 93,
+        skillRank: 1,
+      },
+    },
+    topHoldingsPreview: [],
+    sectorBreakdown: [],
+    searchableTickers: ['ALPH'],
+    edgarUrl: 'https://www.sec.gov',
+    ...overrides,
+  };
+}
+
 describe('convictionMatrix 4-pillar scoring engine', () => {
   it('assigns STRONG ACCUMULATE vs ACCUMULATE ON DIP vs HOLD vs DISTRIBUTION WARNING vs EXIT SIGNAL accurately', () => {
     const strong = computeActionabilityMatrix({
@@ -545,6 +613,124 @@ describe('convictionMatrix 4-pillar scoring engine', () => {
     );
     expect(resolvedFromIndex.verdict).toBe('STRONG ACCUMULATE');
   });
+
+  it('expands buildUnifiedConvictionList to all stocksIndex equities held by Elite 50 when includeAllEliteHeld=true while preserving curated rows and backend verdicts', () => {
+    const curatedConsensus = makeConsensusHolding({ ticker: 'ALPH', name: 'Alpha Chips Inc' });
+    const signalScreener: SignalScreenerData = {
+      quarterLabel: '2026 Q3',
+      clusterInitiations: [],
+      heavyAdds: [],
+      smartMoneyExits: [],
+      contrarianBets: [],
+    };
+    const stocksIndex: Record<string, StockIndexEntry> = {
+      ALPH: makeStockIndexEntry({ ticker: 'ALPH', name: 'Alpha Chips Inc', holderCount: 14, eliteHoldersCount: 10 }),
+      EXIN: makeStockIndexEntry({
+        ticker: 'EXIN',
+        name: 'Extra Index Equity',
+        subSector: 'MedTech Devices',
+        priceUsd: 64.5,
+        holderCount: 11,
+        eliteHoldersCount: 3,
+        eliteBuyersCount: 1,
+        eliteSellersCount: 4,
+        signalVerdict: 'Trimming / Distribution',
+        entryZoneStatus: 'Near Q-Avg',
+        pctVsQuarterVwap: 1.5,
+        filingToTodayPct: 4.2,
+        avgEliteHoldingQuarters: 3.5,
+        alphaDecayStatus: 'LAG_ADVANTAGE',
+        actionabilityScore: 54.0,
+        actionVerdict: 'DISTRIBUTION WARNING',
+        consecutiveNetSellQuarters: 2,
+      }),
+      NOEL: makeStockIndexEntry({
+        ticker: 'NOEL',
+        name: 'No Elite Holders Corp',
+        holderCount: 8,
+        eliteHoldersCount: 0,
+      }),
+      ZERO: makeStockIndexEntry({
+        ticker: 'ZERO',
+        name: 'Zero Total Holders Corp',
+        holderCount: 0,
+        eliteHoldersCount: 2,
+      }),
+    };
+
+    const funds: FundSummary[] = [
+      makeFundSummary({
+        cik: '0002',
+        name: 'Beta Top 100',
+        fundTier: 'Top 100',
+        searchableTickers: ['EXIN'],
+        metrics: {
+          ...makeFundSummary().metrics,
+          filing_lag: { ...makeFundSummary().metrics.filing_lag, skillScore: 71 },
+        },
+      }),
+      makeFundSummary({
+        cik: '0001',
+        name: 'Alpha Elite',
+        fundTier: 'Elite 50',
+        searchableTickers: ['ALPH', 'EXIN'],
+        topHoldingsPreview: [{ ticker: 'EXIN', name: 'Extra Index Equity', weightPct: 3.8 }],
+      }),
+    ];
+
+    const curatedOnly = buildUnifiedConvictionList({
+      topHoldings: { filing_lag: [curatedConsensus], quarter_end: [curatedConsensus] },
+      signalScreener,
+      stocksIndex,
+      funds,
+      mode: 'filing_lag',
+    });
+    expect(curatedOnly.map((r) => r.ticker)).toEqual(['ALPH']);
+    expect(curatedOnly[0].hasExactPillars).toBe(true);
+    expect(curatedOnly[0].isIndexOnly).toBe(false);
+
+    const allHeld = buildUnifiedConvictionList({
+      topHoldings: { filing_lag: [curatedConsensus], quarter_end: [curatedConsensus] },
+      signalScreener,
+      stocksIndex,
+      funds,
+      mode: 'filing_lag',
+      includeAllEliteHeld: true,
+    });
+
+    expect(allHeld.map((r) => r.ticker)).toEqual(['ALPH', 'EXIN']);
+
+    const alph = allHeld.find((r) => r.ticker === 'ALPH')!;
+    expect(alph.sourceTags).toEqual(['Top Consensus']);
+    expect(alph.hasExactPillars).toBe(true);
+    expect(alph.isIndexOnly).toBe(false);
+
+    const exin = allHeld.find((r) => r.ticker === 'EXIN')!;
+    expect(exin.isIndexOnly).toBe(true);
+    expect(exin.hasExactPillars).toBe(false);
+    expect(exin.sourceTags).toEqual(['Elite 50 Held']);
+    expect(exin.signalVerdict).toBe('Trimming / Distribution');
+    expect(exin.actionabilityScore).toBe(54.0);
+    expect(exin.actionVerdict).toBe('DISTRIBUTION WARNING');
+    expect(exin.eliteBuyersCount).toBe(1);
+    expect(exin.eliteSellersCount).toBe(4);
+    expect(exin.alphaDecayStatus).toBe('LAG_ADVANTAGE');
+    expect(exin.alphaDecayReason).not.toMatch(/0 cluster/i);
+    // Elite 50 fund sorted before Top 100 fund with weight % preserved from topHoldingsPreview
+    expect(exin.topHoldersPreview[0]).toMatchObject({
+      cik: '0001',
+      fundName: 'Alpha Elite',
+      fundTier: 'Elite 50',
+      meta: '3.8%',
+      chipTone: 'elite',
+    });
+    expect(exin.topHoldersPreview[1]).toMatchObject({
+      cik: '0002',
+      fundName: 'Beta Top 100',
+      fundTier: 'Top 100',
+      meta: 'Skill 71',
+    });
+  });
 });
 
 describe('Conviction Matrix UI integration across Drawer, HoldingsTab, and IdealPortfolioTab', () => {
@@ -822,4 +1008,171 @@ describe('Conviction Matrix UI integration across Drawer, HoldingsTab, and Ideal
 
     expect(screen.getByText(/Caution: distributing signal/i)).toBeInTheDocument();
   });
+
+  it('toggles HoldingsTab between Curated Signals and All Held Stocks from stocksIndex, renders index-only metadata honestly, and opens Dossier', () => {
+    const strongConsensus = makeConsensusHolding({ ticker: 'ALPH', name: 'Alpha Chips Inc' });
+    const signalScreener: SignalScreenerData = {
+      quarterLabel: '2026 Q3',
+      clusterInitiations: [],
+      heavyAdds: [],
+      smartMoneyExits: [],
+      contrarianBets: [],
+    };
+    const stocksIndex: Record<string, StockIndexEntry> = {
+      ALPH: makeStockIndexEntry({
+        ticker: 'ALPH',
+        name: 'Alpha Chips Inc',
+        holderCount: 14,
+        eliteHoldersCount: 10,
+      }),
+      EXIN: makeStockIndexEntry({
+        ticker: 'EXIN',
+        name: 'Extra Index Equity',
+        subSector: 'MedTech Devices',
+        priceUsd: 64.5,
+        holderCount: 9,
+        eliteHoldersCount: 3,
+        eliteBuyersCount: 2,
+        eliteSellersCount: 3,
+        signalVerdict: 'Mixed / Holding',
+        entryZoneStatus: 'Near Q-Avg',
+        pctVsQuarterVwap: -4.2,
+        filingToTodayPct: 3.1,
+        avgEliteHoldingQuarters: 4.5,
+        alphaDecayStatus: 'LAG_ADVANTAGE',
+        actionabilityScore: 54.0,
+        actionVerdict: 'DISTRIBUTION WARNING',
+        consecutiveNetSellQuarters: 2,
+      }),
+      NOEL: makeStockIndexEntry({
+        ticker: 'NOEL',
+        name: 'Non Elite Stock Corp',
+        holderCount: 5,
+        eliteHoldersCount: 0,
+      }),
+    };
+    const funds: FundSummary[] = [
+      makeFundSummary({
+        cik: '0001',
+        name: 'Alpha Elite',
+        fundTier: 'Elite 50',
+        searchableTickers: ['ALPH', 'EXIN'],
+        topHoldingsPreview: [{ ticker: 'EXIN', name: 'Extra Index Equity', weightPct: 4.1 }],
+      }),
+    ];
+
+    const onSelectFund = vi.fn();
+    const onSelectStock = vi.fn();
+
+    render(
+      <HoldingsTab
+        topHoldings={{ filing_lag: [strongConsensus], quarter_end: [strongConsensus] }}
+        signalScreener={signalScreener}
+        stocksIndex={stocksIndex}
+        funds={funds}
+        mode="filing_lag"
+        onModeChange={() => {}}
+        onSelectFund={onSelectFund}
+        onSelectStock={onSelectStock}
+      />
+    );
+
+    const curatedBtn = screen.getByRole('button', { name: /Curated Signals \(1\)/i });
+    const allHeldBtn = screen.getByRole('button', { name: /All Held Stocks \(2\)/i });
+    expect(curatedBtn).toHaveClass('active');
+    expect(screen.getByRole('button', { name: /Conviction Matrix \(1\)/i })).toHaveClass('active');
+    expect(screen.getByText('Alpha Chips Inc')).toBeInTheDocument();
+    expect(screen.queryByText('Extra Index Equity')).not.toBeInTheDocument();
+    expect(screen.queryByText('Non Elite Stock Corp')).not.toBeInTheDocument();
+
+    fireEvent.click(allHeldBtn);
+
+    expect(allHeldBtn).toHaveClass('active');
+    expect(allHeldBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Conviction Matrix \(2\)/i })).toHaveClass('active');
+    expect(screen.getByText(/Conviction Verdicts \(2 Stocks\)/i)).toBeInTheDocument();
+    expect(screen.getByText('Extra Index Equity')).toBeInTheDocument();
+    expect(screen.queryByText('Non Elite Stock Corp')).not.toBeInTheDocument();
+    expect(screen.getByText('Elite 50 Held')).toBeInTheDocument();
+    expect(screen.getByText('54.0')).toBeInTheDocument();
+    expect(screen.getByText('DISTRIBUTION WARNING')).toBeInTheDocument();
+    expect(screen.getByText('+2E buy')).toBeInTheDocument();
+    expect(screen.getByText('-3E sell')).toBeInTheDocument();
+    expect(screen.getByText('-4.2% vs Q-VWAP')).toBeInTheDocument();
+    expect(screen.getByText('Via Dossier')).toBeInTheDocument();
+
+    // Expand EXIN row to check index summary cards and Dossier button
+    fireEvent.click(screen.getByRole('button', { name: /Expand EXIN conviction pillars/i }));
+    expect(screen.getByText('Index Signal')).toBeInTheDocument();
+    expect(screen.getByText('Elite 50 QoQ Activity')).toBeInTheDocument();
+    expect(screen.getByText('+2 Buy / -3 Sell')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Open Complete EXIN Stock Dossier/i }));
+    expect(onSelectStock).toHaveBeenCalledWith('EXIN');
+
+    // Search filter works on expanded rows
+    const searchInput = screen.getByPlaceholderText(/Filter ticker, sub-sector, fund/i);
+    fireEvent.change(searchInput, { target: { value: 'Extra Index' } });
+    expect(screen.queryByText('Alpha Chips Inc')).not.toBeInTheDocument();
+    expect(screen.getByText('Extra Index Equity')).toBeInTheDocument();
+    fireEvent.change(searchInput, { target: { value: '' } });
+
+    // Toggling back returns to Curated Signals view cleanly
+    fireEvent.click(curatedBtn);
+    expect(curatedBtn).toHaveClass('active');
+    expect(screen.getByRole('button', { name: /Conviction Matrix \(1\)/i })).toHaveClass('active');
+    expect(screen.queryByText('Extra Index Equity')).not.toBeInTheDocument();
+  });
+
+  it('paginates All Held Stocks past 150 rows and resets visible slice on search', () => {
+    const stocksIndex: Record<string, StockIndexEntry> = {};
+    for (let i = 1; i <= 160; i += 1) {
+      const tk = `TK${String(i).padStart(3, '0')}`;
+      stocksIndex[tk] = makeStockIndexEntry({
+        ticker: tk,
+        name: `Sample Stock ${i}`,
+        holderCount: 5,
+        eliteHoldersCount: 1,
+        actionabilityScore: 90 - i * 0.1,
+        actionVerdict: 'ACCUMULATE ON DIP',
+      });
+    }
+
+    render(
+      <HoldingsTab
+        topHoldings={{ filing_lag: [], quarter_end: [] }}
+        signalScreener={{
+          quarterLabel: '2026 Q3',
+          clusterInitiations: [],
+          heavyAdds: [],
+          smartMoneyExits: [],
+          contrarianBets: [],
+        }}
+        stocksIndex={stocksIndex}
+        mode="filing_lag"
+        onModeChange={() => {}}
+        onSelectFund={() => {}}
+        onSelectStock={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /All Held Stocks \(160\)/i }));
+    expect(screen.getByText('Showing 150 of 160 matching stocks')).toBeInTheDocument();
+    expect(screen.getByText('Sample Stock 1')).toBeInTheDocument();
+    expect(screen.queryByText('Sample Stock 160')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Show Next 10/i }));
+    expect(screen.getByText('Sample Stock 160')).toBeInTheDocument();
+    expect(screen.queryByText(/Showing .* matching stocks/i)).not.toBeInTheDocument();
+
+    const searchInput = screen.getByPlaceholderText(/Filter ticker, sub-sector, fund/i);
+    fireEvent.change(searchInput, { target: { value: 'TK160' } });
+    expect(screen.getByText('Sample Stock 160')).toBeInTheDocument();
+
+    // Clearing search resets visible slice back to 150
+    fireEvent.change(searchInput, { target: { value: '' } });
+    expect(screen.getByText('Showing 150 of 160 matching stocks')).toBeInTheDocument();
+    expect(screen.queryByText('Sample Stock 160')).not.toBeInTheDocument();
+  });
 });
+
