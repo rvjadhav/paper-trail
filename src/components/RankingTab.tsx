@@ -79,16 +79,17 @@ export const RankingTab: FC<RankingTabProps> = ({
 
     const matchesSearch = (f: FundSummary) => {
       if (!q) return true;
+      const mgr = f.manager && f.manager !== 'SEC EDGAR Discovered' ? f.manager.toLowerCase() : '';
       if (q.length === 1) {
         return (
           f.name.toLowerCase().includes(q) ||
-          f.manager.toLowerCase().includes(q) ||
+          mgr.includes(q) ||
           f.searchableTickers.some((t) => t.toLowerCase() === q)
         );
       }
       return (
         f.name.toLowerCase().includes(q) ||
-        f.manager.toLowerCase().includes(q) ||
+        mgr.includes(q) ||
         f.styleTag.toLowerCase().includes(q) ||
         f.topHoldingsPreview.some((h) => h.ticker.toLowerCase().includes(q)) ||
         f.searchableTickers.some((t) => t.toLowerCase().includes(q))
@@ -567,12 +568,13 @@ export const RankingTab: FC<RankingTabProps> = ({
                           {fund.fundTier === 'Elite 50' && <Award size={10} />}
                           {fund.fundTier}
                         </span>
-                        <span>{fund.manager}</span>
-                        <span>·</span>
-                        <span>{fund.latestQuarterLabel}</span>
-                        {fund.source === 'EDGAR Discovered' && (
-                          <span className="chip discovered">Discovered</span>
+                        {fund.manager && fund.manager !== 'SEC EDGAR Discovered' && (
+                          <>
+                            <span>{fund.manager}</span>
+                            <span>·</span>
+                          </>
                         )}
+                        <span>{fund.latestQuarterLabel}</span>
                       </div>
                       {!fund.isLeaderboardEligible && fund.exclusionReason && (
                         <div style={{ fontSize: '0.71rem', color: 'var(--warn-text)', marginTop: '0.2rem' }}>
