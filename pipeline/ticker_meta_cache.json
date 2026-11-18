@@ -7359,6 +7359,13 @@
     "sector": "Financial Services",
     "ticker": "BDCIW"
   },
+  "BDCZ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "UBS ETRACS Wells Fargo Business Development Company Index ETN",
+    "sector": "Other",
+    "ticker": "BDCZ"
+  },
   "BDEC": {
     "industry": "",
     "metaChecked": true,
@@ -8604,6 +8611,13 @@
     "sector": "Other",
     "ticker": "BKMI"
   },
+  "BKMS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "BNY Mellon Municipal Short Duration ETF",
+    "sector": "Other",
+    "ticker": "BKMS"
+  },
   "BKNG": {
     "industry": "Travel Services",
     "name": "Booking Holdings Inc.",
@@ -9731,6 +9745,13 @@
     "name": "Bruker Corporation",
     "sector": "Healthcare",
     "ticker": "BRKRP"
+  },
+  "BRLN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares Floating Rate Loan Active ETF",
+    "sector": "Other",
+    "ticker": "BRLN"
   },
   "BRLSW": {
     "industry": "Packaged Foods",
@@ -12242,6 +12263,13 @@
     "sector": "Technology",
     "ticker": "CEVA"
   },
+  "CEW": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "WisdomTree Emerging Currency Strategy Fund",
+    "sector": "Other",
+    "ticker": "CEW"
+  },
   "CEYIX": {
     "industry": "",
     "metaChecked": true,
@@ -14485,12 +14513,26 @@
     "sector": "Consumer Cyclical",
     "ticker": "CPNG"
   },
+  "CPNJ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Calamos Nasdaq-100 Structured Alt Protection ETF - June",
+    "sector": "Other",
+    "ticker": "CPNJ"
+  },
   "CPNM": {
     "industry": "",
     "metaChecked": true,
     "name": "Calamos Nasdaq-100 Structured Alt Protection ETF - March",
     "sector": "Other",
     "ticker": "CPNM"
+  },
+  "CPNQ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Calamos Nasdaq-100 Structured Alt Protection ETF - December",
+    "sector": "Other",
+    "ticker": "CPNQ"
   },
   "CPOP": {
     "industry": "Entertainment",
@@ -14531,6 +14573,13 @@
     "sector": "Consumer Cyclical",
     "ticker": "CPS"
   },
+  "CPSA": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Calamos S&P 500 Structured Alt Protection ETF - August",
+    "sector": "Other",
+    "ticker": "CPSA"
+  },
   "CPSD": {
     "industry": "",
     "metaChecked": true,
@@ -14543,6 +14592,13 @@
     "name": "CPS Technologies Corporation",
     "sector": "Technology",
     "ticker": "CPSH"
+  },
+  "CPSL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Calamos Laddered S&P 500 Struct",
+    "sector": "Other",
+    "ticker": "CPSL"
   },
   "CPSO": {
     "industry": "",
@@ -15876,6 +15932,13 @@
     "name": "Cushman & Wakefield Limited",
     "sector": "Real Estate",
     "ticker": "CWK"
+  },
+  "CWS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "AdvisorShares Focused Equity ETF",
+    "sector": "Other",
+    "ticker": "CWS"
   },
   "CWST": {
     "industry": "Waste Management",
@@ -17285,6 +17348,13 @@
     "name": "Digi International Inc.",
     "sector": "Technology",
     "ticker": "DGII"
+  },
+  "DGIN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "VanEck Digital India ETF",
+    "sector": "Other",
+    "ticker": "DGIN"
   },
   "DGNX": {
     "industry": "Software\u2014Application",
@@ -18966,6 +19036,13 @@
     "sector": "Other",
     "ticker": "DWAS"
   },
+  "DWAW": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "AdvisorShares Dorsey Wright FSM All Cap World ETF",
+    "sector": "Other",
+    "ticker": "DWAW"
+  },
   "DWLD": {
     "industry": "",
     "metaChecked": true,
@@ -19698,6 +19775,13 @@
     "name": "Invesco MSCI EAFE Income Advantage ETF",
     "sector": "Other",
     "ticker": "EFAA"
+  },
+  "EFAD": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "ProShares MSCI EAFE Dividend Growers ETF",
+    "sector": "Other",
+    "ticker": "EFAD"
   },
   "EFAS": {
     "industry": "",
@@ -25350,6 +25434,13 @@
     "sector": "Other",
     "ticker": "FSEV"
   },
+  "FSGS": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "First Trust SMID Growth Strengt",
+    "sector": "Other",
+    "ticker": "FSGS"
+  },
   "FSHP": {
     "industry": "Shell Companies",
     "metaChecked": true,
@@ -25878,6 +25969,13 @@
     "name": "Strive Natural Resources and Security ETF",
     "sector": "Other",
     "ticker": "FTWO"
+  },
+  "FTXH": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "First Trust Nasdaq Pharmaceuticals ETF",
+    "sector": "Other",
+    "ticker": "FTXH"
   },
   "FTXL": {
     "industry": "",
@@ -27802,6 +27900,13 @@
     "name": "Global Mofy AI Limited",
     "sector": "Technology",
     "ticker": "GMM"
+  },
+  "GMNY": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Goldman Sachs Dynamic New York Municipal Income ETF",
+    "sector": "Other",
+    "ticker": "GMNY"
   },
   "GMOC": {
     "industry": "",
@@ -30766,6 +30871,13 @@
     "sector": "Other",
     "ticker": "HTAB"
   },
+  "HTAX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Nomura National High-Yield Municipal Bond ETF",
+    "sector": "Other",
+    "ticker": "HTAX"
+  },
   "HTB": {
     "industry": "Banks\u2014Regional",
     "name": "HomeTrust Bancshares, Inc.",
@@ -31485,6 +31597,13 @@
     "name": "iShares iBonds Dec 2035 Term Corporate ETF",
     "sector": "Other",
     "ticker": "IBCA"
+  },
+  "IBCB": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares Trust - iShares iBonds Dec 2036 Term Corporate ETF",
+    "sector": "Other",
+    "ticker": "IBCB"
   },
   "IBCP": {
     "industry": "Banks\u2014Regional",
@@ -33854,6 +33973,13 @@
     "name": "ProShares Nasdaq-100 High Incom",
     "sector": "Other",
     "ticker": "IQQQ"
+  },
+  "IQSI": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "NYLI Candriam International Equity ETF",
+    "sector": "Other",
+    "ticker": "IQSI"
   },
   "IQST": {
     "industry": "Telecom Services",
@@ -36680,6 +36806,13 @@
     "name": "FT Cboe Vest S&P 500 Dividend Aristocrats Target Income ETF",
     "sector": "",
     "ticker": "KNG"
+  },
+  "KNGZ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "First Trust S&P 500 Diversified Dividend Aristocrats ETF",
+    "sector": "Other",
+    "ticker": "KNGZ"
   },
   "KNO": {
     "industry": "",
@@ -39554,6 +39687,13 @@
     "sector": "Communication Services",
     "ticker": "MANU"
   },
+  "MAPIX": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "",
+    "sector": "Other",
+    "ticker": "MAPIX"
+  },
   "MAPS": {
     "industry": "Software\u2014Application",
     "metaChecked": true,
@@ -41590,6 +41730,13 @@
     "sector": "Basic Materials",
     "ticker": "MOS"
   },
+  "MOTI": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "VanEck Morningstar International Moat ETF",
+    "sector": "Other",
+    "ticker": "MOTI"
+  },
   "MOV": {
     "industry": "Luxury Goods",
     "name": "Movado Group, Inc.",
@@ -41615,6 +41762,13 @@
     "name": "MP Materials Corp.",
     "sector": "Basic Materials",
     "ticker": "MP"
+  },
+  "MPA": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "BlackRock MuniYield Pennsylvania Quality Fund",
+    "sector": "Financial Services",
+    "ticker": "MPA"
   },
   "MPAA": {
     "industry": "Auto Parts",
@@ -42674,6 +42828,27 @@
     "name": "State Street My2029 Corporate Bond ETF",
     "sector": "Other",
     "ticker": "MYCI"
+  },
+  "MYCJ": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "State Street My2030 Corporate Bond ETF",
+    "sector": "Other",
+    "ticker": "MYCJ"
+  },
+  "MYCM": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "State Street My2033 Corporate Bond ETF",
+    "sector": "Other",
+    "ticker": "MYCM"
+  },
+  "MYCN": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "State Street My2034 Corporate Bond ETF",
+    "sector": "Other",
+    "ticker": "MYCN"
   },
   "MYE": {
     "industry": "Packaging & Containers",
@@ -44072,6 +44247,13 @@
     "sector": "Real Estate",
     "ticker": "NMRK"
   },
+  "NMT": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Nuveen Massachusetts Quality Municipal Income Fund",
+    "sector": "Financial Services",
+    "ticker": "NMT"
+  },
   "NMTC": {
     "industry": "Medical Devices",
     "metaChecked": true,
@@ -44147,6 +44329,13 @@
     "name": "NanoViricides, Inc.",
     "sector": "Healthcare",
     "ticker": "NNVC"
+  },
+  "NNY": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Nuveen New York Municipal Income Fund",
+    "sector": "Financial Services",
+    "ticker": "NNY"
   },
   "NOA": {
     "industry": "Oil & Gas Equipment & Services",
@@ -49908,6 +50097,13 @@
     "sector": "Basic Materials",
     "ticker": "PPTA"
   },
+  "PPTY": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Vident U.S. Diversified Real Estate ETF",
+    "sector": "Other",
+    "ticker": "PPTY"
+  },
   "PPYA": {
     "industry": "Shell Companies",
     "metaChecked": true,
@@ -51248,6 +51444,13 @@
     "sector": "Other",
     "ticker": "PZIEX"
   },
+  "PZT": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Invesco New York AMT-Free Municipal Bond ETF",
+    "sector": "Other",
+    "ticker": "PZT"
+  },
   "PZZA": {
     "industry": "Restaurants",
     "name": "Papa John's International, Inc.",
@@ -51866,6 +52069,13 @@
     "name": "Innovator Growth Accelerated Plus ETF - January",
     "sector": "Other",
     "ticker": "QTJA"
+  },
+  "QTOP": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "iShares Nasdaq Top 30 Stocks ET",
+    "sector": "Other",
+    "ticker": "QTOP"
   },
   "QTPI": {
     "industry": "",
@@ -55003,6 +55213,13 @@
     "sector": "Basic Materials",
     "ticker": "SCCO"
   },
+  "SCCR": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Schwab Core Bond ETF",
+    "sector": "Other",
+    "ticker": "SCCR"
+  },
   "SCD": {
     "industry": "Asset Management",
     "metaChecked": true,
@@ -57327,6 +57544,13 @@
     "name": "iShares U.S. Small-Cap Equity Factor ETF",
     "sector": "",
     "ticker": "SMLF"
+  },
+  "SMLL": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Harbor Active Small Cap ETF",
+    "sector": "Other",
+    "ticker": "SMLL"
   },
   "SMLV": {
     "industry": "",
@@ -60862,6 +61086,13 @@
     "name": "TScan Therapeutics, Inc.",
     "sector": "Healthcare",
     "ticker": "TCRX"
+  },
+  "TCV": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "Towle Small-Cap Value ETF",
+    "sector": "Other",
+    "ticker": "TCV"
   },
   "TCX": {
     "industry": "Software\u2014Infrastructure",
@@ -64684,6 +64915,13 @@
     "sector": "Other",
     "ticker": "UTSL"
   },
+  "UTWO": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "F/m US Treasury 2 Year Note ETF",
+    "sector": "Other",
+    "ticker": "UTWO"
+  },
   "UTZ": {
     "industry": "Packaged Foods",
     "name": "Utz Brands, Inc.",
@@ -66440,6 +66678,13 @@
     "sector": "Other",
     "ticker": "VSLU"
   },
+  "VSMV": {
+    "industry": "",
+    "metaChecked": true,
+    "name": "VictoryShares US Multi-Factor Minimum Volatility ETF",
+    "sector": "Other",
+    "ticker": "VSMV"
+  },
   "VSNT": {
     "industry": "Entertainment",
     "name": "Versant Media Group, Inc.",
@@ -66586,6 +66831,13 @@
     "name": "Corporaci\u00f3n Inmobiliaria Vesta, S.A.B. de C.V.",
     "sector": "Real Estate",
     "ticker": "VTMX"
+  },
+  "VTN": {
+    "industry": "Asset Management",
+    "metaChecked": true,
+    "name": "Invesco Trust for Investment Grade New York Municipals",
+    "sector": "Financial Services",
+    "ticker": "VTN"
   },
   "VTOL": {
     "industry": "Oil & Gas Equipment & Services",

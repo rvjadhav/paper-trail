@@ -36,6 +36,17 @@
     "sector": "Industrials",
     "ticker": "ICON"
   },
+  "000012101": {
+    "displaySymbol": "LVMHMO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LVMH Moet Hennessy Louis Vuitton",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:000012101",
+    "unpriced": true
+  },
   "000018599": {
     "industry": "Capital Markets",
     "isNonStockEtf": false,
@@ -596,6 +607,17 @@
     "name": "TPG Mortgage Investment Trust, Inc.",
     "sector": "Real Estate",
     "ticker": "MITT"
+  },
+  "001228303": {
+    "displaySymbol": "AGMORT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AG Mortgage Inv Tr 8 Pfd Ser B",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:001228303",
+    "unpriced": true
   },
   "001228501": {
     "industry": "REIT\u2014Mortgage",
@@ -1372,6 +1394,17 @@
     "ticker": "CUSIP:00217DAE0",
     "unpriced": true
   },
+  "00217DAG5": {
+    "displaySymbol": "ASTS21",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ASTS 2 1/4 04/15/36",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00217DAG5",
+    "unpriced": true
+  },
   "00217Y104": {
     "industry": "Specialty Industrial Machinery",
     "isNonStockEtf": false,
@@ -1964,6 +1997,28 @@
     "ticker": "CUSIP:004285102",
     "unpriced": true
   },
+  "00430H102": {
+    "displaySymbol": "ACCELE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Accelerate Diagnostics",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00430H102",
+    "unpriced": true
+  },
+  "00430HAB8": {
+    "displaySymbol": "ACCELE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ACCELERATE DIAGNOSTICS INC NOTE 2.500 3/1",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00430HAB8",
+    "unpriced": true
+  },
   "00434H108": {
     "displaySymbol": "ACCELE",
     "industry": "",
@@ -2008,6 +2063,17 @@
     "name": "Accuray Incorporated",
     "sector": "Healthcare",
     "ticker": "ARAY"
+  },
+  "004397AH8": {
+    "displaySymbol": "ACCURA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ACCURAY INC NOTE 3.750 7/1",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:004397AH8",
+    "unpriced": true
   },
   "004397AK1": {
     "displaySymbol": "ACCURA",
@@ -2214,6 +2280,17 @@
     "sector": "Industrials",
     "ticker": "ACCV"
   },
+  "00501A101": {
+    "displaySymbol": "ACRICA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ACRI CAPITAL ACQUISITION COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00501A101",
+    "unpriced": true
+  },
   "005029103": {
     "displaySymbol": "ACROPO",
     "industry": "",
@@ -2298,6 +2375,17 @@
     "name": "Acumen Pharmaceuticals, Inc.",
     "sector": "Healthcare",
     "ticker": "ABOS"
+  },
+  "00510L106": {
+    "displaySymbol": "ACUITY",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ACUITYADS HLDGS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00510L106",
+    "unpriced": true
   },
   "00510M104": {
     "industry": "Biotechnology",
@@ -2644,6 +2732,17 @@
     "sector": "Healthcare",
     "ticker": "ADXN"
   },
+  "006639550": {
+    "displaySymbol": "NINTEN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NINTENDO CO LTD NPV",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:006639550",
+    "unpriced": true
+  },
   "006739106": {
     "industry": "Medical Care Facilities",
     "isNonStockEtf": false,
@@ -2730,6 +2829,17 @@
     "name": "Adicet Bio, Inc.",
     "sector": "Healthcare",
     "ticker": "ACET"
+  },
+  "007024102": {
+    "displaySymbol": "ADITED",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ADIT EDTECH ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:007024102",
+    "unpriced": true
   },
   "00704R109": {
     "industry": "Biotechnology",
@@ -2973,6 +3083,14 @@
     "sector": "Other",
     "ticker": "MSOS"
   },
+  "00768Y479": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "AdvisorShares Dorsey Wright FSM All Cap World ETF",
+    "sector": "Other",
+    "ticker": "DWAW"
+  },
   "00768Y495": {
     "industry": "",
     "isNonStockEtf": true,
@@ -2980,6 +3098,14 @@
     "name": "AdvisorShares Pure Cannabis ETF",
     "sector": "Other",
     "ticker": "YOLO"
+  },
+  "00768Y560": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "AdvisorShares Focused Equity ETF",
+    "sector": "Other",
+    "ticker": "CWS"
   },
   "00768Y818": {
     "industry": "",
@@ -3021,6 +3147,17 @@
     "name": "Arq, Inc.",
     "sector": "Industrials",
     "ticker": "ARQ"
+  },
+  "00770F104": {
+    "displaySymbol": "AEGION",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AEGION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00770F104",
+    "unpriced": true
   },
   "00770K202": {
     "industry": "Specialty Chemicals",
@@ -3104,6 +3241,28 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:00773U108",
+    "unpriced": true
+  },
+  "00773U207": {
+    "displaySymbol": "ADVERU",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ADVERUM BIOTECHNOLOGIES INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00773U207",
+    "unpriced": true
+  },
+  "007744105": {
+    "displaySymbol": "MOLEKU",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MOLEKULE GROUP INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:007744105",
     "unpriced": true
   },
   "00774Q346": {
@@ -3455,6 +3614,17 @@
     "ticker": "CUSIP:00809J101",
     "unpriced": true
   },
+  "00809L106": {
+    "displaySymbol": "AESTHE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AESTHER HEALTHCARE ACQSTN CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00809L106",
+    "unpriced": true
+  },
   "00810F106": {
     "industry": "Airports & Air Services",
     "isNonStockEtf": false,
@@ -3699,6 +3869,17 @@
     "name": "Agora, Inc.",
     "sector": "Technology",
     "ticker": "API"
+  },
+  "008579W10": {
+    "displaySymbol": "BERRYP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BERRY PLASTICS GRP INC COM",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:008579W10",
+    "unpriced": true
   },
   "00857F100": {
     "industry": "Information Technology Services",
@@ -4261,6 +4442,17 @@
     "name": "Akamai Technologies, Inc.",
     "sector": "Technology",
     "ticker": "AKAM"
+  },
+  "00971TAT8": {
+    "displaySymbol": "AKAM00",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AKAM 0 05/15/32",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:00971TAT8",
+    "unpriced": true
   },
   "00972D105": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
@@ -5231,6 +5423,14 @@
     "sector": "Financial Services",
     "ticker": "CBOE"
   },
+  "012514G10": {
+    "industry": "Information Technology Services",
+    "isNonStockEtf": false,
+    "isTechTmt": true,
+    "name": "CDW Corporation",
+    "sector": "Technology",
+    "ticker": "CDW"
+  },
   "012653101": {
     "industry": "Specialty Chemicals",
     "isNonStockEtf": false,
@@ -5367,6 +5567,17 @@
     "name": "Alerus Financial Corporation",
     "sector": "Financial Services",
     "ticker": "ALRS"
+  },
+  "014491104": {
+    "displaySymbol": "ALEXAN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ALEXANDER & BALDWIN INC NEW",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:014491104",
+    "unpriced": true
   },
   "014752109": {
     "industry": "REIT\u2014Retail",
@@ -5725,6 +5936,17 @@
     "sector": "Technology",
     "ticker": "ALGM"
   },
+  "017737610": {
+    "displaySymbol": "CITRIX",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CITRIX SYS INC COM",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:017737610",
+    "unpriced": true
+  },
   "018119107": {
     "displaySymbol": "ALLENA",
     "industry": "",
@@ -5880,6 +6102,17 @@
     "sector": "Financial Services",
     "ticker": "NFJ"
   },
+  "018905410": {
+    "displaySymbol": "CLOROX",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CLOROX CO DEL COM",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:018905410",
+    "unpriced": true
+  },
   "019170109": {
     "industry": "Software\u2014Infrastructure",
     "isNonStockEtf": false,
@@ -5991,6 +6224,17 @@
     "name": "The Allstate Corporation",
     "sector": "Financial Services",
     "ticker": "ALL"
+  },
+  "020002838": {
+    "displaySymbol": "ALLSTA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Allstate Preferred H 2024",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:020002838",
+    "unpriced": true
   },
   "020030N10": {
     "industry": "Telecom Services",
@@ -6798,6 +7042,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:02156BAD5",
+    "unpriced": true
+  },
+  "02156BAF0": {
+    "displaySymbol": "ALTERY",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ALTERYX INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:02156BAF0",
     "unpriced": true
   },
   "02156K103": {
@@ -7720,6 +7975,17 @@
     "sector": "Technology",
     "ticker": "DIOD"
   },
+  "025468710": {
+    "displaySymbol": "DISNEY",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DISNEY WALT CO COM",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:025468710",
+    "unpriced": true
+  },
   "025537101": {
     "industry": "Utilities\u2014Regulated Electric",
     "isNonStockEtf": false,
@@ -7727,6 +7993,17 @@
     "name": "American Electric Power Company, Inc.",
     "sector": "Utilities",
     "ticker": "AEP"
+  },
+  "025537127": {
+    "displaySymbol": "AMERIC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AMERICAN ELEC PWR CO INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:025537127",
+    "unpriced": true
   },
   "02553E106": {
     "industry": "Apparel Retail",
@@ -7759,6 +8036,17 @@
     "name": "American Eagle Outfitters, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "AEO"
+  },
+  "02557T307": {
+    "displaySymbol": "AMERIC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AMERICAN ELEC PWR CO INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:02557T307",
+    "unpriced": true
   },
   "025676206": {
     "displaySymbol": "AMERIC",
@@ -7875,6 +8163,28 @@
     "sector": "Basic Materials",
     "ticker": "AMLIF"
   },
+  "02772A109": {
+    "displaySymbol": "AMERIC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AMERICAN NATIONAL GROUP INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:02772A109",
+    "unpriced": true
+  },
+  "027745108": {
+    "displaySymbol": "AMERIC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AMERICAN NATL BANKSHARES INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:027745108",
+    "unpriced": true
+  },
   "027886510": {
     "industry": "Specialty Chemicals",
     "isNonStockEtf": false,
@@ -7945,6 +8255,17 @@
     "sector": "Consumer Cyclical",
     "ticker": "AREB"
   },
+  "029273V10": {
+    "displaySymbol": "ENERGY",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ENERGY TRANSFER L P",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:029273V10",
+    "unpriced": true
+  },
   "02927U208": {
     "industry": "Waste Management",
     "isNonStockEtf": false,
@@ -8008,6 +8329,17 @@
     "name": "American Superconductor Corporation",
     "sector": "Industrials",
     "ticker": "AMSC"
+  },
+  "030213010": {
+    "displaySymbol": "EXPEDI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "EXPEDITORS INTL WASH COM",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:030213010",
+    "unpriced": true
   },
   "03027X100": {
     "industry": "REIT\u2014Specialty",
@@ -9121,6 +9453,17 @@
     "sector": "Real Estate",
     "ticker": "ARI"
   },
+  "037636107": {
+    "displaySymbol": "APOLLO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "APOLLO SR FLOATING RATE FD I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:037636107",
+    "unpriced": true
+  },
   "03763A207": {
     "industry": "Medical Care Facilities",
     "isNonStockEtf": false,
@@ -9128,6 +9471,17 @@
     "name": "Astrana Health, Inc.",
     "sector": "Healthcare",
     "ticker": "ASTH"
+  },
+  "03765K104": {
+    "displaySymbol": "APHRIA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "APHRIA INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:03765K104",
+    "unpriced": true
   },
   "03767D108": {
     "displaySymbol": "APOLLO",
@@ -9259,6 +9613,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:03783T103",
+    "unpriced": true
+  },
+  "03783T111": {
+    "displaySymbol": "APPHAR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "APPHARVEST INC WT EXP 013026",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:03783T111",
     "unpriced": true
   },
   "03784Y200": {
@@ -9954,6 +10319,17 @@
     "name": "argenx SE",
     "sector": "Healthcare",
     "ticker": "ARGX"
+  },
+  "04026L105": {
+    "displaySymbol": "ARGUSC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ARGUS CAPITAL CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:04026L105",
+    "unpriced": true
   },
   "040334104": {
     "industry": "Biotechnology",
@@ -10940,6 +11316,17 @@
     "sector": "Other",
     "ticker": "ATEKU"
   },
+  "047115402": {
+    "displaySymbol": "JARDIN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "JARDINE MATHESON HOLDINGS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:047115402",
+    "unpriced": true
+  },
   "04746L104": {
     "displaySymbol": "ATHIRA",
     "industry": "",
@@ -11111,6 +11498,17 @@
     "sector": "Financial Services",
     "ticker": "ACIC"
   },
+  "049284201": {
+    "displaySymbol": "ATLASC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ATLAS CREST INVT CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:049284201",
+    "unpriced": true
+  },
   "049287105": {
     "industry": "",
     "isNonStockEtf": false,
@@ -11230,6 +11628,17 @@
     "sector": "Healthcare",
     "ticker": "ATTO"
   },
+  "050540R40": {
+    "displaySymbol": "LABORA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LABORATORY AMER HLDGS COM NEW",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:050540R40",
+    "unpriced": true
+  },
   "05070N103": {
     "displaySymbol": "AUDACY",
     "industry": "",
@@ -11274,6 +11683,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:05105P107",
+    "unpriced": true
+  },
+  "05150A104": {
+    "displaySymbol": "AULTDI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AULT DISRUPTIVE TECHS CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:05150A104",
     "unpriced": true
   },
   "051526309": {
@@ -12334,6 +12754,17 @@
     "sector": "Consumer Defensive",
     "ticker": "BMRRY"
   },
+  "05591B109": {
+    "displaySymbol": "BMCSTK",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BMC STK HLDGS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:05591B109",
+    "unpriced": true
+  },
   "05601A109": {
     "industry": "Shell Companies",
     "isNonStockEtf": false,
@@ -12462,6 +12893,14 @@
     "name": "Bny Mellon Enhanced Dividend Income ETF",
     "sector": "Other",
     "ticker": "BEDY"
+  },
+  "05613H605": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "BNY Mellon Municipal Short Duration ETF",
+    "sector": "Other",
+    "ticker": "BKMS"
   },
   "05613H704": {
     "industry": "",
@@ -12624,6 +13063,17 @@
     "name": "Balchem Corporation",
     "sector": "Basic Materials",
     "ticker": "BCPC"
+  },
+  "057978020": {
+    "displaySymbol": "MCCORM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MCCORMICK & CO INC COM NON VTG",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:057978020",
+    "unpriced": true
   },
   "058013510": {
     "industry": "Restaurants",
@@ -13200,6 +13650,25 @@
     "sector": "Technology",
     "ticker": "NICE"
   },
+  "065410610": {
+    "industry": "Footwear & Accessories",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NIKE, Inc.",
+    "sector": "Consumer Cyclical",
+    "ticker": "NKE"
+  },
+  "06643P104": {
+    "displaySymbol": "BANKFI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BANKFINANCIAL CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:06643P104",
+    "unpriced": true
+  },
   "06652K103": {
     "industry": "Banks\u2014Regional",
     "isNonStockEtf": false,
@@ -13331,6 +13800,17 @@
     "name": "Barclays PLC",
     "sector": "Financial Services",
     "ticker": "BCS"
+  },
+  "06740P114": {
+    "displaySymbol": "BARCLB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BARCL BANK IPATH PURE BE",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:06740P114",
+    "unpriced": true
   },
   "06740P221": {
     "industry": "",
@@ -14136,6 +14616,17 @@
     "sector": "Financial Services",
     "ticker": "WRB"
   },
+  "084656107": {
+    "displaySymbol": "BERKSH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BERKSHIRE GREY INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:084656107",
+    "unpriced": true
+  },
   "084670108": {
     "industry": "Insurance\u2014Diversified",
     "isNonStockEtf": false,
@@ -14224,6 +14715,17 @@
     "name": "ASML Holding N.V.",
     "sector": "Technology",
     "ticker": "ASML"
+  },
+  "086344108": {
+    "displaySymbol": "BESPOK",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BESPOKE CAP ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:086344108",
+    "unpriced": true
   },
   "086366E10": {
     "industry": "Biotechnology",
@@ -14726,6 +15228,17 @@
     "sector": "Industrials",
     "ticker": "BKYI"
   },
+  "09060J106": {
+    "displaySymbol": "BIODEL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BIODELIVERY SCIENCES INTL IN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:09060J106",
+    "unpriced": true
+  },
   "09060U507": {
     "industry": "Biotechnology",
     "isNonStockEtf": false,
@@ -15095,6 +15608,14 @@
     "sector": "Healthcare",
     "ticker": "BIOA"
   },
+  "090781810": {
+    "industry": "Railroads",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Union Pacific Corporation",
+    "sector": "Industrials",
+    "ticker": "UNP"
+  },
   "090911207": {
     "industry": "Medical Devices",
     "isNonStockEtf": false,
@@ -15175,6 +15696,17 @@
     "name": "BitFrontier Capital Holdings, Inc.",
     "sector": "Consumer Defensive",
     "ticker": "BFCH"
+  },
+  "09174P105": {
+    "displaySymbol": "BITCOI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Bitcoin Depot,Inc.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:09174P105",
+    "unpriced": true
   },
   "09175A206": {
     "industry": "Capital Markets",
@@ -15651,6 +16183,14 @@
     "sector": "Other",
     "ticker": "INMU"
   },
+  "092528405": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "iShares Floating Rate Loan Active ETF",
+    "sector": "Other",
+    "ticker": "BRLN"
+  },
   "092528504": {
     "industry": "",
     "isNonStockEtf": true,
@@ -15866,6 +16406,17 @@
     "sector": "Financial Services",
     "ticker": "MQY"
   },
+  "09254P108": {
+    "displaySymbol": "BLACKR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BLACKROCK MUNIHLDS INVSTM QL",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:09254P108",
+    "unpriced": true
+  },
   "09254V105": {
     "industry": "Asset Management",
     "isNonStockEtf": false,
@@ -15900,6 +16451,14 @@
     "name": "BlackRock MuniYield New York Quality Fund, Inc.",
     "sector": "Financial Services",
     "ticker": "MYN"
+  },
+  "09255G107": {
+    "industry": "Asset Management",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BlackRock MuniYield Pennsylvania Quality Fund",
+    "sector": "Financial Services",
+    "ticker": "MPA"
   },
   "09255P107": {
     "industry": "Asset Management",
@@ -17202,6 +17761,17 @@
     "sector": "Industrials",
     "ticker": "BOC"
   },
+  "101119105": {
+    "displaySymbol": "BOSTON",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BOSTON PRIVATE FINL HLDGS IN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:101119105",
+    "unpriced": true
+  },
   "101121101": {
     "industry": "REIT\u2014Office",
     "isNonStockEtf": false,
@@ -17341,6 +17911,17 @@
     "name": "Box, Inc.",
     "sector": "Technology",
     "ticker": "BOX"
+  },
+  "103174108": {
+    "displaySymbol": "BOXEDI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BOXED INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:103174108",
+    "unpriced": true
   },
   "103197109": {
     "industry": "Consumer Electronics",
@@ -18013,6 +18594,28 @@
     "name": "Brookdale Senior Living Inc.",
     "sector": "Healthcare",
     "ticker": "BKD"
+  },
+  "112463302": {
+    "displaySymbol": "BROOKD",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BROOKDALE SR LIVING INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:112463302",
+    "unpriced": true
+  },
+  "112463AC8": {
+    "displaySymbol": "BROOKD",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BROOKDALE SR LIVING INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:112463AC8",
+    "unpriced": true
   },
   "112585104": {
     "industry": "Asset Management",
@@ -18718,6 +19321,17 @@
     "ticker": "CUSIP:12521H107",
     "unpriced": true
   },
+  "12521J103": {
+    "displaySymbol": "CFACQU",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CF ACQUISITION CORP VI",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:12521J103",
+    "unpriced": true
+  },
   "125269100": {
     "industry": "Agricultural Inputs",
     "isNonStockEtf": false,
@@ -18725,6 +19339,17 @@
     "name": "CF Industries Holdings, Inc.",
     "sector": "Basic Materials",
     "ticker": "CF"
+  },
+  "12529D108": {
+    "displaySymbol": "CFFINA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CF FIN ACQUISITION CORP III",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:12529D108",
+    "unpriced": true
   },
   "12529R107": {
     "industry": "Biotechnology",
@@ -18900,6 +19525,28 @@
     "sector": "Communication Services",
     "ticker": "CMGO"
   },
+  "125841106": {
+    "displaySymbol": "CMLIFE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CM LIFE SCIENCES III INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:125841106",
+    "unpriced": true
+  },
+  "125841205": {
+    "displaySymbol": "CMLIFE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CM LIFE SCIENCES III INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:125841205",
+    "unpriced": true
+  },
   "125842104": {
     "displaySymbol": "CMLIFE",
     "industry": "",
@@ -18909,6 +19556,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:125842104",
+    "unpriced": true
+  },
+  "125842203": {
+    "displaySymbol": "CMLIFE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CM Life Sciences II Inc",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:125842203",
     "unpriced": true
   },
   "125896100": {
@@ -19017,6 +19675,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:126349AF6",
+    "unpriced": true
+  },
+  "126349AH2": {
+    "displaySymbol": "CSGSYS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CSG SYS INTL INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:126349AH2",
     "unpriced": true
   },
   "12634H200": {
@@ -19440,12 +20109,28 @@
     "sector": "Other",
     "ticker": "CAIE"
   },
+  "12811T704": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Calamos S&P 500 Structured Alt Protection ETF - August",
+    "sector": "Other",
+    "ticker": "CPSA"
+  },
   "12811T720": {
     "industry": "",
     "isTechTmt": false,
     "name": "Calamos Bitcoin 80 Series Structured Alt Protection ETF - January",
     "sector": "Other",
     "ticker": "CBTJ"
+  },
+  "12811T738": {
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Calamos Laddered S&P 500 Struct",
+    "sector": "Other",
+    "ticker": "CPSL"
   },
   "12811T761": {
     "industry": "",
@@ -19484,6 +20169,22 @@
     "name": "Calamos Nasdaq-100 Structured Alt Protection ETF - March",
     "sector": "Other",
     "ticker": "CPNM"
+  },
+  "12811T852": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Calamos Nasdaq-100 Structured Alt Protection ETF - December",
+    "sector": "Other",
+    "ticker": "CPNQ"
+  },
+  "12811T878": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Calamos Nasdaq-100 Structured Alt Protection ETF - June",
+    "sector": "Other",
+    "ticker": "CPNJ"
   },
   "12811V105": {
     "industry": "Asset Management",
@@ -20791,6 +21492,17 @@
     "sector": "Industrials",
     "ticker": "CARR"
   },
+  "14574X104": {
+    "displaySymbol": "CARROL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CARROLS RESTAURANT GROUP INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:14574X104",
+    "unpriced": true
+  },
   "14575E105": {
     "industry": "Internet Content & Information",
     "isNonStockEtf": false,
@@ -20869,6 +21581,17 @@
     "sector": "Other",
     "ticker": "CAS"
   },
+  "14739D100": {
+    "displaySymbol": "CASCAD",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Cascadia Acquisition Corp",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:14739D100",
+    "unpriced": true
+  },
   "147448104": {
     "industry": "Waste Management",
     "isNonStockEtf": false,
@@ -20908,6 +21631,17 @@
     "name": "Las Vegas Sands Corp.",
     "sector": "Consumer Cyclical",
     "ticker": "LVS"
+  },
+  "147626105": {
+    "displaySymbol": "CASPER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Casper Sleep Inc",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:147626105",
+    "unpriced": true
   },
   "14808P109": {
     "industry": "Specialty Business Services",
@@ -21020,6 +21754,17 @@
     "name": "Caterpillar Inc.",
     "sector": "Industrials",
     "ticker": "CAT"
+  },
+  "14912Y202": {
+    "displaySymbol": "CATCHM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CATCHMARK TIMBER TR INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:14912Y202",
+    "unpriced": true
   },
   "149150104": {
     "industry": "Banks\u2014Regional",
@@ -21700,6 +22445,17 @@
     "sector": "Healthcare",
     "ticker": "IPSC"
   },
+  "15673X200": {
+    "displaySymbol": "CEPTON",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CEPTON INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:15673X200",
+    "unpriced": true
+  },
   "15674D103": {
     "industry": "Semiconductors",
     "isNonStockEtf": false,
@@ -21747,6 +22503,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:15677J108",
+    "unpriced": true
+  },
+  "15677JAD0": {
+    "displaySymbol": "CERIDI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CERIDIAN HCM HLDG INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:15677JAD0",
     "unpriced": true
   },
   "156782104": {
@@ -22324,6 +23091,17 @@
     "sector": "Financial Services",
     "ticker": "CICHY"
   },
+  "16934Q208": {
+    "displaySymbol": "CHIMER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CHIMERA INVT CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:16934Q208",
+    "unpriced": true
+  },
   "16934Q802": {
     "industry": "REIT\u2014Mortgage",
     "isNonStockEtf": false,
@@ -22362,6 +23140,17 @@
     "name": "China Life Insurance Company Limited",
     "sector": "Financial Services",
     "ticker": "CILJF"
+  },
+  "16941M109": {
+    "displaySymbol": "CHINAM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CHINA MOBILE LIMITED",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:16941M109",
+    "unpriced": true
   },
   "16941R108": {
     "industry": "Oil & Gas Integrated",
@@ -22575,6 +23364,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:17143W101",
+    "unpriced": true
+  },
+  "17143W200": {
+    "displaySymbol": "CHURCH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CHURCHILL CAPITAL CORP VI",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:17143W200",
     "unpriced": true
   },
   "17144M102": {
@@ -23624,6 +24424,17 @@
     "ticker": "CUSIP:18978W109",
     "unpriced": true
   },
+  "18978W208": {
+    "displaySymbol": "CMLIFE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CM LIFE SCIENCES INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:18978W208",
+    "unpriced": true
+  },
   "190435107": {
     "industry": "Banks\u2014Regional",
     "isTechTmt": false,
@@ -23692,6 +24503,17 @@
     "name": "Coda Octopus Group, Inc.",
     "sector": "Industrials",
     "ticker": "CODA"
+  },
+  "192003101": {
+    "displaySymbol": "CODEXD",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CODEX DNA INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:192003101",
+    "unpriced": true
   },
   "192005106": {
     "industry": "Biotechnology",
@@ -24100,6 +24922,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:194170106",
+    "unpriced": true
+  },
+  "19421R200": {
+    "displaySymbol": "COLLEC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "COLLECTORS UNIVERSE INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:19421R200",
     "unpriced": true
   },
   "19423L540": {
@@ -24728,6 +25561,17 @@
     "sector": "Industrials",
     "ticker": "GPGI"
   },
+  "20459V113": {
+    "displaySymbol": "COMPOS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "COMPOSECURE INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:20459V113",
+    "unpriced": true
+  },
   "20460L104": {
     "industry": "Solar",
     "isNonStockEtf": false,
@@ -24874,6 +25718,17 @@
     "name": "Conagra Brands, Inc.",
     "sector": "Consumer Defensive",
     "ticker": "CAG"
+  },
+  "206022105": {
+    "displaySymbol": "CONCER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Concert Pharmaceuticals, Inc.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:206022105",
+    "unpriced": true
   },
   "20602D101": {
     "industry": "Information Technology Services",
@@ -25692,6 +26547,28 @@
     "ticker": "CUSIP:21873SAD0",
     "unpriced": true
   },
+  "21873SAH1": {
+    "displaySymbol": "CRWV13",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CRWV 1 3/4 10/01/32",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:21873SAH1",
+    "unpriced": true
+  },
+  "21873SAL2": {
+    "displaySymbol": "CRWV27",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CRWV 2 7/8 04/01/33",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:21873SAL2",
+    "unpriced": true
+  },
   "21874A106": {
     "industry": "Software\u2014Infrastructure",
     "isNonStockEtf": false,
@@ -26146,6 +27023,17 @@
     "sector": "Consumer Cyclical",
     "ticker": "CBRL"
   },
+  "22410JAB2": {
+    "displaySymbol": "CRACKE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CRACKER BARREL OLD CTRY STOR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:22410JAB2",
+    "unpriced": true
+  },
   "22410JAD8": {
     "industry": "Restaurants",
     "isNonStockEtf": false,
@@ -26283,6 +27171,17 @@
     "name": "UBS ETRACS Crude Oil Shares Covered Call ETN",
     "sector": "Other",
     "ticker": "USOI"
+  },
+  "225401108": {
+    "displaySymbol": "CREDIT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CREDIT SUISSE GROUP SPONSORED ADR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:225401108",
+    "unpriced": true
   },
   "22542D225": {
     "industry": "",
@@ -26903,6 +27802,17 @@
     "name": "CXApp Inc.",
     "sector": "Technology",
     "ticker": "CXAI"
+  },
+  "23248VAB1": {
+    "displaySymbol": "CYBERA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CYBERARK SOFTWARE LTD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:23248VAB1",
+    "unpriced": true
   },
   "23248VAD7": {
     "displaySymbol": "CYBERA",
@@ -27539,6 +28449,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:23344K102",
+    "unpriced": true
+  },
+  "23344K201": {
+    "displaySymbol": "DMYTEC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DMY TECHNOLOGY GROUP INC IV",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:23344K201",
     "unpriced": true
   },
   "23344P101": {
@@ -28400,6 +29321,17 @@
     "ticker": "CUSIP:25058X105",
     "unpriced": true
   },
+  "25058X303": {
+    "displaySymbol": "DESKTO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Desktop Metal Inc",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:25058X303",
+    "unpriced": true
+  },
   "250639101": {
     "industry": "Electronic Components",
     "isTechTmt": true,
@@ -28810,6 +29742,28 @@
     "name": "Digital Turbine, Inc.",
     "sector": "Technology",
     "ticker": "APPS"
+  },
+  "25401G106": {
+    "displaySymbol": "DIGITA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DIGITAL MEDIA SOLUTIONS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:25401G106",
+    "unpriced": true
+  },
+  "25401K107": {
+    "displaySymbol": "DIGITA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DIGITAL TRANSFORMATN OPT COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:25401K107",
+    "unpriced": true
   },
   "25401N101": {
     "industry": "Apparel Retail",
@@ -30071,6 +31025,17 @@
     "ticker": "CUSIP:25470MAD1",
     "unpriced": true
   },
+  "25470MAF6": {
+    "displaySymbol": "DISHNE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DISH NETWORK CORPORATION",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:25470MAF6",
+    "unpriced": true
+  },
   "25490H106": {
     "industry": "Engineering & Construction",
     "isNonStockEtf": false,
@@ -30319,6 +31284,17 @@
     "sector": "Technology",
     "ticker": "HUCK"
   },
+  "257559203": {
+    "displaySymbol": "DOMTAR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DOMTAR CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:257559203",
+    "unpriced": true
+  },
   "257651109": {
     "industry": "Specialty Industrial Machinery",
     "isNonStockEtf": false,
@@ -30334,6 +31310,17 @@
     "name": "Donegal Group Inc.",
     "sector": "Financial Services",
     "ticker": "DGICA"
+  },
+  "257867200": {
+    "displaySymbol": "RRDONN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "RR DONNELLEY AND SONS ORD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:257867200",
+    "unpriced": true
   },
   "25787G100": {
     "industry": "Software\u2014Application",
@@ -31012,6 +31999,14 @@
     "sector": "Technology",
     "ticker": "DZSIQ"
   },
+  "26824D506": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Towle Small-Cap Value ETF",
+    "sector": "Other",
+    "ticker": "TCV"
+  },
   "26824D795": {
     "industry": "",
     "isNonStockEtf": true,
@@ -31366,6 +32361,14 @@
     "sector": "Other",
     "ticker": "VUSE"
   },
+  "26922A511": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Vident U.S. Diversified Real Estate ETF",
+    "sector": "Other",
+    "ticker": "PPTY"
+  },
   "26922A537": {
     "industry": "",
     "isTechTmt": false,
@@ -31523,6 +32526,7 @@
   },
   "26922B832": {
     "industry": "",
+    "isNonStockEtf": true,
     "isTechTmt": false,
     "name": "Bahl & Gaynor Small/Mid Cap Income Growth ETF",
     "sector": "Other",
@@ -32015,6 +33019,17 @@
     "ticker": "CUSIP:27032D304",
     "unpriced": true
   },
+  "274681105": {
+    "displaySymbol": "EASTRE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "East Resources Acquisition Co",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:274681105",
+    "unpriced": true
+  },
   "27579R104": {
     "industry": "Banks\u2014Regional",
     "isNonStockEtf": false,
@@ -32396,6 +33411,14 @@
     "sector": "Basic Materials",
     "ticker": "ECL"
   },
+  "278871300": {
+    "industry": "Farm Products",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Bunge Global SA",
+    "sector": "Consumer Defensive",
+    "ticker": "BG"
+  },
   "27888N307": {
     "displaySymbol": "ECOARK",
     "industry": "",
@@ -32597,6 +33620,17 @@
     "ticker": "CUSIP:282410000",
     "unpriced": true
   },
+  "28249U105": {
+    "displaySymbol": "EIGERB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "EIGER BIOPHARMACEUTICALS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:28249U105",
+    "unpriced": true
+  },
   "28250A105": {
     "displaySymbol": "8905TH",
     "industry": "",
@@ -32606,6 +33640,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:28250A105",
+    "unpriced": true
+  },
+  "28252C109": {
+    "displaySymbol": "1847GO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "1847 Goedeker, Inc.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:28252C109",
     "unpriced": true
   },
   "28252C117": {
@@ -32892,6 +33937,17 @@
     "sector": "Industrials",
     "ticker": "ELMT"
   },
+  "289660102": {
+    "displaySymbol": "ELMIRA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ELMIRA SAVINGS BANK",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:289660102",
+    "unpriced": true
+  },
   "29014R103": {
     "industry": "Biotechnology",
     "isNonStockEtf": false,
@@ -33106,6 +34162,17 @@
     "sector": "Utilities",
     "ticker": "EDN"
   },
+  "29248N100": {
+    "displaySymbol": "EMPOWE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "EMPOWERMENT & INCLUSION CAPI",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:29248N100",
+    "unpriced": true
+  },
   "29248N209": {
     "displaySymbol": "EMPOWE",
     "industry": "",
@@ -33132,6 +34199,17 @@
     "name": "Enbridge Inc.",
     "sector": "Energy",
     "ticker": "ENB"
+  },
+  "29250N477": {
+    "displaySymbol": "ENBRID",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Enbridge Inc 6.375 Snt18 B 78",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:29250N477",
+    "unpriced": true
   },
   "29251M106": {
     "industry": "Biotechnology",
@@ -33759,6 +34837,17 @@
     "sector": "Consumer Cyclical",
     "ticker": "GMVHY"
   },
+  "293614103": {
+    "displaySymbol": "ENTASI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ENTASIS THERAPEUTICS HOLDINGS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:293614103",
+    "unpriced": true
+  },
   "29362U104": {
     "industry": "Semiconductor Equipment & Materials",
     "isNonStockEtf": false,
@@ -33923,6 +35012,17 @@
     "name": "EPAM Systems, Inc.",
     "sector": "Technology",
     "ticker": "EPAM"
+  },
+  "29414J107": {
+    "displaySymbol": "ENVIVA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ENVIVA PARTNERS LP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:29414J107",
+    "unpriced": true
   },
   "29415B103": {
     "displaySymbol": "ENVIVA",
@@ -34730,6 +35830,17 @@
     "sector": "Energy",
     "ticker": "EPM"
   },
+  "30049G104": {
+    "displaySymbol": "EVOKEP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "EVOKE PHARMA INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:30049G104",
+    "unpriced": true
+  },
   "30049H102": {
     "industry": "Security & Protection Services",
     "isNonStockEtf": false,
@@ -34883,6 +35994,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:30063PAB1",
+    "unpriced": true
+  },
+  "30063PAC9": {
+    "displaySymbol": "EXACTS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "EXACT SCIENCES CORP 0.375 03/01/2028",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:30063PAC9",
     "unpriced": true
   },
   "30066G110": {
@@ -35137,6 +36259,17 @@
     "sector": "Energy",
     "ticker": "GRNT"
   },
+  "30158L209": {
+    "displaySymbol": "EXECUT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "EXECUTIVE NETWORK PARTNERING C",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:30158L209",
+    "unpriced": true
+  },
   "30161N101": {
     "industry": "Utilities\u2014Regulated Electric",
     "isNonStockEtf": false,
@@ -35282,6 +36415,17 @@
     "name": "Experian plc",
     "sector": "Industrials",
     "ticker": "EXPGY"
+  },
+  "30217C109": {
+    "displaySymbol": "EXPERI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "EXPERIENCE INVT CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:30217C109",
+    "unpriced": true
   },
   "30217C208": {
     "displaySymbol": "EXPERI",
@@ -35776,6 +36920,17 @@
     "sector": "Utilities",
     "ticker": "AWK"
   },
+  "30606L108": {
+    "displaySymbol": "FALCON",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FALCON CAPITAL ACQUISITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:30606L108",
+    "unpriced": true
+  },
   "30609A109": {
     "industry": "Oil & Gas Midstream",
     "isNonStockEtf": false,
@@ -35856,6 +37011,17 @@
     "name": "Farfetch Limited",
     "sector": "Consumer Cyclical",
     "ticker": "FTCHQ"
+  },
+  "307675108": {
+    "displaySymbol": "FARMER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FARMER BROS CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:307675108",
+    "unpriced": true
   },
   "307795104": {
     "industry": "Banks\u2014Regional",
@@ -35976,6 +37142,17 @@
     "name": "Fathom Holdings Inc.",
     "sector": "Real Estate",
     "ticker": "FTHM"
+  },
+  "31189Y103": {
+    "displaySymbol": "FATHOM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Fathom Digital Manufacturing C",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:31189Y103",
+    "unpriced": true
   },
   "311900104": {
     "industry": "Industrial Distribution",
@@ -36264,6 +37441,17 @@
     "name": "Fermi Inc.",
     "sector": "Real Estate",
     "ticker": "FRMI"
+  },
+  "314911AA6": {
+    "displaySymbol": "FRMI50",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FRMI 5 07/15/31",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:314911AA6",
+    "unpriced": true
   },
   "315293100": {
     "industry": "Oil & Gas Refining & Marketing",
@@ -37142,6 +38330,17 @@
     "sector": "Financial Services",
     "ticker": "FDUS"
   },
+  "31660B101": {
+    "displaySymbol": "FIESTA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FIESTA RESTAURANT GROUP INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:31660B101",
+    "unpriced": true
+  },
   "316773100": {
     "industry": "Banks\u2014Regional",
     "isNonStockEtf": false,
@@ -37336,6 +38535,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:31811H106",
+    "unpriced": true
+  },
+  "31811H205": {
+    "displaySymbol": "FINTEC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FINTECH ACQUISITION CORP VI",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:31811H205",
     "unpriced": true
   },
   "31812F109": {
@@ -38660,6 +39870,22 @@
     "sector": "Other",
     "ticker": "ROBT"
   },
+  "33738R738": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "First Trust S&P 500 Diversified Dividend Aristocrats ETF",
+    "sector": "Other",
+    "ticker": "KNGZ"
+  },
+  "33738R746": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "First Trust SMID Growth Strengt",
+    "sector": "Other",
+    "ticker": "FSGS"
+  },
   "33738R753": {
     "industry": "",
     "isNonStockEtf": true,
@@ -38683,6 +39909,17 @@
     "sector": "Other",
     "ticker": "RNEM"
   },
+  "33738R787": {
+    "displaySymbol": "FIRSTT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "First Trust Developed Int'l ET",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:33738R787",
+    "unpriced": true
+  },
   "33738R795": {
     "industry": "",
     "isNonStockEtf": true,
@@ -38705,6 +39942,14 @@
     "name": "First Trust S-Network Global E-Commerce ETF",
     "sector": "Other",
     "ticker": "ISHP"
+  },
+  "33738R837": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "First Trust Nasdaq Pharmaceuticals ETF",
+    "sector": "Other",
+    "ticker": "FTXH"
   },
   "33738R845": {
     "industry": "",
@@ -39701,6 +40946,17 @@
     "sector": "Utilities",
     "ticker": "FE"
   },
+  "33812L102": {
+    "displaySymbol": "FITBIT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Fitbit Inc",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:33812L102",
+    "unpriced": true
+  },
   "33813J106": {
     "displaySymbol": "FISKER",
     "industry": "",
@@ -39878,6 +41134,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:33850F108",
+    "unpriced": true
+  },
+  "33850F207": {
+    "displaySymbol": "FLAMEA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FLAME ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:33850F207",
     "unpriced": true
   },
   "338517105": {
@@ -40231,6 +41498,17 @@
     "sector": "Healthcare",
     "ticker": "LAB"
   },
+  "343873105": {
+    "displaySymbol": "FLUSHI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FLUSHING FINL CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:343873105",
+    "unpriced": true
+  },
   "343927307": {
     "industry": "Auto Manufacturers",
     "isTechTmt": false,
@@ -40253,6 +41531,17 @@
     "name": "flyExclusive, Inc.",
     "sector": "Industrials",
     "ticker": "FLYX"
+  },
+  "344044102": {
+    "displaySymbol": "FLUTTE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Flutter Entertainment Funspons",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:344044102",
+    "unpriced": true
   },
   "344057302": {
     "industry": "Electrical Equipment & Parts",
@@ -40359,6 +41648,17 @@
     "sector": "Financial Services",
     "ticker": "FRBT"
   },
+  "345370845": {
+    "displaySymbol": "FORDMT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Ford Mtr 6.20 Pfd Due 06/01/20",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:345370845",
+    "unpriced": true
+  },
   "345370860": {
     "industry": "Auto Manufacturers",
     "isNonStockEtf": false,
@@ -40408,6 +41708,28 @@
     "name": "Foresight Autonomous Holdings Ltd.",
     "sector": "Consumer Cyclical",
     "ticker": "FRSX"
+  },
+  "34552Y106": {
+    "displaySymbol": "FORESI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FORESIGHT ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:34552Y106",
+    "unpriced": true
+  },
+  "34619R102": {
+    "displaySymbol": "FOREST",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Forest Road Acquisition Corp.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:34619R102",
+    "unpriced": true
   },
   "34619V103": {
     "displaySymbol": "FOREST",
@@ -40800,6 +42122,17 @@
     "sector": "Industrials",
     "ticker": "FWRD"
   },
+  "349875104": {
+    "displaySymbol": "FORUMM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FORUM MERGER IV CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:349875104",
+    "unpriced": true
+  },
   "34988V106": {
     "industry": "Footwear & Accessories",
     "isNonStockEtf": false,
@@ -40815,6 +42148,17 @@
     "name": "Fortuna Mining Corp.",
     "sector": "Basic Materials",
     "ticker": "FSM"
+  },
+  "349915AE8": {
+    "displaySymbol": "FORTUN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FORTUNA MNG CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:349915AE8",
+    "unpriced": true
   },
   "349932103": {
     "industry": "Asset Management",
@@ -41559,6 +42903,17 @@
     "sector": "Industrials",
     "ticker": "FCEL"
   },
+  "35952V303": {
+    "displaySymbol": "FSKKRC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FS KKR CAP CORP II",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:35952V303",
+    "unpriced": true
+  },
   "35953C106": {
     "industry": "Conglomerates",
     "isNonStockEtf": false,
@@ -41790,6 +43145,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:36118N102",
+    "unpriced": true
+  },
+  "36118N201": {
+    "displaySymbol": "FUSION",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FUSION ACQUISITION CORP II",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:36118N201",
     "unpriced": true
   },
   "36118R103": {
@@ -42074,6 +43440,28 @@
     "name": "Chi Special Acquisition Corp.",
     "sector": "Financial Services",
     "ticker": "GDST"
+  },
+  "3621LQ109": {
+    "displaySymbol": "G1THER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "G1 THERAPEUTICS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:3621LQ109",
+    "unpriced": true
+  },
+  "362270100": {
+    "displaySymbol": "GOLDMA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Goldman Sachs Activebeta EME E",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:362270100",
+    "unpriced": true
   },
   "36227K106": {
     "displaySymbol": "GSESYS",
@@ -42366,6 +43754,17 @@
     "name": "Galectin Therapeutics Inc.",
     "sector": "Healthcare",
     "ticker": "GALT"
+  },
+  "36322Q107": {
+    "displaySymbol": "GALECT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GALECTO INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:36322Q107",
+    "unpriced": true
   },
   "36322Q206": {
     "industry": "Biotechnology",
@@ -42873,6 +44272,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:37186H100",
+    "unpriced": true
+  },
+  "37187C100": {
+    "displaySymbol": "GENESI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GENESIS UNICORN CAPITAL CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:37187C100",
     "unpriced": true
   },
   "371901109": {
@@ -43393,6 +44803,17 @@
     "name": "Apple Inc.",
     "sector": "Technology",
     "ticker": "AAPL"
+  },
+  "378579205": {
+    "displaySymbol": "GLENFA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GLENFARNE MERGER CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:378579205",
+    "unpriced": true
   },
   "37890B100": {
     "displaySymbol": "GLOBAL",
@@ -44215,6 +45636,17 @@
     "sector": "Technology",
     "ticker": "GDDY"
   },
+  "38045R206": {
+    "displaySymbol": "GOLLIN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GOL LINHAS AEREAS INTELIGENT",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:38045R206",
+    "unpriced": true
+  },
   "38045Y102": {
     "industry": "Other Precious Metals & Mining",
     "isTechTmt": false,
@@ -44349,6 +45781,17 @@
     "name": "Golden Minerals Company",
     "sector": "Basic Materials",
     "ticker": "AUMN"
+  },
+  "38113L107": {
+    "displaySymbol": "GOLDEN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Golden Nugget Online Gamin Com",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:38113L107",
+    "unpriced": true
   },
   "38136Y102": {
     "industry": "Shell Companies",
@@ -44564,6 +46007,17 @@
     "sector": "Financial Services",
     "ticker": "GS"
   },
+  "38144X609": {
+    "displaySymbol": "GOLDMA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Goldman Sachs C pfd",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:38144X609",
+    "unpriced": true
+  },
   "38147N293": {
     "industry": "",
     "isNonStockEtf": true,
@@ -44638,6 +46092,14 @@
     "sector": "Other",
     "ticker": "GMUB"
   },
+  "38149W556": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Goldman Sachs Dynamic New York Municipal Income ETF",
+    "sector": "Other",
+    "ticker": "GMNY"
+  },
   "38149W564": {
     "industry": "",
     "isNonStockEtf": true,
@@ -44676,6 +46138,17 @@
     "name": "Goldman Sachs ActiveBeta World ",
     "sector": "Other",
     "ticker": "GSWO"
+  },
+  "38149W762": {
+    "displaySymbol": "GOLDMA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GOLDMAN SACHS FUTURE REAL ESTATE AND INFRASTRUCTURE EQUITY ETF",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:38149W762",
+    "unpriced": true
   },
   "38149W812": {
     "industry": "",
@@ -44843,6 +46316,17 @@
     "ticker": "CUSIP:38286T101",
     "unpriced": true
   },
+  "38286T200": {
+    "displaySymbol": "GORESH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GORES HOLDINGS VII INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:38286T200",
+    "unpriced": true
+  },
   "382870103": {
     "displaySymbol": "GOREST",
     "industry": "",
@@ -44852,6 +46336,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:382870103",
+    "unpriced": true
+  },
+  "382870202": {
+    "displaySymbol": "GOREST",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GORES TECHNOLOGY PARTNERS IN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:382870202",
     "unpriced": true
   },
   "382873107": {
@@ -44905,6 +46400,17 @@
     "name": "Gorilla Technology Group Inc.",
     "sector": "Technology",
     "ticker": "GRRR"
+  },
+  "38305QAB0": {
+    "displaySymbol": "GRRR71",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GRRR 7 1/2 06/15/31 B",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:38305QAB0",
+    "unpriced": true
   },
   "383082104": {
     "industry": "Specialty Industrial Machinery",
@@ -45463,6 +46969,17 @@
     "sector": "Financial Services",
     "ticker": "GSBC"
   },
+  "39115V101": {
+    "displaySymbol": "GREATP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GREAT PANTHER MNG LTD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:39115V101",
+    "unpriced": true
+  },
   "392709101": {
     "industry": "Residential Construction",
     "isNonStockEtf": false,
@@ -45550,6 +47067,28 @@
     "name": "The Greenbrier Companies, Inc.",
     "sector": "Industrials",
     "ticker": "GBX"
+  },
+  "39366L208": {
+    "displaySymbol": "GREENB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GREENBOX POS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:39366L208",
+    "unpriced": true
+  },
+  "393704101": {
+    "displaySymbol": "GREENB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Greenbrook TMS, Inc. (Canada)",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:393704101",
+    "unpriced": true
   },
   "393704309": {
     "displaySymbol": "GREENB",
@@ -46394,6 +47933,17 @@
     "sector": "Healthcare",
     "ticker": "HAE"
   },
+  "405024AB6": {
+    "displaySymbol": "HAEMON",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "HAEMONETICS CORP MASS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:405024AB6",
+    "unpriced": true
+  },
   "405024AD2": {
     "displaySymbol": "HAEMON",
     "industry": "",
@@ -46670,6 +48220,17 @@
     "sector": "Technology",
     "ticker": "GWRE"
   },
+  "41150T108": {
+    "displaySymbol": "HARBOR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "HARBOR CUSTOM DEVELOPMENT IN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:41150T108",
+    "unpriced": true
+  },
   "41151J109": {
     "industry": "",
     "isNonStockEtf": true,
@@ -46722,6 +48283,14 @@
     "name": "Harbor PanAgora Dynamic Large Cap Core ETF",
     "sector": "Other",
     "ticker": "INFO"
+  },
+  "41151J752": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Harbor Active Small Cap ETF",
+    "sector": "Other",
+    "ticker": "SMLL"
   },
   "41151J778": {
     "industry": "",
@@ -47443,6 +49012,17 @@
     "sector": "Industrials",
     "ticker": "HOS"
   },
+  "42330PAK3": {
+    "displaySymbol": "HELIXE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "HELIX ENERGY SOLUTIONS GRP I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:42330PAK3",
+    "unpriced": true
+  },
   "423403104": {
     "industry": "Internet Content & Information",
     "isNonStockEtf": false,
@@ -47798,6 +49378,17 @@
     "name": "Hess Midstream LP",
     "sector": "Energy",
     "ticker": "HESM"
+  },
+  "428236103": {
+    "displaySymbol": "HPINC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "HP INC.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:428236103",
+    "unpriced": true
   },
   "42824C109": {
     "industry": "Communication Equipment",
@@ -48796,6 +50387,17 @@
     "sector": "Financial Services",
     "ticker": "HUT"
   },
+  "44812T102": {
+    "displaySymbol": "HUT8MN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "HUT 8 MNG CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:44812T102",
+    "unpriced": true
+  },
   "44842L103": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
     "isNonStockEtf": false,
@@ -48803,6 +50405,17 @@
     "name": "HUTCHMED (China) Limited",
     "sector": "Healthcare",
     "ticker": "HCM"
+  },
+  "448451104": {
+    "displaySymbol": "HUTTIG",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "HUTTIG BLDG PRODS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:448451104",
+    "unpriced": true
   },
   "44852D108": {
     "industry": "Entertainment",
@@ -49342,6 +50955,17 @@
     "sector": "Technology",
     "ticker": "AMBR"
   },
+  "45114M109": {
+    "displaySymbol": "ICOSAV",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ICOSAVAX INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45114M109",
+    "unpriced": true
+  },
   "451622203": {
     "industry": "Semiconductors",
     "isNonStockEtf": false,
@@ -49542,6 +51166,17 @@
     "name": "ImmunityBio, Inc.",
     "sector": "Healthcare",
     "ticker": "IBRX"
+  },
+  "45257F200": {
+    "displaySymbol": "IMMUNO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Immunoprecise Antibodies, Ltd.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45257F200",
+    "unpriced": true
   },
   "45257L108": {
     "industry": "Biotechnology",
@@ -49951,6 +51586,47 @@
     "sector": "Other",
     "ticker": "LRND"
   },
+  "45409B289": {
+    "displaySymbol": "INDEXI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INDEXIQ ETF TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45409B289",
+    "unpriced": true
+  },
+  "45409B297": {
+    "displaySymbol": "INDEXI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INDEXIQ ETF TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45409B297",
+    "unpriced": true
+  },
+  "45409B313": {
+    "displaySymbol": "INDEXI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INDEXIQ ETF TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45409B313",
+    "unpriced": true
+  },
+  "45409B453": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "NYLI Candriam International Equity ETF",
+    "sector": "Other",
+    "ticker": "IQSI"
+  },
   "45409B461": {
     "industry": "",
     "isNonStockEtf": true,
@@ -49998,6 +51674,17 @@
     "name": "NYLIM MacKay Core Plus Bond ETF",
     "sector": "Other",
     "ticker": "CPLB"
+  },
+  "45409F819": {
+    "displaySymbol": "IQULTR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "IQ ULTRA SHORT DURATION ETF",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45409F819",
+    "unpriced": true
   },
   "45409F827": {
     "industry": "",
@@ -50116,6 +51803,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:45667G103",
+    "unpriced": true
+  },
+  "45667GAC7": {
+    "displaySymbol": "INFINE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INFINERA CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45667GAC7",
     "unpriced": true
   },
   "45667GAE3": {
@@ -50603,6 +52301,17 @@
     "sector": "Real Estate",
     "ticker": "IIPR"
   },
+  "45781W109": {
+    "displaySymbol": "INSIGH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INSIGHT SELECT INCOME FD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45781W109",
+    "unpriced": true
+  },
   "45782B104": {
     "industry": "Communication Equipment",
     "isNonStockEtf": false,
@@ -51065,6 +52774,17 @@
     "name": "Innovator S&P Investment Grade Preferred ETF",
     "sector": "Other",
     "ticker": "EPRF"
+  },
+  "45783Q100": {
+    "displaySymbol": "INOTIV",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INOTIV INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45783Q100",
+    "unpriced": true
   },
   "45783Y103": {
     "industry": "",
@@ -51626,6 +53346,17 @@
     "sector": "Healthcare",
     "ticker": "PODD"
   },
+  "45790W108": {
+    "displaySymbol": "INOZYM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INOZYME PHARMA INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45790W108",
+    "unpriced": true
+  },
   "457919108": {
     "industry": "REIT\u2014Hotel & Motel",
     "isTechTmt": false,
@@ -51648,6 +53379,17 @@
     "name": "Integra LifeSciences Holdings Corporation",
     "sector": "Healthcare",
     "ticker": "IART"
+  },
+  "457985AM1": {
+    "displaySymbol": "INTEGR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INTEGRA LIFESCIENCES HLDGS C",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:457985AM1",
+    "unpriced": true
   },
   "458110100": {
     "industry": "Semiconductors",
@@ -51803,6 +53545,17 @@
     "name": "Intapp, Inc.",
     "sector": "Technology",
     "ticker": "INTA"
+  },
+  "45828D106": {
+    "displaySymbol": "INTELL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INTELLIGENT MEDI ACQSITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:45828D106",
+    "unpriced": true
   },
   "45828E104": {
     "industry": "Computer Hardware",
@@ -52047,6 +53800,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:46064T102",
+    "unpriced": true
+  },
+  "46064T201": {
+    "displaySymbol": "INTERP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INTERPRIVATE IV INFRATECH PR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:46064T201",
     "unpriced": true
   },
   "460690100": {
@@ -52484,6 +54248,14 @@
     "name": "Invesco Trust for Investment Grade Municipals",
     "sector": "Financial Services",
     "ticker": "VGM"
+  },
+  "46131T101": {
+    "industry": "Asset Management",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Invesco Trust for Investment Grade New York Municipals",
+    "sector": "Financial Services",
+    "ticker": "VTN"
   },
   "46132C107": {
     "industry": "Asset Management",
@@ -53387,6 +55159,14 @@
     "sector": "Other",
     "ticker": "PGX"
   },
+  "46138E529": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Invesco New York AMT-Free Municipal Bond ETF",
+    "sector": "Other",
+    "ticker": "PZT"
+  },
   "46138E537": {
     "industry": "",
     "isNonStockEtf": true,
@@ -53863,6 +55643,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:46138J544",
+    "unpriced": true
+  },
+  "46138J551": {
+    "displaySymbol": "INVESC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INVESCO EXCH TRD SLF IDX FD BU",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:46138J551",
     "unpriced": true
   },
   "46138J577": {
@@ -54747,6 +56538,17 @@
     "name": "Ironwood Pharmaceuticals, Inc.",
     "sector": "Healthcare",
     "ticker": "IRWD"
+  },
+  "463588103": {
+    "displaySymbol": "IRSAPR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "IRSA PROPIEDADES COMERCIALES",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:463588103",
+    "unpriced": true
   },
   "464214105": {
     "industry": "Banks\u2014Regional",
@@ -56935,6 +58737,17 @@
     "ticker": "CUSIP:46434VAX8",
     "unpriced": true
   },
+  "46434VBA7": {
+    "displaySymbol": "ISHARE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ISHARES TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:46434VBA7",
+    "unpriced": true
+  },
   "46434VBD1": {
     "displaySymbol": "ISHARE",
     "industry": "",
@@ -57101,6 +58914,17 @@
     "sector": "Other",
     "ticker": "IAGG"
   },
+  "46435G706": {
+    "displaySymbol": "ISHARE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ISHARES TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:46435G706",
+    "unpriced": true
+  },
   "46435G847": {
     "industry": "",
     "isNonStockEtf": true,
@@ -57181,6 +59005,17 @@
     "sector": "Other",
     "ticker": "EWJV"
   },
+  "46435U432": {
+    "displaySymbol": "ISHARE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ISHARES TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:46435U432",
+    "unpriced": true
+  },
   "46435U440": {
     "industry": "",
     "isTechTmt": false,
@@ -57227,6 +59062,14 @@
     "name": "iShares ESG Aware MSCI USA Small-Cap ETF",
     "sector": "Other",
     "ticker": "ESML"
+  },
+  "46435U697": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "iShares Trust - iShares iBonds Dec 2036 Term Corporate ETF",
+    "sector": "Other",
+    "ticker": "IBCB"
   },
   "46435U713": {
     "industry": "",
@@ -57599,6 +59442,17 @@
     "sector": "Other",
     "ticker": "IBTE"
   },
+  "46436E882": {
+    "displaySymbol": "ISHARE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ISHARES TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:46436E882",
+    "unpriced": true
+  },
   "46436F103": {
     "industry": "",
     "isNonStockEtf": true,
@@ -57696,6 +59550,14 @@
     "name": "iShares iBonds 1-5 Year Treasury Ladder ETF",
     "sector": "Other",
     "ticker": "LDRT"
+  },
+  "46438G562": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "iShares Nasdaq Top 30 Stocks ET",
+    "sector": "Other",
+    "ticker": "QTOP"
   },
   "46438G570": {
     "industry": "",
@@ -57891,6 +59753,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:46564T107",
+    "unpriced": true
+  },
+  "46565G104": {
+    "displaySymbol": "ITEOST",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ITEOS THERAPEUTICS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:46565G104",
     "unpriced": true
   },
   "465712107": {
@@ -58978,6 +60851,17 @@
     "ticker": "CUSIP:47201B103",
     "unpriced": true
   },
+  "47201B202": {
+    "displaySymbol": "JAWSHU",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "JAWS HURRICANE ACQUISITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:47201B202",
+    "unpriced": true
+  },
   "472145AF8": {
     "displaySymbol": "JAZZIN",
     "industry": "",
@@ -59177,6 +61061,17 @@
     "sector": "Technology",
     "ticker": "JKS"
   },
+  "47768J101": {
+    "displaySymbol": "JOANNI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "JOANN INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:47768J101",
+    "unpriced": true
+  },
   "47775AAA9": {
     "industry": "Airports & Air Services",
     "isNonStockEtf": false,
@@ -59317,6 +61212,17 @@
     "name": "Jones Soda Co.",
     "sector": "Consumer Defensive",
     "ticker": "JSDA"
+  },
+  "481116101": {
+    "displaySymbol": "JOUNCE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "JOUNCE THERAPEUTICS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:481116101",
+    "unpriced": true
   },
   "481159119": {
     "industry": "Copper",
@@ -59781,6 +61687,17 @@
     "ticker": "CUSIP:483379103",
     "unpriced": true
   },
+  "483379202": {
+    "displaySymbol": "KALEYR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "KALEYRA INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:483379202",
+    "unpriced": true
+  },
   "483467106": {
     "industry": "Software\u2014Application",
     "isNonStockEtf": false,
@@ -60042,6 +61959,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:487836108",
+    "unpriced": true
+  },
+  "487836116": {
+    "displaySymbol": "KELLAN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "KELLANOVA",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:487836116",
     "unpriced": true
   },
   "488152208": {
@@ -60367,6 +62295,17 @@
     "ticker": "CUSIP:49705R105",
     "unpriced": true
   },
+  "49714K109": {
+    "displaySymbol": "KINSTE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "KINS TECHNOLOGY GROUP INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:49714K109",
+    "unpriced": true
+  },
   "49714P108": {
     "industry": "Insurance\u2014Property & Casualty",
     "isNonStockEtf": false,
@@ -60451,6 +62390,17 @@
     "name": "Kite Realty Group Trust",
     "sector": "Real Estate",
     "ticker": "KRG"
+  },
+  "49837C109": {
+    "displaySymbol": "KLACQU",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "KL ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:49837C109",
+    "unpriced": true
   },
   "49845K101": {
     "industry": "Software\u2014Application",
@@ -60836,6 +62786,17 @@
     "sector": "Other",
     "ticker": "KRBN"
   },
+  "500767686": {
+    "displaySymbol": "KFADYN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "KFA DYNAMIC FIXED INCOME",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:500767686",
+    "unpriced": true
+  },
   "500767694": {
     "industry": "",
     "isNonStockEtf": true,
@@ -60843,6 +62804,17 @@
     "name": "KraneShares China Technology & Semiconductor STAR 50 Index ETF",
     "sector": "Other",
     "ticker": "KSTR"
+  },
+  "500767728": {
+    "displaySymbol": "KFALAR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "KFA LARGE CAP QUALITY",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:500767728",
+    "unpriced": true
   },
   "500767736": {
     "industry": "",
@@ -61656,6 +63628,17 @@
     "name": "Landmark Bancorp, Inc.",
     "sector": "Financial Services",
     "ticker": "LARK"
+  },
+  "51508J108": {
+    "displaySymbol": "LANDMA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LANDMARK INFRASTRCTUR PARTR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:51508J108",
+    "unpriced": true
   },
   "515098101": {
     "industry": "Integrated Freight & Logistics",
@@ -62710,6 +64693,17 @@
     "sector": "Communication Services",
     "ticker": "BATRK"
   },
+  "531229AB8": {
+    "displaySymbol": "LIBERT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LIBERTY MEDIA CORP DEL",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:531229AB8",
+    "unpriced": true
+  },
   "531229AP7": {
     "displaySymbol": "LIBERT",
     "industry": "",
@@ -63175,6 +65169,17 @@
     "sector": "Financial Services",
     "ticker": "LGHL"
   },
+  "536221104": {
+    "displaySymbol": "THELIO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "THE LION ELECTRIC COMPANY",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:536221104",
+    "unpriced": true
+  },
   "536221112": {
     "industry": "",
     "isNonStockEtf": false,
@@ -63438,6 +65443,17 @@
     "sector": "Other",
     "ticker": "MAGS"
   },
+  "53656G908": {
+    "displaySymbol": "LISTED",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LISTED FDS TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:53656G908",
+    "unpriced": true
+  },
   "53656H595": {
     "industry": "",
     "isNonStockEtf": true,
@@ -63480,6 +65496,17 @@
     "name": "Lithium Americas Corp.",
     "sector": "Basic Materials",
     "ticker": "LAC"
+  },
+  "53681K100": {
+    "displaySymbol": "LITHIU",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LITHIUM AMERICAS ARGENTINA C",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:53681K100",
+    "unpriced": true
   },
   "537008104": {
     "industry": "Electronic Components",
@@ -63580,6 +65607,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:538126103",
+    "unpriced": true
+  },
+  "538126202": {
+    "displaySymbol": "LIVEOA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LIVE OAK MOBILITY ACQUISI CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:538126202",
     "unpriced": true
   },
   "538142308": {
@@ -63976,6 +66014,17 @@
     "sector": "Other",
     "ticker": "LTRYX"
   },
+  "54405Q100": {
+    "displaySymbol": "LORDST",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LORDSTOWN MOTORS CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:54405Q100",
+    "unpriced": true
+  },
   "54405Q209": {
     "industry": "Shell Companies",
     "isNonStockEtf": false,
@@ -64046,6 +66095,17 @@
     "name": "Lowe's Companies, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "LOW"
+  },
+  "54911Q107": {
+    "displaySymbol": "LOYALT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LOYALTY VENTURES INC - W/I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:54911Q107",
+    "unpriced": true
   },
   "549282101": {
     "displaySymbol": "LUBYSI",
@@ -64126,6 +66186,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:549498AA1",
+    "unpriced": true
+  },
+  "549498AC7": {
+    "displaySymbol": "LCID50",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LCID 5 04/01/30",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:549498AC7",
     "unpriced": true
   },
   "54951L109": {
@@ -64313,6 +66384,17 @@
     "ticker": "CUSIP:550424105",
     "unpriced": true
   },
+  "55068A100": {
+    "displaySymbol": "LUXHEA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LUX HEALTH TECH ACQUISITION",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:55068A100",
+    "unpriced": true
+  },
   "55068A209": {
     "displaySymbol": "LUXHEA",
     "industry": "",
@@ -64322,6 +66404,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:55068A209",
+    "unpriced": true
+  },
+  "550819106": {
+    "displaySymbol": "LYDALL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LYDALL INC DEL",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:550819106",
     "unpriced": true
   },
   "55083R104": {
@@ -64831,6 +66924,17 @@
     "sector": "Other",
     "ticker": "MTBC-VI"
   },
+  "553800103": {
+    "displaySymbol": "M3BRIG",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "M3 BRIGADE ACQUISITION II CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:553800103",
+    "unpriced": true
+  },
   "55380K109": {
     "industry": "Electronic Components",
     "isNonStockEtf": false,
@@ -64947,6 +67051,14 @@
     "name": "Nomura Focused Emerging Markets Equity ETF",
     "sector": "Other",
     "ticker": "EMEQ"
+  },
+  "555927870": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Nomura National High-Yield Municipal Bond ETF",
+    "sector": "Other",
+    "ticker": "HTAX"
   },
   "55607P204": {
     "industry": "Capital Markets",
@@ -65384,6 +67496,17 @@
     "name": "Manhattan Bridge Capital, Inc.",
     "sector": "Real Estate",
     "ticker": "LOAN"
+  },
+  "563420108": {
+    "displaySymbol": "MANITE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MANITEX INTL INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:563420108",
+    "unpriced": true
   },
   "563571405": {
     "industry": "Farm & Heavy Construction Machinery",
@@ -65904,6 +68027,17 @@
     "ticker": "CUSIP:57520Y106",
     "unpriced": true
   },
+  "57520Y205": {
+    "displaySymbol": "MASONI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MASON INDUSTRIAL TECHNOLGY I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:57520Y205",
+    "unpriced": true
+  },
   "575385109": {
     "displaySymbol": "MASONI",
     "industry": "",
@@ -66087,6 +68221,14 @@
     "ticker": "CUSIP:577096100",
     "unpriced": true
   },
+  "577125107": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "MATTHEWS ASIA DIVIDEND-INV",
+    "sector": "Other",
+    "ticker": "MAPIX"
+  },
   "577125784": {
     "industry": "",
     "isNonStockEtf": true,
@@ -66125,6 +68267,17 @@
     "name": "Matthews India Active ETF",
     "sector": "Other",
     "ticker": "INDE"
+  },
+  "577130750": {
+    "displaySymbol": "MATTHE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MATTHEWS ASIA DIVIDEND FUND IN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:577130750",
+    "unpriced": true
   },
   "577345101": {
     "industry": "Real Estate Services",
@@ -66203,6 +68356,17 @@
     "name": "Big Digital Energy, Inc.",
     "sector": "Financial Services",
     "ticker": "BGDE"
+  },
+  "57778T106": {
+    "displaySymbol": "MAXPRO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MAXPRO CAPITAL ACQUISITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:57778T106",
+    "unpriced": true
   },
   "5777K1061": {
     "industry": "Medical Devices",
@@ -66649,6 +68813,17 @@
     "sector": "Industrials",
     "ticker": "MRCY"
   },
+  "589381102": {
+    "displaySymbol": "MERCUR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MERCURY ECOM ACQUISITION COR CLASS A",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:589381102",
+    "unpriced": true
+  },
   "589400100": {
     "industry": "Insurance\u2014Property & Casualty",
     "isNonStockEtf": false,
@@ -66691,6 +68866,17 @@
     "name": "Meridian Corporation",
     "sector": "Financial Services",
     "ticker": "MRBK"
+  },
+  "58958U103": {
+    "displaySymbol": "MERIDI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MERIDIAN BANCORP INC MD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:58958U103",
+    "unpriced": true
   },
   "58985J105": {
     "displaySymbol": "MERIDI",
@@ -67029,6 +69215,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:59408Q106",
+    "unpriced": true
+  },
+  "594837403": {
+    "displaySymbol": "MICROF",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MICRO FOCUS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:594837403",
     "unpriced": true
   },
   "59490A100": {
@@ -67664,6 +69861,17 @@
     "ticker": "CUSIP:60501L101",
     "unpriced": true
   },
+  "60501L200": {
+    "displaySymbol": "MISSIO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MISSION ADVANCEMENT CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:60501L200",
+    "unpriced": true
+  },
   "60510V108": {
     "industry": "Food Distribution",
     "isNonStockEtf": false,
@@ -67780,6 +69988,17 @@
     "sector": "Industrials",
     "ticker": "BEEP"
   },
+  "607409109": {
+    "displaySymbol": "MOBILE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Mobile Telesystems ADR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:607409109",
+    "unpriced": true
+  },
   "60741F104": {
     "industry": "Auto Parts",
     "isNonStockEtf": false,
@@ -67829,6 +70048,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:607525102",
+    "unpriced": true
+  },
+  "607525AB8": {
+    "displaySymbol": "MODELN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MODEL N INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:607525AB8",
     "unpriced": true
   },
   "60770K107": {
@@ -67944,6 +70174,17 @@
     "name": "Mohawk Industries, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "MHK"
+  },
+  "60852L106": {
+    "displaySymbol": "MOLECU",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MOLECULAR DATA INC - ADR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:60852L106",
+    "unpriced": true
   },
   "60852L205": {
     "industry": "Chemicals",
@@ -68596,6 +70837,17 @@
     "ticker": "CUSIP:61775R105",
     "unpriced": true
   },
+  "617760202": {
+    "displaySymbol": "MORPHO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MORPHOSYS AG",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:617760202",
+    "unpriced": true
+  },
   "61945A107": {
     "industry": "Agricultural Inputs",
     "isNonStockEtf": false,
@@ -68886,6 +71138,17 @@
     "sector": "Consumer Defensive",
     "ticker": "SDOT"
   },
+  "62752R100": {
+    "displaySymbol": "THEMUS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "THE MUSIC ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:62752R100",
+    "unpriced": true
+  },
   "62818Q104": {
     "industry": "Biotechnology",
     "isNonStockEtf": false,
@@ -69063,6 +71326,17 @@
     "ticker": "CUSIP:629070103",
     "unpriced": true
   },
+  "629070202": {
+    "displaySymbol": "NEBULA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NEBULA CARAVEL ACQUISITION C",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:629070202",
+    "unpriced": true
+  },
   "62911P300": {
     "industry": "Electronic Gaming & Multimedia",
     "isTechTmt": true,
@@ -69235,6 +71509,17 @@
     "name": "NaaS Technology Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "NAAS"
+  },
+  "629567108": {
+    "displaySymbol": "NABORS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NABORS ENERGY TRANSITION COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:629567108",
+    "unpriced": true
   },
   "62956D105": {
     "industry": "",
@@ -69844,6 +72129,28 @@
     "sector": "Communication Services",
     "ticker": "NBIS"
   },
+  "63954QAJ5": {
+    "displaySymbol": "NBIS11",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NBIS 1 1/4 03/15/31",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:63954QAJ5",
+    "unpriced": true
+  },
+  "63954QAL0": {
+    "displaySymbol": "NBIS25",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NBIS 2 5/8 03/15/33 .",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:63954QAL0",
+    "unpriced": true
+  },
   "63R239101": {
     "industry": "",
     "isNonStockEtf": false,
@@ -70279,6 +72586,17 @@
     "sector": "Healthcare",
     "ticker": "STIM"
   },
+  "64132K102": {
+    "displaySymbol": "NEUBAS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NEUBASE THERAPEUTICS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:64132K102",
+    "unpriced": true
+  },
   "64132R503": {
     "industry": "Biotechnology",
     "isTechTmt": false,
@@ -70626,6 +72944,17 @@
     "ticker": "CUSIP:64828T409",
     "unpriced": true
   },
+  "64828T706": {
+    "displaySymbol": "RITHMC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Rithm Capital Corp 7.0 RT REST",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:64828T706",
+    "unpriced": true
+  },
   "64829B100": {
     "displaySymbol": "NEWREL",
     "industry": "",
@@ -70635,6 +72964,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:64829B100",
+    "unpriced": true
+  },
+  "648691103": {
+    "displaySymbol": "NEWSRI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NEW SR INVT GROUP INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:648691103",
     "unpriced": true
   },
   "649280104": {
@@ -70677,6 +73017,17 @@
     "sector": "Financial Services",
     "ticker": "FLG"
   },
+  "64944P307": {
+    "displaySymbol": "NEWYOR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "New York Community Capital Trust V",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:64944P307",
+    "unpriced": true
+  },
   "649604840": {
     "industry": "REIT\u2014Mortgage",
     "isNonStockEtf": false,
@@ -70692,6 +73043,17 @@
     "name": "The New York Times Company",
     "sector": "Communication Services",
     "ticker": "NYT"
+  },
+  "65101L104": {
+    "displaySymbol": "NEWBUR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NEWBURY STREET ACQUISITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:65101L104",
+    "unpriced": true
   },
   "651229106": {
     "industry": "Household & Personal Products",
@@ -71117,6 +73479,14 @@
     "sector": "Technology",
     "ticker": "NICE"
   },
+  "65366HAB9": {
+    "industry": "Software\u2014Application",
+    "isNonStockEtf": false,
+    "isTechTmt": true,
+    "name": "NICE Ltd.",
+    "sector": "Technology",
+    "ticker": "NICE"
+  },
   "65373A109": {
     "industry": "Telecom Services",
     "isNonStockEtf": false,
@@ -71472,6 +73842,17 @@
     "sector": "Energy",
     "ticker": "NRT"
   },
+  "66263L601": {
+    "displaySymbol": "NORTHS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NORTH SQUARE OAK RIDGE ALL CAP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:66263L601",
+    "unpriced": true
+  },
   "66263L759": {
     "industry": "",
     "isNonStockEtf": true,
@@ -71580,6 +73961,17 @@
     "name": "NORTHERN US GOVT MMKT",
     "sector": "Other",
     "ticker": "NOGXX"
+  },
+  "66516T104": {
+    "displaySymbol": "NORTHE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NORTHERN GENESIS ACQUISITION",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:66516T104",
+    "unpriced": true
   },
   "66516U101": {
     "displaySymbol": "NORTHE",
@@ -71754,6 +74146,17 @@
     "ticker": "CUSIP:66574L100",
     "unpriced": true
   },
+  "66574L209": {
+    "displaySymbol": "NORTHE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NORTHERN STAR INVEST CORP II",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:66574L209",
+    "unpriced": true
+  },
   "66575B101": {
     "displaySymbol": "NORTHE",
     "industry": "",
@@ -71763,6 +74166,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:66575B101",
+    "unpriced": true
+  },
+  "66575B200": {
+    "displaySymbol": "NORTHE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NORTHERN STAR INVEST CORP IV",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:66575B200",
     "unpriced": true
   },
   "665809109": {
@@ -71884,6 +74298,17 @@
     "sector": "Other",
     "ticker": "GENVR"
   },
+  "668771908": {
+    "displaySymbol": "NORTON",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NORTONLIFELOCK INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:668771908",
+    "unpriced": true
+  },
   "669549107": {
     "industry": "Banks\u2014Regional",
     "isTechTmt": false,
@@ -71920,6 +74345,17 @@
     "name": "MINISO Group Holding Limited",
     "sector": "Consumer Cyclical",
     "ticker": "MNSO"
+  },
+  "66981N103": {
+    "displaySymbol": "ALKURI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ALKURI GLOBAL ACQUISITION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:66981N103",
+    "unpriced": true
   },
   "66982D104": {
     "industry": "Other Industrial Metals & Mining",
@@ -72246,6 +74682,17 @@
     "sector": "Technology",
     "ticker": "NTNX"
   },
+  "67060Q108": {
+    "displaySymbol": "NUVEEN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NUVEEN MISSOURI QLT MUN INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:67060Q108",
+    "unpriced": true
+  },
   "67060U208": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
     "isNonStockEtf": false,
@@ -72253,6 +74700,25 @@
     "name": "Nutra Pharma Corp.",
     "sector": "Healthcare",
     "ticker": "NPHC"
+  },
+  "67061E104": {
+    "industry": "Asset Management",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Nuveen Massachusetts Quality Municipal Income Fund",
+    "sector": "Financial Services",
+    "ticker": "NMT"
+  },
+  "67061Q107": {
+    "displaySymbol": "NUVEEN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NUVEEN MARYLAND QLT MUN INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:67061Q107",
+    "unpriced": true
   },
   "67061T101": {
     "industry": "Asset Management",
@@ -72292,6 +74758,14 @@
     "name": "Nuveen Municipal Income Fund, Inc.",
     "sector": "Financial Services",
     "ticker": "NMI"
+  },
+  "67062M105": {
+    "industry": "Asset Management",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Nuveen New York Municipal Income Fund",
+    "sector": "Financial Services",
+    "ticker": "NNY"
   },
   "67064R102": {
     "industry": "Asset Management",
@@ -72491,6 +74965,17 @@
     "ticker": "CUSIP:670704105",
     "unpriced": true
   },
+  "670704AJ4": {
+    "displaySymbol": "NUVASI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NUVASIVE INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:670704AJ4",
+    "unpriced": true
+  },
   "67070X101": {
     "industry": "Asset Management",
     "isNonStockEtf": false,
@@ -72514,6 +74999,14 @@
     "name": "Nuveen AMT-Free Municipal Credit Income Fund",
     "sector": "Financial Services",
     "ticker": "NVG"
+  },
+  "67072C105": {
+    "industry": "Asset Management",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Nuveen Preferred & Income Opportunities Fund",
+    "sector": "Financial Services",
+    "ticker": "JPC"
   },
   "67072T108": {
     "industry": "Asset Management",
@@ -72545,6 +75038,17 @@
     "name": "Nuveen Credit Strategies Income Fund",
     "sector": "Financial Services",
     "ticker": "JQC"
+  },
+  "67073G105": {
+    "displaySymbol": "NUVEEN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NUVEEN TAX-ADV DIV FUND",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:67073G105",
+    "unpriced": true
   },
   "67074C103": {
     "industry": "Asset Management",
@@ -72755,6 +75259,17 @@
     "name": "OGE Energy Corp.",
     "sector": "Utilities",
     "ticker": "OGE"
+  },
+  "670865104": {
+    "displaySymbol": "OCAACQ",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "OCA ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:670865104",
+    "unpriced": true
   },
   "67087F200": {
     "industry": "",
@@ -73094,6 +75609,17 @@
     "sector": "Other",
     "ticker": "OAKUU"
   },
+  "674001409": {
+    "displaySymbol": "OAKTRE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Oaktree Capital Preferred B 2023",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:674001409",
+    "unpriced": true
+  },
   "67401P108": {
     "industry": "Asset Management",
     "isNonStockEtf": false,
@@ -73109,6 +75635,17 @@
     "name": "Oaktree Specialty Lending Corporation",
     "sector": "Financial Services",
     "ticker": "OCSL"
+  },
+  "674215108": {
+    "displaySymbol": "OASISP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Oasis Petroleum Inc",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:674215108",
+    "unpriced": true
   },
   "674215207": {
     "industry": "Oil & Gas E&P",
@@ -73181,6 +75718,17 @@
     "name": "Occidental Petroleum Corporation",
     "sector": "Other",
     "ticker": "OXY-SW"
+  },
+  "674631106": {
+    "displaySymbol": "OCEANB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "OCEAN BIO CHEM INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:674631106",
+    "unpriced": true
   },
   "674870506": {
     "industry": "Specialty Industrial Machinery",
@@ -73663,6 +76211,17 @@
     "sector": "Technology",
     "ticker": "ON"
   },
+  "68218C108": {
+    "displaySymbol": "OMNILI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "OMNILIT ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:68218C108",
+    "unpriced": true
+  },
   "68218J103": {
     "industry": "Biotechnology",
     "isNonStockEtf": false,
@@ -73889,6 +76448,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:68269G107",
+    "unpriced": true
+  },
+  "68269GAB3": {
+    "displaySymbol": "1LIFEH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "1LIFE HEALTHCARE INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:68269GAB3",
     "unpriced": true
   },
   "68270C103": {
@@ -74354,6 +76924,17 @@
     "name": "OraSure Technologies, Inc.",
     "sector": "Healthcare",
     "ticker": "OSUR"
+  },
+  "68555P100": {
+    "displaySymbol": "ORBCOM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ORBCOMM INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:68555P100",
+    "unpriced": true
   },
   "68557F209": {
     "industry": "Software\u2014Application",
@@ -74852,6 +77433,17 @@
     "sector": "Communication Services",
     "ticker": "TEAD"
   },
+  "690045109": {
+    "displaySymbol": "REVELY",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "REVELYST INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:690045109",
+    "unpriced": true
+  },
   "69007J106": {
     "industry": "REIT\u2014Specialty",
     "isNonStockEtf": false,
@@ -75078,6 +77670,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:69242L106",
+    "unpriced": true
+  },
+  "69242M104": {
+    "displaySymbol": "OYSTER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "OYSTER ENTERPRISES ACQ CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:69242M104",
     "unpriced": true
   },
   "69269L104": {
@@ -76001,6 +78604,17 @@
     "ticker": "CUSIP:69526K105",
     "unpriced": true
   },
+  "69549FAB5": {
+    "displaySymbol": "PAGAYA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PAGAYA U S HLDG CO LLC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:69549FAB5",
+    "unpriced": true
+  },
   "69553P100": {
     "industry": "Software\u2014Application",
     "isNonStockEtf": false,
@@ -76479,6 +79093,17 @@
     "sector": "Other",
     "ticker": "PRCS"
   },
+  "70184A108": {
+    "displaySymbol": "PARSEC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PARSEC CAPITAL ACQUISITION",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:70184A108",
+    "unpriced": true
+  },
   "701877102": {
     "displaySymbol": "PARSLE",
     "industry": "",
@@ -76497,6 +79122,17 @@
     "name": "Parsons Corporation",
     "sector": "Technology",
     "ticker": "PSN"
+  },
+  "70202LAB8": {
+    "displaySymbol": "PARSON",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PARSONS CORP DEL",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:70202LAB8",
+    "unpriced": true
   },
   "70202LAD4": {
     "displaySymbol": "PARSON",
@@ -76558,6 +79194,17 @@
     "name": "Passage Bio, Inc.",
     "sector": "Healthcare",
     "ticker": "PASG"
+  },
+  "70299N235": {
+    "displaySymbol": "PARTNE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Partners Group Private Equity Llc Cl I Nonstandard",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:70299N235",
+    "unpriced": true
   },
   "70319R109": {
     "industry": "Banks\u2014Regional",
@@ -76774,6 +79421,17 @@
     "name": "Peabody Energy Corporation",
     "sector": "Energy",
     "ticker": "BTU"
+  },
+  "704551AD2": {
+    "displaySymbol": "PEABOD",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PEABODY ENGR CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:704551AD2",
+    "unpriced": true
   },
   "7045OY103": {
     "industry": "Credit Services",
@@ -77190,6 +79848,17 @@
     "ticker": "CUSIP:71375U101",
     "unpriced": true
   },
+  "71375UAF8": {
+    "displaySymbol": "PERFIC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PERFICIENT INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:71375UAF8",
+    "unpriced": true
+  },
   "71377A103": {
     "industry": "Food Distribution",
     "isNonStockEtf": false,
@@ -77375,6 +80044,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:71639T106",
+    "unpriced": true
+  },
+  "71639TAB2": {
+    "displaySymbol": "PETIQI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PETIQ INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:71639TAB2",
     "unpriced": true
   },
   "71646E100": {
@@ -77693,6 +80373,17 @@
     "name": "Picard Medical, Inc.",
     "sector": "Healthcare",
     "ticker": "PMI"
+  },
+  "72016P105": {
+    "displaySymbol": "PIEDMO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Piedmont Lithium Inc",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:72016P105",
+    "unpriced": true
   },
   "720190206": {
     "industry": "REIT\u2014Office",
@@ -78488,6 +81179,17 @@
     "sector": "Industrials",
     "ticker": "PLUG"
   },
+  "72919PAG8": {
+    "displaySymbol": "PLUG63",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PLUG 6 3/4 12/01/33",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:72919PAG8",
+    "unpriced": true
+  },
   "729273102": {
     "industry": "Banks\u2014Regional",
     "isTechTmt": false,
@@ -78513,6 +81215,17 @@
     "name": "Pershing Square Inc.",
     "sector": "Financial Services",
     "ticker": "PS"
+  },
+  "72941BAB2": {
+    "displaySymbol": "PLURAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PLURALSIGHT INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:72941BAB2",
+    "unpriced": true
   },
   "72942A107": {
     "displaySymbol": "PLXPHA",
@@ -78977,6 +81690,14 @@
     "ticker": "CUSIP:73935A104",
     "unpriced": true
   },
+  "73935X229": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Invesco Financial Preferred ETF",
+    "sector": "Other",
+    "ticker": "PGF"
+  },
   "73939C106": {
     "displaySymbol": "POWERS",
     "industry": "",
@@ -79351,6 +82072,17 @@
     "name": "Principal Active High Yield ETF",
     "sector": "Other",
     "ticker": "YLD"
+  },
+  "74255Y409": {
+    "displaySymbol": "PRINCI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PRINCIPAL EXCHANGE-TRADED FD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:74255Y409",
+    "unpriced": true
   },
   "74255Y607": {
     "industry": "",
@@ -79770,6 +82502,14 @@
     "sector": "Other",
     "ticker": "DOG"
   },
+  "74347B243": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "ProShares UltraShort QQQ",
+    "sector": "Other",
+    "ticker": "QID"
+  },
   "74347B276": {
     "industry": "",
     "isNonStockEtf": true,
@@ -79848,6 +82588,14 @@
     "name": "ProShares Short QQQ",
     "sector": "Other",
     "ticker": "PSQ"
+  },
+  "74347B839": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "ProShares MSCI EAFE Dividend Growers ETF",
+    "sector": "Other",
+    "ticker": "EFAD"
   },
   "74347B903": {
     "industry": "",
@@ -80459,6 +83207,17 @@
     "sector": "Financial Services",
     "ticker": "PSEC"
   },
+  "74348TAR3": {
+    "displaySymbol": "PROSPE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PROSPECT CAP CORP 4.95 07/15/2022",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:74348TAR3",
+    "unpriced": true
+  },
   "74348TAT9": {
     "industry": "Asset Management",
     "isNonStockEtf": false,
@@ -80625,6 +83384,17 @@
     "sector": "Other",
     "ticker": "SPXU"
   },
+  "74350A108": {
+    "displaySymbol": "PROPER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PROPERTY SOLUTIONS ACQUISITI",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:74350A108",
+    "unpriced": true
+  },
   "74350P543": {
     "industry": "",
     "isTechTmt": false,
@@ -80781,6 +83551,17 @@
     "ticker": "CUSIP:74374T109",
     "unpriced": true
   },
+  "74383L105": {
+    "displaySymbol": "PROVID",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PROVIDENT BANCORP INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:74383L105",
+    "unpriced": true
+  },
   "743868101": {
     "industry": "Banks\u2014Regional",
     "isTechTmt": false,
@@ -80811,6 +83592,17 @@
     "name": "Prudential plc",
     "sector": "Financial Services",
     "ticker": "PUK"
+  },
+  "744375205": {
+    "displaySymbol": "PSYCHE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PSYCHEMEDICS CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:744375205",
+    "unpriced": true
   },
   "74437E404": {
     "industry": "",
@@ -81428,6 +84220,17 @@
     "ticker": "CUSIP:74736LAD1",
     "unpriced": true
   },
+  "74736LAF6": {
+    "displaySymbol": "Q2HLDG",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Q2 HLDGS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:74736LAF6",
+    "unpriced": true
+  },
   "74741A106": {
     "industry": "",
     "isNonStockEtf": true,
@@ -81789,6 +84592,17 @@
     "ticker": "CUSIP:74915M100",
     "unpriced": true
   },
+  "74915M209": {
+    "displaySymbol": "QURATE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "QURATE RETAIL INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:74915M209",
+    "unpriced": true
+  },
   "74915M605": {
     "industry": "Specialty Retail",
     "isNonStockEtf": false,
@@ -81912,6 +84726,14 @@
     "name": "F/m US Treasury 12 Month Bill ETF",
     "sector": "Other",
     "ticker": "OBIL"
+  },
+  "74933W486": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "F/m US Treasury 2 Year Note ETF",
+    "sector": "Other",
+    "ticker": "UTWO"
   },
   "74933W494": {
     "industry": "",
@@ -82480,6 +85302,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:75382E109",
+    "unpriced": true
+  },
+  "75382E208": {
+    "displaySymbol": "RAPTTH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "RAPT THERAPEUTICS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:75382E208",
     "unpriced": true
   },
   "75383L102": {
@@ -84004,6 +86837,17 @@
     "ticker": "CUSIP:767744105",
     "unpriced": true
   },
+  "767754872": {
+    "displaySymbol": "RITEAI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "RITE AID CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:767754872",
+    "unpriced": true
+  },
   "768014102": {
     "industry": "Asset Management",
     "isNonStockEtf": false,
@@ -84485,6 +87329,28 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:778673103",
+    "unpriced": true
+  },
+  "77867Q102": {
+    "displaySymbol": "ROTHCH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ROTH CH ACQUISITION III CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:77867Q102",
+    "unpriced": true
+  },
+  "77879W105": {
+    "displaySymbol": "ROTORA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ROTOR ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:77879W105",
     "unpriced": true
   },
   "778920306": {
@@ -85117,6 +87983,17 @@
     "name": "SAB Biotherapeutics, Inc.",
     "sector": "Healthcare",
     "ticker": "SABS"
+  },
+  "784065104": {
+    "displaySymbol": "SCPCOH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SCP & CO HEALTHCARE ACQUSTN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:784065104",
+    "unpriced": true
   },
   "78408D105": {
     "industry": "Banks\u2014Regional",
@@ -85981,6 +88858,17 @@
     "sector": "Other",
     "ticker": "XHB"
   },
+  "78464A908": {
+    "displaySymbol": "SPDRSE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SPDR SERIES TRUST",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:78464A908",
+    "unpriced": true
+  },
   "78464A958": {
     "displaySymbol": "SPDRSE",
     "industry": "",
@@ -86398,6 +89286,30 @@
     "sector": "Other",
     "ticker": "ALLW"
   },
+  "78470P739": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "State Street My2034 Corporate Bond ETF",
+    "sector": "Other",
+    "ticker": "MYCN"
+  },
+  "78470P747": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "State Street My2033 Corporate Bond ETF",
+    "sector": "Other",
+    "ticker": "MYCM"
+  },
+  "78470P770": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "State Street My2030 Corporate Bond ETF",
+    "sector": "Other",
+    "ticker": "MYCJ"
+  },
   "78470P788": {
     "industry": "",
     "isNonStockEtf": true,
@@ -86460,6 +89372,17 @@
     "name": "SKYX Platforms Corp.",
     "sector": "Industrials",
     "ticker": "SKYX"
+  },
+  "78472F101": {
+    "displaySymbol": "SOCTEL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SOC TELEMED INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:78472F101",
+    "unpriced": true
   },
   "78472M106": {
     "industry": "Software\u2014Application",
@@ -86819,6 +89742,17 @@
     "sector": "Technology",
     "ticker": "AMD"
   },
+  "79400X107": {
+    "displaySymbol": "SALARI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SALARIUS PHARMACEUTICALS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:79400X107",
+    "unpriced": true
+  },
   "79400X503": {
     "industry": "Biotechnology",
     "isNonStockEtf": false,
@@ -86937,6 +89871,17 @@
     "sector": "Healthcare",
     "ticker": "SANA"
   },
+  "79956P102": {
+    "displaySymbol": "SANABY",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SANABY HEALTH ACQUISITION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:79956P102",
+    "unpriced": true
+  },
   "79957L100": {
     "industry": "Medical Instruments & Supplies",
     "isTechTmt": false,
@@ -86969,6 +89914,17 @@
     "name": "SANDBRIDGE X2 CL A -CW27",
     "sector": "Other",
     "ticker": "SBIIW"
+  },
+  "799793104": {
+    "displaySymbol": "SANDBR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SANDBRIDGE ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:799793104",
+    "unpriced": true
   },
   "799926100": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
@@ -87241,6 +90197,17 @@
     "name": "Satellogic Inc.",
     "sector": "Industrials",
     "ticker": "SATL"
+  },
+  "80401L308": {
+    "displaySymbol": "SATELL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Satellos Bioscience, Inc. (Can",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:80401L308",
+    "unpriced": true
   },
   "80401L803": {
     "industry": "Biotechnology",
@@ -87599,6 +90566,14 @@
     "sector": "Other",
     "ticker": "SGVT"
   },
+  "808524599": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Schwab Core Bond ETF",
+    "sector": "Other",
+    "ticker": "SCCR"
+  },
   "808524607": {
     "industry": "",
     "isNonStockEtf": true,
@@ -87894,6 +90869,17 @@
     "sector": "Energy",
     "ticker": "STNG"
   },
+  "80919D202": {
+    "displaySymbol": "SCOREM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SCORE MEDIA & GAMING INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:80919D202",
+    "unpriced": true
+  },
   "810186106": {
     "industry": "Agricultural Inputs",
     "isNonStockEtf": false,
@@ -88120,6 +91106,17 @@
     "name": "Searchlight Minerals Corp.",
     "sector": "Basic Materials",
     "ticker": "SRCH"
+  },
+  "812227106": {
+    "displaySymbol": "SEAPOR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SEAPORT GLOBAL ACQUISITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:812227106",
+    "unpriced": true
   },
   "81255T108": {
     "displaySymbol": "SEASPI",
@@ -88595,6 +91592,17 @@
     "name": "SenesTech, Inc.",
     "sector": "Basic Materials",
     "ticker": "SNES"
+  },
+  "81723H108": {
+    "displaySymbol": "SENIOR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SENIOR CONNECT ACQUISITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:81723H108",
+    "unpriced": true
   },
   "81725T100": {
     "industry": "Specialty Chemicals",
@@ -89191,6 +92199,17 @@
     "ticker": "CUSIP:82452J307",
     "unpriced": true
   },
+  "82452JAB5": {
+    "displaySymbol": "SHIFT4",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SHIFT4 PMTS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:82452JAB5",
+    "unpriced": true
+  },
   "82452JAD1": {
     "industry": "Software\u2014Infrastructure",
     "isNonStockEtf": false,
@@ -89468,6 +92487,17 @@
     "ticker": "CUSIP:826332108",
     "unpriced": true
   },
+  "82640U404": {
+    "displaySymbol": "SIERRA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SIERRA ONCOLOGY INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:82640U404",
+    "unpriced": true
+  },
   "826516106": {
     "displaySymbol": "SIERRA",
     "industry": "",
@@ -89511,6 +92541,17 @@
     "sector": "Healthcare",
     "ticker": "SGHT"
   },
+  "826598500": {
+    "displaySymbol": "SIGMAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Sigma Labs, Inc.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:826598500",
+    "unpriced": true
+  },
   "826598609": {
     "industry": "Travel Services",
     "isTechTmt": false,
@@ -89533,6 +92574,17 @@
     "name": "Sigma Lithium Corporation",
     "sector": "Basic Materials",
     "ticker": "SGML"
+  },
+  "82664R105": {
+    "displaySymbol": "SIGNAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SIGNAL HILL ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:82664R105",
+    "unpriced": true
   },
   "82669G104": {
     "industry": "Banks\u2014Regional",
@@ -89728,6 +92780,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:82836G102",
+    "unpriced": true
+  },
+  "82836N107": {
+    "displaySymbol": "SILVER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SILVERBOX CORP III",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:82836N107",
     "unpriced": true
   },
   "82837P408": {
@@ -91518,6 +94581,17 @@
     "sector": "Utilities",
     "ticker": "SOMN"
   },
+  "842587883": {
+    "displaySymbol": "SOUTHE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SOUTHERN 2020 SRS C 4 20 JNR SUB NTS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:842587883",
+    "unpriced": true
+  },
   "842587DP9": {
     "industry": "Utilities\u2014Regulated Electric",
     "isNonStockEtf": false,
@@ -91751,6 +94825,17 @@
     "sector": "Industrials",
     "ticker": "SPCX"
   },
+  "84667R106": {
+    "displaySymbol": "SPARTA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SPARTAN ACQUISITION CORP III",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:84667R106",
+    "unpriced": true
+  },
   "846775104": {
     "displaySymbol": "SPARTA",
     "industry": "",
@@ -91792,6 +94877,28 @@
     "name": "Horizon Kinetics SPAC Active ETF",
     "sector": "Other",
     "ticker": "SPAQ"
+  },
+  "84677R205": {
+    "displaySymbol": "SPARTA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SPARTAN ACQUISITION CORP III",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:84677R205",
+    "unpriced": true
+  },
+  "847215100": {
+    "displaySymbol": "SPARTA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SPARTANNASH CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:847215100",
+    "unpriced": true
   },
   "84741T104": {
     "industry": "Asset Management",
@@ -92014,6 +95121,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:84918M106",
+    "unpriced": true
+  },
+  "84918M205": {
+    "displaySymbol": "SPORTS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SPORTS ENTERTAINMENT ACQU CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:84918M205",
     "unpriced": true
   },
   "84920Y106": {
@@ -93065,6 +96183,17 @@
     "sector": "Financial Services",
     "ticker": "ASST"
   },
+  "86309R206": {
+    "displaySymbol": "STRATI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "STRATIM CLOUD ACQUISITION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:86309R206",
+    "unpriced": true
+  },
   "863111100": {
     "industry": "Auto Parts",
     "isNonStockEtf": false,
@@ -93096,6 +96225,17 @@
     "sector": "Real Estate",
     "ticker": "STRW"
   },
+  "86323X106": {
+    "displaySymbol": "STREAM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "STREAMLINE HEALTH SOLUTIONS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:86323X106",
+    "unpriced": true
+  },
   "86333M108": {
     "industry": "Education & Training Services",
     "isNonStockEtf": false,
@@ -93121,6 +96261,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:86337R103",
+    "unpriced": true
+  },
+  "86337R202": {
+    "displaySymbol": "STRONG",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "STRONGHOLD DIGITAL MINING IN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:86337R202",
     "unpriced": true
   },
   "863667101": {
@@ -93516,6 +96667,17 @@
     "sector": "Real Estate",
     "ticker": "SHO"
   },
+  "867975104": {
+    "displaySymbol": "SUNRIS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Sunrise Communications Ag Ads",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:867975104",
+    "unpriced": true
+  },
   "867981102": {
     "industry": "REIT\u2014Mortgage",
     "isNonStockEtf": false,
@@ -93690,6 +96852,17 @@
     "name": "Surgery Partners, Inc.",
     "sector": "Healthcare",
     "ticker": "SGRY"
+  },
+  "86882C105": {
+    "displaySymbol": "SURGAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SURGALIGN HOLDINGS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:86882C105",
+    "unpriced": true
   },
   "86882L113": {
     "industry": "Telecom Services",
@@ -93885,6 +97058,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:87105L104",
+    "unpriced": true
+  },
+  "871237103": {
+    "displaySymbol": "SYKESE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SYKES ENTERPRISES INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:871237103",
     "unpriced": true
   },
   "871332102": {
@@ -94239,6 +97423,17 @@
     "sector": "Financial Services",
     "ticker": "TFSL"
   },
+  "87241J104": {
+    "displaySymbol": "TFFPHA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TFF PHARMACEUTICALS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:87241J104",
+    "unpriced": true
+  },
   "87241L109": {
     "industry": "Trucking",
     "isNonStockEtf": false,
@@ -94272,6 +97467,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:87257M108",
+    "unpriced": true
+  },
+  "87257M207": {
+    "displaySymbol": "TLGACQ",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TLG ACQUISITION ONE CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:87257M207",
     "unpriced": true
   },
   "872590104": {
@@ -94481,6 +97687,17 @@
     "sector": "Other",
     "ticker": "TFLR"
   },
+  "87284T209": {
+    "displaySymbol": "TSINNO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TS INNOVATION ACQUISITN CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:87284T209",
+    "unpriced": true
+  },
   "872885207": {
     "industry": "",
     "isTechTmt": false,
@@ -94505,6 +97722,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:87301L106",
+    "unpriced": true
+  },
+  "87301L205": {
+    "displaySymbol": "TCWSPE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TCW SPECIAL PURPOSE ACQU COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:87301L205",
     "unpriced": true
   },
   "873048409": {
@@ -94554,6 +97782,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:873379101",
+    "unpriced": true
+  },
+  "873379AA9": {
+    "displaySymbol": "TABULA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TABULA RASA HEALTHCARE INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:873379AA9",
     "unpriced": true
   },
   "87356V306": {
@@ -94870,6 +98109,17 @@
     "sector": "Technology",
     "ticker": "TASK"
   },
+  "876545104": {
+    "displaySymbol": "TASTEM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TASTEMAKER ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:876545104",
+    "unpriced": true
+  },
   "876568502": {
     "displaySymbol": "TATAMO",
     "industry": "",
@@ -94938,6 +98188,17 @@
     "name": "TC Energy Corporation",
     "sector": "Energy",
     "ticker": "TRP"
+  },
+  "87808K106": {
+    "displaySymbol": "TCR2TH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TCR2 THERAPEUTICS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:87808K106",
+    "unpriced": true
   },
   "878155100": {
     "industry": "Specialty Business Services",
@@ -95292,6 +98553,7 @@
   },
   "87975E602": {
     "industry": "",
+    "isNonStockEtf": false,
     "isTechTmt": false,
     "name": "Tema U.S. Manufacturing & Resho",
     "sector": "Other",
@@ -95807,6 +99069,17 @@
     "sector": "Energy",
     "ticker": "TTI"
   },
+  "88163VAE9": {
+    "displaySymbol": "TEVAPH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TEVA PHARMACEUTICAL FIN LLC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:88163VAE9",
+    "unpriced": true
+  },
   "88165K101": {
     "industry": "Biotechnology",
     "isNonStockEtf": false,
@@ -95993,6 +99266,17 @@
     "name": "SkinHealth Systems Inc.",
     "sector": "Consumer Defensive",
     "ticker": "SKIN"
+  },
+  "88331L116": {
+    "displaySymbol": "THEBEA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "THE BEAUTY HEALTH COMPANY",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:88331L116",
+    "unpriced": true
   },
   "88332T100": {
     "industry": "Shell Companies",
@@ -96444,6 +99728,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:88546E105",
+    "unpriced": true
+  },
+  "88546E109": {
+    "displaySymbol": "THOUGH",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "THOUGHTWORKS HOLDING INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:88546E109",
     "unpriced": true
   },
   "88554D205": {
@@ -97330,6 +100625,17 @@
     "sector": "Other",
     "ticker": "TSIB"
   },
+  "88825H209": {
+    "displaySymbol": "TISHMA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TISHMAN SPEYER INNOVATION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:88825H209",
+    "unpriced": true
+  },
   "88830M102": {
     "industry": "Farm & Heavy Construction Machinery",
     "isNonStockEtf": false,
@@ -97749,6 +101055,17 @@
     "sector": "Consumer Cyclical",
     "ticker": "COOK"
   },
+  "89278D109": {
+    "displaySymbol": "TRAILB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TRAILBLAZER MERGER CORP I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:89278D109",
+    "unpriced": true
+  },
   "89278D125": {
     "industry": "",
     "isTechTmt": false,
@@ -97763,6 +101080,17 @@
     "name": "TransAct Technologies Incorporated",
     "sector": "Technology",
     "ticker": "TACT"
+  },
+  "89301B104": {
+    "displaySymbol": "ZALATO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ZALATORIS ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:89301B104",
+    "unpriced": true
   },
   "89346D107": {
     "industry": "Utilities\u2014Independent Power Producers",
@@ -98132,6 +101460,17 @@
     "name": "Iris Acquisition Corp II",
     "sector": "Financial Services",
     "ticker": "IRAB"
+  },
+  "89601Y200": {
+    "displaySymbol": "TRIBEC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TRIBE CAPITAL GROWTH CORP I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:89601Y200",
+    "unpriced": true
   },
   "896095106": {
     "industry": "Banks\u2014Regional",
@@ -98924,6 +102263,17 @@
     "sector": "Other",
     "ticker": "THYP"
   },
+  "901384107": {
+    "displaySymbol": "2SEVEN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "2seventy bio",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:901384107",
+    "unpriced": true
+  },
   "90138A103": {
     "industry": "Information Technology Services",
     "isNonStockEtf": false,
@@ -99104,6 +102454,17 @@
     "ticker": "CUSIP:90184LAN2",
     "unpriced": true
   },
+  "90187B408": {
+    "displaySymbol": "TWOHBR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TWO HBRS INVT CORP COM NEW",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:90187B408",
+    "unpriced": true
+  },
   "90187B804": {
     "displaySymbol": "TWOHAR",
     "industry": "",
@@ -99123,6 +102484,14 @@
     "sector": "Other",
     "ticker": "VGRO"
   },
+  "902104306": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "Tidal Trust III - VistaShares Target 15 DRUKMacro Distribution ETF",
+    "sector": "Other",
+    "ticker": "DRKY"
+  },
   "902104AB4": {
     "industry": "",
     "isNonStockEtf": true,
@@ -99140,6 +102509,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:90214J101",
+    "unpriced": true
+  },
+  "90214JAB7": {
+    "displaySymbol": "2UINC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "2U INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:90214JAB7",
     "unpriced": true
   },
   "90214Q105": {
@@ -99211,6 +102591,17 @@
     "sector": "Healthcare",
     "ticker": "UFPT"
   },
+  "902677780": {
+    "displaySymbol": "UBSAGL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "UBS AG LONDON BRANCH",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:902677780",
+    "unpriced": true
+  },
   "902681105": {
     "industry": "Utilities\u2014Regulated Gas",
     "isNonStockEtf": false,
@@ -99261,6 +102652,14 @@
     "name": "UBS ETRACS UBS Bloomberg Constant Maturity Commodity Index (CMCI) Total Return ETN Series B",
     "sector": "Other",
     "ticker": "UCIB"
+  },
+  "90274D416": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "UBS ETRACS Wells Fargo Business Development Company Index ETN",
+    "sector": "Other",
+    "ticker": "BDCZ"
   },
   "902788108": {
     "industry": "Banks\u2014Regional",
@@ -99953,6 +103352,17 @@
     "sector": "Other",
     "ticker": "UGA"
   },
+  "912318300": {
+    "displaySymbol": "UNITED",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "UNITED STS NAT GAS FD LP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:912318300",
+    "unpriced": true
+  },
   "912318409": {
     "industry": "",
     "isNonStockEtf": true,
@@ -99960,6 +103370,14 @@
     "name": "United States Natural Gas Fund, LP",
     "sector": "Other",
     "ticker": "UNG"
+  },
+  "91232N108": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "United States Oil Fund, LP",
+    "sector": "Other",
+    "ticker": "USO"
   },
   "91232N207": {
     "industry": "",
@@ -100538,6 +103956,17 @@
     "ticker": "CUSIP:91748P100",
     "unpriced": true
   },
+  "91748P209": {
+    "displaySymbol": "USHGAC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "USHG ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:91748P209",
+    "unpriced": true
+  },
   "91762P102": {
     "industry": "Software\u2014Application",
     "isNonStockEtf": false,
@@ -100671,6 +104100,17 @@
     "name": "VSBLTY Groupe Technologies Corp.",
     "sector": "Technology",
     "ticker": "VSBGF"
+  },
+  "91835J108": {
+    "displaySymbol": "VPCIMP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "VPC IMPACT ACQU HOLDI III IN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:91835J108",
+    "unpriced": true
   },
   "918385105": {
     "industry": "Biotechnology",
@@ -101174,6 +104614,14 @@
     "sector": "Other",
     "ticker": "CRAK"
   },
+  "92189F593": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "VanEck Morningstar International Moat ETF",
+    "sector": "Other",
+    "ticker": "MOTI"
+  },
   "92189F601": {
     "industry": "",
     "isNonStockEtf": true,
@@ -101421,6 +104869,14 @@
     "name": "VanEck Commodity Strategy ETF",
     "sector": "Other",
     "ticker": "PIT"
+  },
+  "92189H789": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "VanEck Digital India ETF",
+    "sector": "Other",
+    "ticker": "DGIN"
   },
   "92189H805": {
     "industry": "",
@@ -102582,6 +106038,17 @@
     "sector": "Other",
     "ticker": "VOO"
   },
+  "922908413": {
+    "displaySymbol": "VANGUA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Vanguard S&P 500 ETF",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:922908413",
+    "unpriced": true
+  },
   "922908512": {
     "industry": "",
     "isNonStockEtf": true,
@@ -103259,6 +106726,17 @@
     "sector": "Technology",
     "ticker": "VIAV"
   },
+  "92556H107": {
+    "displaySymbol": "PARAMO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PARAMOUNT GLOBAL",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:92556H107",
+    "unpriced": true
+  },
   "92556H206": {
     "displaySymbol": "VIACOM",
     "industry": "",
@@ -103403,6 +106881,14 @@
     "name": "VictoryShares US Small Mid Cap Value Momentum ETF",
     "sector": "Other",
     "ticker": "USVM"
+  },
+  "92647N691": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "VictoryShares US Multi-Factor Minimum Volatility ETF",
+    "sector": "Other",
+    "ticker": "VSMV"
   },
   "92647N766": {
     "industry": "",
@@ -103628,6 +107114,17 @@
     "sector": "Consumer Cyclical",
     "ticker": "BBIG"
   },
+  "92735P103": {
+    "displaySymbol": "VINEEN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "VINE ENERGY INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:92735P103",
+    "unpriced": true
+  },
   "92762J103": {
     "industry": "Furnishings, Fixtures & Appliances",
     "isNonStockEtf": false,
@@ -103698,6 +107195,17 @@
     "name": "Virgin Galactic Holdings, Inc.",
     "sector": "Industrials",
     "ticker": "SPCE"
+  },
+  "92771A101": {
+    "displaySymbol": "VIRGIN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "VIRGIN ORBIT HOLDINGS INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:92771A101",
+    "unpriced": true
   },
   "92790A405": {
     "industry": "",
@@ -104391,6 +107899,17 @@
     "name": "Venture Global, Inc.",
     "sector": "Energy",
     "ticker": "VG"
+  },
+  "92886TAJ1": {
+    "displaySymbol": "VONAGE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "VONAGE HLDGS CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:92886TAJ1",
+    "unpriced": true
   },
   "92887H107": {
     "industry": "Real Estate Services",
@@ -105229,6 +108748,17 @@
     "sector": "Technology",
     "ticker": "WBSR"
   },
+  "94770D102": {
+    "displaySymbol": "WEBERI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "WEBER INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:94770D102",
+    "unpriced": true
+  },
   "947890109": {
     "displaySymbol": "WEBSTE",
     "industry": "",
@@ -105378,6 +108908,17 @@
     "name": "Wells Fargo & Company",
     "sector": "Financial Services",
     "ticker": "WFC"
+  },
+  "949746RG8": {
+    "displaySymbol": "WELLSF",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "WELLS FARGO  CO NEW DEP SHS P",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:949746RG8",
+    "unpriced": true
   },
   "949746SJ1": {
     "industry": "Banks\u2014Diversified",
@@ -105960,6 +109501,17 @@
     "ticker": "CUSIP:96209A104",
     "unpriced": true
   },
+  "96209A401": {
+    "displaySymbol": "WEWORK",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "WEWORK INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:96209A401",
+    "unpriced": true
+  },
   "962149100": {
     "industry": "Footwear & Accessories",
     "isNonStockEtf": false,
@@ -106243,6 +109795,17 @@
     "sector": "Energy",
     "ticker": "WMB"
   },
+  "96951B102": {
+    "displaySymbol": "WILLIA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "WILLIAMS ROWLAND ACQUISITION",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:96951B102",
+    "unpriced": true
+  },
   "969904101": {
     "industry": "Specialty Retail",
     "isNonStockEtf": false,
@@ -106439,6 +110002,14 @@
     "name": "WisdomTree Managed Futures Strategy Fund",
     "sector": "Other",
     "ticker": "WTMF"
+  },
+  "97717W133": {
+    "industry": "",
+    "isNonStockEtf": true,
+    "isTechTmt": false,
+    "name": "WisdomTree Emerging Currency Strategy Fund",
+    "sector": "Other",
+    "ticker": "CEW"
   },
   "97717W208": {
     "industry": "",
@@ -106932,6 +110503,17 @@
     "name": "WisdomTree Cloud Computing Fund",
     "sector": "Other",
     "ticker": "WCLD"
+  },
+  "97717Y717": {
+    "displaySymbol": "WISDOM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "WISDOMTREE TR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:97717Y717",
+    "unpriced": true
   },
   "97717Y725": {
     "industry": "",
@@ -108362,6 +111944,17 @@
     "sector": "Healthcare",
     "ticker": "ZBH"
   },
+  "989570106": {
+    "displaySymbol": "ZIMMER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Zimmer Energy Transition Acquisition Corp",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:989570106",
+    "unpriced": true
+  },
   "989696109": {
     "industry": "Oil & Gas E&P",
     "isNonStockEtf": false,
@@ -108718,6 +112311,14 @@
     "sector": "Energy",
     "ticker": "CMBT"
   },
+  "B3SPXZ300": {
+    "industry": "Specialty Chemicals",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LyondellBasell Industries N.V.",
+    "sector": "Basic Materials",
+    "ticker": "LYB"
+  },
   "B5950S113": {
     "industry": "Diagnostics & Research",
     "isNonStockEtf": false,
@@ -108829,6 +112430,17 @@
     "sector": "Consumer Defensive",
     "ticker": "BDRFY"
   },
+  "D1014N107": {
+    "displaySymbol": "BERTRA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Bertrandt AG",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:D1014N107",
+    "unpriced": true
+  },
   "D1646D105": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
     "isNonStockEtf": false,
@@ -108901,6 +112513,17 @@
     "name": "RWE Aktiengesellschaft",
     "sector": "Utilities",
     "ticker": "RWEOY"
+  },
+  "D66992104": {
+    "displaySymbol": "SAPSEO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SAP SE ORDF",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:D66992104",
+    "unpriced": true
   },
   "D69671218": {
     "displaySymbol": "SIEMEN",
@@ -109430,6 +113053,28 @@
     "ticker": "CUSIP:G0112R108",
     "unpriced": true
   },
+  "G0112R116": {
+    "displaySymbol": "AFRICA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AFRICAN GOLD ACQUISITION COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G0112R116",
+    "unpriced": true
+  },
+  "G0112R124": {
+    "displaySymbol": "AFRICA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AFRICAN GOLD ACQUISITION COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G0112R124",
+    "unpriced": true
+  },
   "G0113G101": {
     "industry": "Shell Companies",
     "isNonStockEtf": false,
@@ -109696,6 +113341,28 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G0190X118",
+    "unpriced": true
+  },
+  "G0231L107": {
+    "displaySymbol": "ALSPOR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ALSP ORCHID ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G0231L107",
+    "unpriced": true
+  },
+  "G0232F109": {
+    "displaySymbol": "ALCHEM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ALCHEMY INVTS ACQUISITN CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G0232F109",
     "unpriced": true
   },
   "G0232J101": {
@@ -110117,6 +113784,17 @@
     "ticker": "CUSIP:G0412A102",
     "unpriced": true
   },
+  "G0412A110": {
+    "displaySymbol": "APOLLO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "APOLLO STRATEGIC GRWT CPTL I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G0412A110",
+    "unpriced": true
+  },
   "G041JN106": {
     "industry": "Building Products & Equipment",
     "isNonStockEtf": false,
@@ -110252,6 +113930,17 @@
     "ticker": "CUSIP:G0477L100",
     "unpriced": true
   },
+  "G0477L118": {
+    "displaySymbol": "ARCTOS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ARCTOS NORTHSTAR ACQUIS CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G0477L118",
+    "unpriced": true
+  },
   "G0508H110": {
     "displaySymbol": "ARCADI",
     "industry": "",
@@ -110354,6 +114043,14 @@
     "name": "Roundhill T-REX 2x Long DRAM Daily Target ETF",
     "sector": "Other",
     "ticker": "RAM"
+  },
+  "G0542S106": {
+    "industry": "Shell Companies",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "A SPAC III Acquisition Corp.",
+    "sector": "Financial Services",
+    "ticker": "ASPC"
   },
   "G0542S130": {
     "industry": "Shell Companies",
@@ -110494,6 +114191,17 @@
     "ticker": "CUSIP:G0633D109",
     "unpriced": true
   },
+  "G0633D117": {
+    "displaySymbol": "AUSTER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AUSTERLITZ ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G0633D117",
+    "unpriced": true
+  },
   "G0633U101": {
     "displaySymbol": "AUSTER",
     "industry": "",
@@ -110592,6 +114300,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G0682V109",
+    "unpriced": true
+  },
+  "G0682V117": {
+    "displaySymbol": "AVANTI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "AVANTI ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G0682V117",
     "unpriced": true
   },
   "G0684D107": {
@@ -111337,6 +115056,17 @@
     "ticker": "CUSIP:G1195N105",
     "unpriced": true
   },
+  "G1195N113": {
+    "displaySymbol": "BLUESC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BLUESCAPE OPPORTUNITIES ACQU",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G1195N113",
+    "unpriced": true
+  },
   "G1195N121": {
     "displaySymbol": "BLUESC",
     "industry": "",
@@ -111439,6 +115169,17 @@
     "name": "Breeze Acquisition Corp. II",
     "sector": "Financial Services",
     "ticker": "BREZ"
+  },
+  "G1330L105": {
+    "displaySymbol": "BLUEOC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BLUE OCEAN ACQUISITION CORP CLASS A",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G1330L105",
+    "unpriced": true
   },
   "G1330M103": {
     "displaySymbol": "BLUEWH",
@@ -111720,6 +115461,28 @@
     "name": "Brookfield Property Partners L.P.",
     "sector": "Real Estate",
     "ticker": "BPYPP"
+  },
+  "G16250105": {
+    "displaySymbol": "BROOKF",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BROOKFIELD REINS LTD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G16250105",
+    "unpriced": true
+  },
+  "G16250204": {
+    "displaySymbol": "BROOKF",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "BROOKFIELD REINS LTD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G16250204",
+    "unpriced": true
   },
   "G16252101": {
     "industry": "Utilities\u2014Diversified",
@@ -112177,6 +115940,28 @@
     "ticker": "CUSIP:G1962Y102",
     "unpriced": true
   },
+  "G1962Y128": {
+    "displaySymbol": "CATCHA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CATCHA INVESTMENT CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G1962Y128",
+    "unpriced": true
+  },
+  "G1991C105": {
+    "displaySymbol": "CARDTR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CARDTRONICS PLC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G1991C105",
+    "unpriced": true
+  },
   "G1991X109": {
     "industry": "Oil & Gas Midstream",
     "isNonStockEtf": false,
@@ -112194,6 +115979,28 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G1992N100",
+    "unpriced": true
+  },
+  "G1992N118": {
+    "displaySymbol": "CCNEUB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CC NEUBERGER PRINCIPAL HOLDN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G1992N118",
+    "unpriced": true
+  },
+  "G1992Y114": {
+    "displaySymbol": "CCNEUB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CC NEUBERGER PRINCIPAL HLDNG",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G1992Y114",
     "unpriced": true
   },
   "G1993W109": {
@@ -112469,6 +116276,17 @@
     "sector": "Communication Services",
     "ticker": "CCGWW"
   },
+  "G2072Q104": {
+    "displaySymbol": "CENTRI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CENTRICUS ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G2072Q104",
+    "unpriced": true
+  },
   "G2086M107": {
     "industry": "Shell Companies",
     "isNonStockEtf": false,
@@ -112705,6 +116523,17 @@
     "sector": "Industrials",
     "ticker": "CMPR"
   },
+  "G21513109": {
+    "displaySymbol": "CITICC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CITIC CAPITAL ACQUISITION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G21513109",
+    "unpriced": true
+  },
   "G21515104": {
     "displaySymbol": "CHINAB",
     "industry": "",
@@ -112761,6 +116590,17 @@
     "name": "Cohen Circle Acquisition Corp. II",
     "sector": "Financial Services",
     "ticker": "CCII"
+  },
+  "G2263T115": {
+    "displaySymbol": "COLISE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Coliseum Acquisition Corp",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G2263T115",
+    "unpriced": true
   },
   "G2263T123": {
     "displaySymbol": "COLISE",
@@ -112843,6 +116683,17 @@
     "ticker": "CUSIP:G2284B101",
     "unpriced": true
   },
+  "G2284B127": {
+    "displaySymbol": "COLONN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "COLONNADE ACQUISITION CORP I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G2284B127",
+    "unpriced": true
+  },
   "G2287A134": {
     "industry": "Entertainment",
     "isTechTmt": false,
@@ -112880,6 +116731,17 @@
     "name": "ClearThink 1 Acquisition Corp.",
     "sector": "Financial Services",
     "ticker": "CTAAU"
+  },
+  "G2296A109": {
+    "displaySymbol": "COLUMB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "COLUMBUS CIRCLE CAP CORP. I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G2296A109",
+    "unpriced": true
   },
   "G2296M103": {
     "industry": "Shell Companies",
@@ -112980,6 +116842,17 @@
     "name": "VegaShares AI Thermal, Cooling & Power Management ETF",
     "sector": "Other",
     "ticker": "COOL"
+  },
+  "G24237102": {
+    "displaySymbol": "CORAZO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CORAZON CAPITAL V838 MONOCER",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G24237102",
+    "unpriced": true
   },
   "G24243100": {
     "industry": "Shell Companies",
@@ -113117,6 +116990,28 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G2540H108",
+    "unpriced": true
+  },
+  "G2540H124": {
+    "displaySymbol": "CORSAI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "CORSAIR PARTNERING CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G2540H124",
+    "unpriced": true
+  },
+  "G2542B117": {
+    "displaySymbol": "COUNTE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "COUNTER PRESS ACQUISITION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G2542B117",
     "unpriced": true
   },
   "G25457105": {
@@ -113520,6 +117415,17 @@
     "sector": "Consumer Defensive",
     "ticker": "DDC"
   },
+  "G2770Y102": {
+    "displaySymbol": "DISRUP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DISRUPTIVE ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G2770Y102",
+    "unpriced": true
+  },
   "G2770Y110": {
     "displaySymbol": "DISRUP",
     "industry": "",
@@ -113692,6 +117598,17 @@
     "sector": "Financial Services",
     "ticker": "DTSQU"
   },
+  "G28553108": {
+    "displaySymbol": "DUDDEL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DUDDELL STREET ACQUISITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G28553108",
+    "unpriced": true
+  },
   "G28553116": {
     "industry": "",
     "isTechTmt": false,
@@ -113766,6 +117683,17 @@
     "name": "Digital Asset Acquisition Corp.",
     "sector": "Financial Services",
     "ticker": "DAAQU"
+  },
+  "G2891G204": {
+    "displaySymbol": "DIVERS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "DIVERSIFIED ENERGY COMPANY P",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G2891G204",
+    "unpriced": true
   },
   "G28923103": {
     "displaySymbol": "DIVERS",
@@ -114044,6 +117972,17 @@
     "ticker": "CUSIP:G31070108",
     "unpriced": true
   },
+  "G31070124": {
+    "displaySymbol": "SCIONT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SCION TECH GROWTH II",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G31070124",
+    "unpriced": true
+  },
   "G3109F111": {
     "industry": "Electrical Equipment & Parts",
     "isTechTmt": false,
@@ -114094,6 +118033,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G31658100",
+    "unpriced": true
+  },
+  "G31659108": {
+    "displaySymbol": "ARYASC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ARYA SCIENCES ACQU CORP IV",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G31659108",
     "unpriced": true
   },
   "G3166T103": {
@@ -114566,6 +118516,17 @@
     "sector": "Energy",
     "ticker": "FLNG"
   },
+  "G3619H102": {
+    "displaySymbol": "FORBIO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FORBION EUROPEAN ACQUSTN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G3619H102",
+    "unpriced": true
+  },
   "G3624C106": {
     "industry": "Shell Companies",
     "isTechTmt": false,
@@ -114677,6 +118638,17 @@
     "name": "BlackRock Frontiers Ord",
     "sector": "Other",
     "ticker": "BRFI-L"
+  },
+  "G36826108": {
+    "displaySymbol": "FRONTI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FRONTIER ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G36826108",
+    "unpriced": true
   },
   "G3682E192": {
     "industry": "Oil & Gas Midstream",
@@ -114840,6 +118812,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G3728Y103",
+    "unpriced": true
+  },
+  "G3728Y129": {
+    "displaySymbol": "FTACHE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "FTAC HERA ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G3728Y129",
     "unpriced": true
   },
   "G37307108": {
@@ -115064,6 +119047,17 @@
     "name": "GigaCloud Technology Inc.",
     "sector": "Technology",
     "ticker": "GCT"
+  },
+  "G38648104": {
+    "displaySymbol": "GIGCAP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "GIGCAPITAL7 CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G38648104",
+    "unpriced": true
   },
   "G3864J100": {
     "industry": "Shell Companies",
@@ -115324,6 +119318,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G39714111",
+    "unpriced": true
+  },
+  "G39714129": {
+    "displaySymbol": "HHLACQ",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "HH&L ACQUISITION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G39714129",
     "unpriced": true
   },
   "G3971Z385": {
@@ -116076,6 +120081,17 @@
     "ticker": "CUSIP:G44690108",
     "unpriced": true
   },
+  "G44690116": {
+    "displaySymbol": "HIGHLA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "HIGHLAND TRANSCEND PARTNERS",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G44690116",
+    "unpriced": true
+  },
   "G4474Y214": {
     "industry": "",
     "isNonStockEtf": true,
@@ -116365,6 +120381,17 @@
     "name": "CURRENC Group Inc.",
     "sector": "Technology",
     "ticker": "CURR"
+  },
+  "G47874105": {
+    "displaySymbol": "INFLEC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "INFLECTION POINT ACQUSTN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G47874105",
+    "unpriced": true
   },
   "G47874121": {
     "displaySymbol": "INFLEC",
@@ -116724,6 +120751,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G49393104",
+    "unpriced": true
+  },
+  "G49393120": {
+    "displaySymbol": "IONACQ",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ION ACQUISITION CORP 2 LTD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G49393120",
     "unpriced": true
   },
   "G4939F107": {
@@ -117350,6 +121388,17 @@
     "ticker": "CUSIP:G4R54N308",
     "unpriced": true
   },
+  "G4R87P114": {
+    "displaySymbol": "IVANHO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "IVANHOE CAPITAL ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G4R87P114",
+    "unpriced": true
+  },
   "G50004103": {
     "industry": "Shell Companies",
     "isNonStockEtf": false,
@@ -117900,6 +121949,17 @@
     "ticker": "CUSIP:G5276C110",
     "unpriced": true
   },
+  "G5276C128": {
+    "displaySymbol": "KISMET",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "KISMET ACQUISITION THREE COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G5276C128",
+    "unpriced": true
+  },
   "G5279F102": {
     "industry": "Recreational Vehicles",
     "isNonStockEtf": false,
@@ -118039,6 +122099,17 @@
     "name": "Kyivstar Group Ltd.",
     "sector": "Communication Services",
     "ticker": "KYIVW"
+  },
+  "G5338L108": {
+    "displaySymbol": "LAMFGL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LAMF GLOBAL VENTURES CORP I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G5338L108",
+    "unpriced": true
   },
   "G53426105": {
     "industry": "Shell Companies",
@@ -118240,6 +122311,17 @@
     "ticker": "CUSIP:G54035103",
     "unpriced": true
   },
+  "G54035129": {
+    "displaySymbol": "LAZARD",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LAZARD GROWTH ACQUISITION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G54035129",
+    "unpriced": true
+  },
   "G54050102": {
     "industry": "Capital Markets",
     "isNonStockEtf": false,
@@ -118343,6 +122425,28 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G5462L106",
+    "unpriced": true
+  },
+  "G5463R102": {
+    "displaySymbol": "LEOHLD",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LEO HLDGS CORP II",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G5463R102",
+    "unpriced": true
+  },
+  "G5463T108": {
+    "displaySymbol": "LEOHOL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "LEO HOLDINGS III CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G5463T108",
     "unpriced": true
   },
   "G5480M102": {
@@ -118677,6 +122781,17 @@
     "ticker": "CUSIP:G58442107",
     "unpriced": true
   },
+  "G58442115": {
+    "displaySymbol": "MARQUE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MARQUEE RAINE ACQUISITION CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G58442115",
+    "unpriced": true
+  },
   "G5853A107": {
     "industry": "",
     "isNonStockEtf": true,
@@ -118684,6 +122799,28 @@
     "name": "YieldMax DKNG Option Income Str",
     "sector": "Other",
     "ticker": "DRAY"
+  },
+  "G5853A123": {
+    "displaySymbol": "MACOND",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MACONDRAY CAP ACQUISITN CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G5853A123",
+    "unpriced": true
+  },
+  "G5859B117": {
+    "displaySymbol": "MALACC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MALACCA STRAITS ACQUISITION",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G5859B117",
+    "unpriced": true
   },
   "G5865E105": {
     "industry": "Capital Markets",
@@ -118820,6 +122957,28 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G5S70A104",
+    "unpriced": true
+  },
+  "G5S70A112": {
+    "displaySymbol": "MAGNUM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MAGNUM OPUS ACQUISITION LTD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G5S70A112",
+    "unpriced": true
+  },
+  "G5S70A120": {
+    "displaySymbol": "MAGNUM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MAGNUM OPUS ACQUISITION LTD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G5S70A120",
     "unpriced": true
   },
   "G5S74L106": {
@@ -119209,6 +123368,17 @@
     "name": "Aptiv PLC",
     "sector": "Consumer Cyclical",
     "ticker": "APTV"
+  },
+  "G61074103": {
+    "displaySymbol": "PRIMEI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PRIME IMPACT ACQUISITION I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G61074103",
+    "unpriced": true
   },
   "G61188101": {
     "industry": "Telecom Services",
@@ -119906,6 +124076,28 @@
     "ticker": "CUSIP:G6529L105",
     "unpriced": true
   },
+  "G6529L113": {
+    "displaySymbol": "NEWVIS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NEW VISTA ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G6529L113",
+    "unpriced": true
+  },
+  "G65305107": {
+    "displaySymbol": "NEXTGE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "NEXTGEN ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G65305107",
+    "unpriced": true
+  },
   "G65317102": {
     "displaySymbol": "NEXTGE",
     "industry": "",
@@ -120458,6 +124650,17 @@
     "sector": "Financial Services",
     "ticker": "PAX"
   },
+  "G69454109": {
+    "displaySymbol": "PATRIA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PATRIA LATIN AMRCN OPPRNTY A",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G69454109",
+    "unpriced": true
+  },
   "G6951A106": {
     "industry": "Shell Companies",
     "isNonStockEtf": false,
@@ -120577,6 +124780,28 @@
     "sector": "Financial Services",
     "ticker": "PLCI"
   },
+  "G6S23K108": {
+    "displaySymbol": "MORING",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "MORINGA ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G6S23K108",
+    "unpriced": true
+  },
+  "G6S41R101": {
+    "displaySymbol": "RVLPHA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "RVL PHARMACEUTICALS PLC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G6S41R101",
+    "unpriced": true
+  },
   "G6S74K106": {
     "industry": "Shell Companies",
     "isNonStockEtf": false,
@@ -120679,6 +124904,17 @@
     "ticker": "CUSIP:G7008B105",
     "unpriced": true
   },
+  "G7008B113": {
+    "displaySymbol": "PERIDO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PERIDOT ACQUISITION CORP II",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G7008B113",
+    "unpriced": true
+  },
   "G7010A103": {
     "industry": "Shell Companies",
     "isTechTmt": false,
@@ -120706,6 +124942,17 @@
     "name": "Pershing Square Inc.",
     "sector": "Financial Services",
     "ticker": "PS"
+  },
+  "G7112J507": {
+    "displaySymbol": "PIMCOG",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PIMCO Gis U.S. Short-Term Fund Institutional Class",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G7112J507",
+    "unpriced": true
   },
   "G71139102": {
     "displaySymbol": "PINGAN",
@@ -120793,6 +125040,17 @@
     "name": "Plum Acquisition Corp. IV",
     "sector": "Financial Services",
     "ticker": "PLMKW"
+  },
+  "G7134L100": {
+    "displaySymbol": "PLUMAC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PLUM ACQUISITION CORP I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G7134L100",
+    "unpriced": true
   },
   "G7134L126": {
     "displaySymbol": "PLUMAC",
@@ -121033,12 +125291,34 @@
     "ticker": "CUSIP:G7282L100",
     "unpriced": true
   },
+  "G7282L118": {
+    "displaySymbol": "PROVID",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "PROVIDENT ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G7282L118",
+    "unpriced": true
+  },
   "G72899100": {
     "industry": "Insurance\u2014Life",
     "isTechTmt": false,
     "name": "Prudential Financial, Inc.",
     "sector": "Financial Services",
     "ticker": "PRU"
+  },
+  "G7307X105": {
+    "displaySymbol": "QELLAC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "QELL ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G7307X105",
+    "unpriced": true
   },
   "G7308J105": {
     "industry": "Integrated Freight & Logistics",
@@ -121371,6 +125651,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G7417R105",
+    "unpriced": true
+  },
+  "G7417R121": {
+    "displaySymbol": "REDBAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "REDBALL ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G7417R121",
     "unpriced": true
   },
   "G7445R101": {
@@ -121835,6 +126126,17 @@
     "ticker": "CUSIP:G7613T103",
     "unpriced": true
   },
+  "G7613T111": {
+    "displaySymbol": "ROCKET",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ROCKET INTERNET GRWT OPRT CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G7613T111",
+    "unpriced": true
+  },
   "G7614L109": {
     "displaySymbol": "ROCKLE",
     "industry": "",
@@ -121921,6 +126223,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G7641C106",
+    "unpriced": true
+  },
+  "G7641C122": {
+    "displaySymbol": "ROSSAC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ROSS ACQUISITION CORP II",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G7641C122",
     "unpriced": true
   },
   "G7709Q104": {
@@ -122098,6 +126411,28 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G79407105",
+    "unpriced": true
+  },
+  "G79407113": {
+    "displaySymbol": "SCREAM",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SCREAMING EAGLE ACQUISITN CO",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G79407113",
+    "unpriced": true
+  },
+  "G79448208": {
+    "displaySymbol": "SCVXCO",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SCVX CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G79448208",
     "unpriced": true
   },
   "G7945M107": {
@@ -122311,6 +126646,17 @@
     "name": "SharkNinja, Inc.",
     "sector": "Consumer Cyclical",
     "ticker": "SN"
+  },
+  "G80694105": {
+    "displaySymbol": "7ACQUI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "7 ACQUISITION CORPORATION",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G80694105",
+    "unpriced": true
   },
   "G8071C103": {
     "industry": "Apparel Retail",
@@ -122661,6 +127007,17 @@
     "sector": "Healthcare",
     "ticker": "SNN"
   },
+  "G82472112": {
+    "displaySymbol": "SOARTE",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SOAR TECHNOLOGY ACQUISN CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G82472112",
+    "unpriced": true
+  },
   "G82514103": {
     "displaySymbol": "SOCIAL",
     "industry": "",
@@ -122670,6 +127027,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G82514103",
+    "unpriced": true
+  },
+  "G82514129": {
+    "displaySymbol": "SOCIAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SOCIAL CAPITAL HEDOSOPHA HLD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G82514129",
     "unpriced": true
   },
   "G8251A109": {
@@ -122695,6 +127063,17 @@
     "sector": "Financial Services",
     "ticker": "ISNRU"
   },
+  "G8251K107": {
+    "displaySymbol": "SOCIAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SOCIAL CAP HEDSPIA HLDG CO I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8251K107",
+    "unpriced": true
+  },
   "G8251L105": {
     "displaySymbol": "SOCIAL",
     "industry": "",
@@ -122706,6 +127085,17 @@
     "ticker": "CUSIP:G8251L105",
     "unpriced": true
   },
+  "G8251L121": {
+    "displaySymbol": "SOCIAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SOCIAL CAPITAL HEDOSOPHA HLD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8251L121",
+    "unpriced": true
+  },
   "G8252P105": {
     "displaySymbol": "SOCIAL",
     "industry": "",
@@ -122715,6 +127105,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G8252P105",
+    "unpriced": true
+  },
+  "G8252P121": {
+    "displaySymbol": "SOCIAL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SOCIAL CAPITAL HEDOSOPHA HLD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8252P121",
     "unpriced": true
   },
   "G8253T106": {
@@ -123015,6 +127416,17 @@
     "ticker": "CUSIP:G8354H126",
     "unpriced": true
   },
+  "G8372A103": {
+    "displaySymbol": "SPORTS",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SPORTS VENTURES ACQUISIN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8372A103",
+    "unpriced": true
+  },
   "G83752108": {
     "displaySymbol": "SPRING",
     "industry": "",
@@ -123239,6 +127651,17 @@
     "name": "StoneCo Ltd.",
     "sector": "Technology",
     "ticker": "STNE"
+  },
+  "G85347105": {
+    "displaySymbol": "STRONG",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "STRONGBRIDGE BIOPHARMA PLC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G85347105",
+    "unpriced": true
   },
   "G8557R103": {
     "industry": "Shell Companies",
@@ -123472,6 +127895,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G8662F101",
+    "unpriced": true
+  },
+  "G8662F127": {
+    "displaySymbol": "TAILWI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TAILWIND INTERNATNAL ACQ COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8662F127",
     "unpriced": true
   },
   "G8662J103": {
@@ -123895,6 +128329,17 @@
     "ticker": "CUSIP:G88672103",
     "unpriced": true
   },
+  "G88672111": {
+    "displaySymbol": "TIGAAC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TIGA ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G88672111",
+    "unpriced": true
+  },
   "G88765105": {
     "industry": "Shell Companies",
     "isTechTmt": false,
@@ -124019,6 +128464,17 @@
     "ticker": "CUSIP:G8990L101",
     "unpriced": true
   },
+  "G8990L119": {
+    "displaySymbol": "TPBACQ",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TPB ACQUISITION CORP I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8990L119",
+    "unpriced": true
+  },
   "G8990Y103": {
     "displaySymbol": "TPGPAC",
     "industry": "",
@@ -124028,6 +128484,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G8990Y103",
+    "unpriced": true
+  },
+  "G8990Y111": {
+    "displaySymbol": "TPGPAC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TPG PACE TECH OPPORTUNITIES",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8990Y111",
     "unpriced": true
   },
   "G8994E103": {
@@ -124132,6 +128599,17 @@
     "ticker": "CUSIP:G8T86C105",
     "unpriced": true
   },
+  "G8T86C113": {
+    "displaySymbol": "SUPERN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SUPERNOVA PARTNERS ACQUISTN",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8T86C113",
+    "unpriced": true
+  },
   "G8T90F102": {
     "displaySymbol": "SUPERN",
     "industry": "",
@@ -124141,6 +128619,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G8T90F102",
+    "unpriced": true
+  },
+  "G8T90F110": {
+    "displaySymbol": "SUPERN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "SUPERNOVA PARTN ACQ CO III L",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G8T90F110",
     "unpriced": true
   },
   "G9001E102": {
@@ -124263,6 +128752,17 @@
     "name": "Tribeca Strategic Acquisition Corp.",
     "sector": "Financial Services",
     "ticker": "BIDWU"
+  },
+  "G9059F100": {
+    "displaySymbol": "TRINEI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "TRINE II ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G9059F100",
+    "unpriced": true
   },
   "G9059U107": {
     "industry": "Specialty Chemicals",
@@ -124447,6 +128947,17 @@
     "sector": "Consumer Cyclical",
     "ticker": "VIK"
   },
+  "G93Y09107": {
+    "displaySymbol": "VINEHI",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "VINE HILL CAP INVT CORP.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G93Y09107",
+    "unpriced": true
+  },
   "G93Y0A104": {
     "industry": "Shell Companies",
     "isNonStockEtf": false,
@@ -124529,6 +129040,17 @@
     "ticker": "CUSIP:G9444H100",
     "unpriced": true
   },
+  "G9444H126": {
+    "displaySymbol": "VYGLOB",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "VY GLOBAL GROWTH",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G9444H126",
+    "unpriced": true
+  },
   "G9446E105": {
     "displaySymbol": "VGACQU",
     "industry": "",
@@ -124580,6 +129102,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G9460A104",
+    "unpriced": true
+  },
+  "G9460C100": {
+    "displaySymbol": "WALDEN",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "WALDENCAST ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G9460C100",
     "unpriced": true
   },
   "G9460C126": {
@@ -124642,6 +129175,17 @@
     "ticker": "CUSIP:G9460M108",
     "unpriced": true
   },
+  "G9460M116": {
+    "displaySymbol": "WARBUR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "WARBURG PINCUS CAPTAL CORP I",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G9460M116",
+    "unpriced": true
+  },
   "G9460N106": {
     "displaySymbol": "VALORL",
     "industry": "",
@@ -124651,6 +129195,17 @@
     "resolvedFail": true,
     "sector": "Other",
     "ticker": "CUSIP:G9460N106",
+    "unpriced": true
+  },
+  "G9460N114": {
+    "displaySymbol": "VALORL",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "VALOR LATITUDE ACQUISITN COR",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G9460N114",
     "unpriced": true
   },
   "G9461B101": {
@@ -125065,6 +129620,17 @@
     "sector": "Technology",
     "ticker": "WSE"
   },
+  "G97775103": {
+    "displaySymbol": "WORLDW",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "WORLDWIDE WEBB ACQUISITION C",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G97775103",
+    "unpriced": true
+  },
   "G97822103": {
     "industry": "Drug Manufacturers\u2014Specialty & Generic",
     "isNonStockEtf": false,
@@ -125146,6 +129712,17 @@
     "sector": "Financial Services",
     "ticker": "XCBEU"
   },
+  "G9831X114": {
+    "displaySymbol": "XPACAC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "XPAC ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G9831X114",
+    "unpriced": true
+  },
   "G98338109": {
     "industry": "Travel Services",
     "isNonStockEtf": false,
@@ -125212,6 +129789,17 @@
     "sector": "Healthcare",
     "ticker": "YDESW"
   },
+  "G9845F109": {
+    "displaySymbol": "YSBIOP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "YS BIOPHARMA CO LTD",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G9845F109",
+    "unpriced": true
+  },
   "G98659108": {
     "industry": "Shell Companies",
     "isTechTmt": false,
@@ -125262,6 +129850,17 @@
     "name": "Charlton Aria Acquisition Corporation",
     "sector": "Other",
     "ticker": "CHARR"
+  },
+  "G9879L105": {
+    "displaySymbol": "YUCAIP",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "YUCAIPA ACQUISITION CORP",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:G9879L105",
+    "unpriced": true
   },
   "G9889V101": {
     "industry": "Software\u2014Application",
@@ -126032,6 +130631,17 @@
     "ticker": "CUSIP:K9773J201",
     "unpriced": true
   },
+  "KYG8136L1": {
+    "displaySymbol": "SILVER",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Silver Spike Acquisition Corp.",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:KYG8136L1",
+    "unpriced": true
+  },
   "L00849106": {
     "industry": "Farm Products",
     "isNonStockEtf": false,
@@ -126428,6 +131038,17 @@
     "name": "Birkenstock Holding plc",
     "sector": "Consumer Cyclical",
     "ticker": "BIRK"
+  },
+  "M20330102": {
+    "displaySymbol": "ROBOGR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "RoboGroup T.E.K Ltd",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:M20330102",
+    "unpriced": true
   },
   "M20598104": {
     "industry": "Building Products & Equipment",
@@ -126974,6 +131595,17 @@
     "ticker": "CUSIP:M6058P108",
     "unpriced": true
   },
+  "M61483109": {
+    "displaySymbol": "ITAMAR",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Itamar Medical Ltd",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:M61483109",
+    "unpriced": true
+  },
   "M6158M104": {
     "industry": "Scientific & Technical Instruments",
     "isNonStockEtf": false,
@@ -127233,6 +131865,17 @@
     "name": "PolyPid Ltd.",
     "sector": "Healthcare",
     "ticker": "PYPD"
+  },
+  "M8164J109": {
+    "displaySymbol": "PRIORT",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Priortech Ltd",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:M8164J109",
+    "unpriced": true
   },
   "M81863124": {
     "displaySymbol": "RADAEL",
@@ -128152,6 +132795,17 @@
     "sector": "Consumer Cyclical",
     "ticker": "STLA"
   },
+  "N84437107": {
+    "displaySymbol": "JUSTEA",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Just Eat Takeaway.com NV",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:N84437107",
+    "unpriced": true
+  },
   "N85083108": {
     "industry": "Utilities\u2014Regulated Electric",
     "isNonStockEtf": false,
@@ -128916,6 +133570,17 @@
     "ticker": "CUSIP:Y0436Q109",
     "unpriced": true
   },
+  "Y0486S104": {
+    "displaySymbol": "BROADC",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "Broadcom Technologies",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:Y0486S104",
+    "unpriced": true
+  },
   "Y0487S137": {
     "industry": "Banks\u2014Regional",
     "isTechTmt": false,
@@ -129140,6 +133805,17 @@
     "name": "Dynagas LNG Partners LP",
     "sector": "Energy",
     "ticker": "DLNG"
+  },
+  "Y2294C107": {
+    "displaySymbol": "ENETII",
+    "industry": "",
+    "isNonStockEtf": false,
+    "isTechTmt": false,
+    "name": "ENETI INC",
+    "resolvedFail": true,
+    "sector": "Other",
+    "ticker": "CUSIP:Y2294C107",
+    "unpriced": true
   },
   "Y23508107": {
     "industry": "Marine Shipping",
