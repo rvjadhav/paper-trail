@@ -13,6 +13,7 @@ import { UpdateDetailDrawer } from './components/UpdateDetailDrawer';
 import { StockDetailDrawer } from './components/StockDetailDrawer';
 import { ThemeToggle, type ThemeMode } from './components/ThemeToggle';
 import { buildConvictionLookupMap, buildUnifiedConvictionList } from './utils/convictionMatrix';
+import { buildConvergenceFeed, buildDualConvictionLookup } from './utils/convergence';
 import { useModalFocusTrap } from './utils/useModalFocusTrap';
 
 type PrimaryTab = 'ranking' | 'holdings' | 'ideal' | 'updates';
@@ -403,6 +404,22 @@ export function App() {
     );
   }, [dataset, mode]);
 
+  const convergenceFeed = useMemo(() => {
+    if (!dataset) return [];
+    return buildConvergenceFeed({
+      dualConvictionSignals: dataset.dualConvictionSignals,
+      form4Signals: dataset.form4Signals,
+      midQuarterAlerts: dataset.midQuarterAlerts,
+      stocksIndex: dataset.stocksIndex,
+      convictionByTicker: unifiedConvictionByTicker,
+    });
+  }, [dataset, unifiedConvictionByTicker]);
+
+  const dualConvictionByTicker = useMemo(
+    () => buildDualConvictionLookup(convergenceFeed),
+    [convergenceFeed]
+  );
+
   const generatedFormatted = useMemo(() => {
     if (!dataset) return 'Loading...';
     try {
@@ -653,6 +670,8 @@ export function App() {
             stocksIndex={dataset.stocksIndex}
             funds={dataset.funds}
             idealPortfolio={dataset.idealPortfolio}
+            dualConvictionByTicker={dualConvictionByTicker}
+            form4Signals={dataset.form4Signals}
             mode={mode}
             onModeChange={setMode}
             onSelectFund={setSelectedFundCik}
@@ -672,6 +691,8 @@ export function App() {
             stocksIndex={dataset.stocksIndex}
             funds={dataset.funds}
             convictionByTicker={unifiedConvictionByTicker}
+            dualConvictionByTicker={dualConvictionByTicker}
+            form4Signals={dataset.form4Signals}
             latestQuarterLabel={dataset.updatesOverview.latestQuarterLabel}
             mode={mode}
             onModeChange={setMode}
@@ -692,6 +713,9 @@ export function App() {
             midQuarterAlerts={dataset.midQuarterAlerts}
             stocksIndex={dataset.stocksIndex}
             searchableTickersByCik={searchableTickersByCik}
+            form4Signals={dataset.form4Signals}
+            dualConvictionSignals={convergenceFeed}
+            convictionByTicker={unifiedConvictionByTicker}
             onSelectFund={setSelectedFundCik}
             onDiveDeeper={handleDiveDeeperFromUpdates}
             onSelectStock={handleSelectStock}
@@ -703,7 +727,7 @@ export function App() {
       <footer className="site-footer">
         <div className="footer-inner">
           <div>
-            <strong>Paper Trail</strong> · Automated SEC EDGAR Form 13F-HR / 13D / 13G &amp; XBRL analytics pipeline.
+            <strong>Paper Trail</strong> · Automated SEC EDGAR Form 13F-HR / 13D / 13G / Form 4 &amp; XBRL analytics pipeline.
           </div>
           <div>
             13F filings reflect long U.S. equity, ADR, and disclosed option positions filed with the SEC and exclude cash, shorts, and private stakes unless reported. Not investment advice.
@@ -772,6 +796,8 @@ export function App() {
           funds={dataset.funds}
           mode={mode}
           convictionByTicker={unifiedConvictionByTicker}
+          form4Signals={dataset.form4Signals}
+          dualConvictionByTicker={dualConvictionByTicker}
           onClose={() => setSelectedStockTicker(null)}
           onSelectFund={(cik) => {
             const originStock = selectedStockTicker;
@@ -840,9 +866,9 @@ export function App() {
                 </li>
               </ul>
 
-              <h3 style={{ color: 'var(--text-primary)' }}>4. Public APIs, Lag Engine &amp; Unified 4-Pillar Conviction Matrix</h3>
+              <h3 style={{ color: 'var(--text-primary)' }}>4. Public APIs, Lag Engine, Form 4 / 13D Convergence &amp; 4-Pillar Matrix</h3>
               <p>
-                Every indexed equity ({stocksIndexedCount.toLocaleString()} stocks across sharded JSON payloads) integrates <strong>Est. Quarter VWAP &amp; Post-13F Alpha-Decay</strong> (3-timestamp trajectory + Elite holding tenure), <strong>SEC EDGAR XBRL CompanyFacts</strong> (TTM Revenue, YoY Growth, Operating &amp; FCF Margins, R&amp;D Intensity, Share Dilution, Market Cap Tiers), and <strong>Live Schedule 13D / 13G Filings</strong>. The <strong>Unified Actionability Matrix (0–100)</strong> combines <strong>Smart-Money Flow Impulse</strong> (25 pts), <strong>Price Discipline vs. Q-VWAP</strong> (25 pts), <strong>XBRL Quality Gate</strong> less dilution (25 pts), and <strong>Thesis Persistence</strong> across split-adjusted multi-quarter streaks (25 pts) into <code>STRONG ACCUMULATE</code>, <code>ACCUMULATE ON DIP</code>, <code>HOLD</code>, <code>DISTRIBUTION WARNING</code>, or <code>EXIT SIGNAL</code> verdicts.
+                Every indexed equity ({stocksIndexedCount.toLocaleString()} stocks across sharded JSON payloads) integrates <strong>Est. Quarter VWAP &amp; Post-13F Alpha-Decay</strong> (3-timestamp trajectory + Elite holding tenure), <strong>SEC EDGAR XBRL CompanyFacts</strong> (TTM Revenue, YoY Growth, Operating &amp; FCF Margins, R&amp;D Intensity, Share Dilution, Market Cap Tiers), <strong>SEC Form 4 Open-Market (&apos;P&apos;) Insider Purchases</strong> (excluding M/A/F/G option exercises &amp; grants), and <strong>Schedule 13D / 13G Filings</strong> (including Item 4 activist intent classification). The <strong>Dual-Conviction Convergence Feed</strong> highlights rare setups where C-suite Form 4 buyers, 13D activists, and Elite-50 13F funds align near Q-VWAP, while the <strong>Unified Actionability Matrix (0–100)</strong> scores <strong>Smart-Money Flow Impulse</strong> (25 pts), <strong>Price Discipline vs. Q-VWAP</strong> (25 pts), <strong>XBRL Quality Gate</strong> less dilution (25 pts), and <strong>Thesis Persistence</strong> (25 pts) into <code>STRONG ACCUMULATE</code>, <code>ACCUMULATE ON DIP</code>, <code>HOLD</code>, <code>DISTRIBUTION WARNING</code>, or <code>EXIT SIGNAL</code> verdicts.
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>5. Optimal Filing-Season Cron Schedule</h3>
@@ -931,9 +957,9 @@ export function App() {
                         </tr>
                         <tr>
                           <td><strong>12. Live UI Shards &amp; Signals</strong></td>
-                          <td>Updates · Ideal Portfolio · Indexed Stocks · 13D/13G Alerts</td>
+                          <td>Updates · Ideal Portfolio · Indexed Stocks · 13D/13G Alerts · Dual-Conviction / Form 4</td>
                           <td className="num mono">
-                            {funnel.updatesCardsCount} · {funnel.idealPortfolioCount} · {funnel.stocksIndexedCount.toLocaleString()} · {funnel.midQuarterAlertsCount}
+                            {funnel.updatesCardsCount} · {funnel.idealPortfolioCount} · {funnel.stocksIndexedCount.toLocaleString()} · {funnel.midQuarterAlertsCount} · {funnel.dualConvictionCount ?? convergenceFeed.length} / {funnel.form4ClusterBuysCount ?? 0}
                           </td>
                         </tr>
                       </tbody>

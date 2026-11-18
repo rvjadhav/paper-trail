@@ -7,6 +7,7 @@ import {
   Building2,
   Clock,
   ExternalLink,
+  Flame,
   Layers,
   PieChart,
   Radio,
@@ -14,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import type {
+  DualConvictionSignal,
+  Form4InsiderSummary,
   FundSummary,
   ReturnMode,
   StockDetail,
@@ -31,11 +34,16 @@ import {
   alphaDecayChipClass,
   alphaDecayLabel,
   compactShares,
+  convergenceTierChipClass,
+  convergenceTierLabel,
   entryZoneChipClass,
   formatPct,
   formatSignedPct,
   formatSignedUsd,
   formatUsdCompact,
+  insiderSignalChipClass,
+  insiderSignalLabelText,
+  item4CategoryChipClass,
   returnClass,
   stakeStatusChipClass,
   tierChipClass,
@@ -49,6 +57,8 @@ interface StockDetailDrawerProps {
   funds?: FundSummary[];
   mode?: ReturnMode;
   convictionByTicker?: Record<string, UnifiedConvictionRow>;
+  form4Signals?: Record<string, Form4InsiderSummary>;
+  dualConvictionByTicker?: Record<string, DualConvictionSignal>;
   onClose: () => void;
   onSelectFund: (cik: string) => void;
   onJumpToIdeal?: () => void;
@@ -68,6 +78,8 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
   funds,
   mode = 'filing_lag',
   convictionByTicker,
+  form4Signals,
+  dualConvictionByTicker,
   onClose,
   onSelectFund,
   onJumpToIdeal,
@@ -145,6 +157,38 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
     if (preview) return resolveActionabilityMatrix(preview, { latestQuarterLabel });
     return null;
   }, [detail, fallbackUnified, preview, fundSkillByCik, latestQuarterLabel]);
+
+  const normTicker = ticker.toUpperCase();
+  const insiderActivity = useMemo(
+    () => detail?.insiderActivity ?? form4Signals?.[normTicker] ?? form4Signals?.[ticker] ?? null,
+    [detail?.insiderActivity, form4Signals, normTicker, ticker]
+  );
+
+  const convergenceSignal = useMemo(
+    () =>
+      detail?.convergenceSignal ??
+      dualConvictionByTicker?.[normTicker] ??
+      dualConvictionByTicker?.[ticker] ??
+      null,
+    [detail?.convergenceSignal, dualConvictionByTicker, normTicker, ticker]
+  );
+
+  const buyVsVwapPct = useMemo(() => {
+    if (!insiderActivity) return null;
+    if (insiderActivity.buyPriceVsQuarterVwapPct != null) {
+      return insiderActivity.buyPriceVsQuarterVwapPct;
+    }
+    if (
+      insiderActivity.avgBuyPriceUsd != null &&
+      detail?.estQuarterVwap != null &&
+      detail.estQuarterVwap > 0
+    ) {
+      return (
+        Math.round(((insiderActivity.avgBuyPriceUsd / detail.estQuarterVwap) - 1) * 1000) / 10
+      );
+    }
+    return null;
+  }, [insiderActivity, detail]);
 
   const vwapGeometry = useMemo(() => {
     if (!detail) return null;
@@ -228,6 +272,15 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
               {alphaDecay && (alphaDecay.status === 'FOMO_TRAP' || alphaDecay.status === 'LAG_ADVANTAGE') && (
                 <span className={`chip ${alphaDecayChipClass(alphaDecay.status)}`}>
                   {alphaDecayLabel(alphaDecay.status)}
+                </span>
+              )}
+              {convergenceSignal && (
+                <span
+                  className={`chip ${convergenceTierChipClass(convergenceSignal.tier)}`}
+                  title={convergenceSignal.headline}
+                >
+                  <Flame size={11} />
+                  {convergenceTierLabel(convergenceSignal.tier)} · {convergenceSignal.convergenceScore.toFixed(0)}
                 </span>
               )}
               {detail?.idealPortfolioRank && (
@@ -665,6 +718,209 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                   </div>
                 )}
 
+                {/* SEC Form 4 Open-Market Insider Activity & Dual-Conviction */}
+                <div
+                  className="panel"
+                  style={{ marginBottom: '1.15rem' }}
+                  aria-label="SEC Form 4 Open-Market Insider Activity and Dual-Conviction"
+                >
+                  <div className="panel-header">
+                    <div>
+                      <h3 className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <Flame size={16} color="var(--pos-text)" /> SEC Form 4 Insider Purchases &amp; Dual-Conviction
+                      </h3>
+                      <p className="panel-subtitle">
+                        Open-market Form 4 purchases (&apos;P&apos;, 90d lookback, excluding M/A/F/G awards &amp; exercises) vs. Q-VWAP &amp; Elite 13F co-buying
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      {insiderActivity && insiderActivity.openMarketBuyCount > 0 && (
+                        <span className={`chip ${insiderSignalChipClass(insiderActivity.insiderSignalLabel)}`}>
+                          {insiderSignalLabelText(insiderActivity.insiderSignalLabel)}
+                        </span>
+                      )}
+                      {convergenceSignal && (
+                        <span
+                          className={`chip mono ${convergenceTierChipClass(convergenceSignal.tier)}`}
+                          style={{ fontWeight: 700 }}
+                        >
+                          Conv Score {convergenceSignal.convergenceScore.toFixed(0)}/100
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '1rem 1.25rem' }}>
+                    {convergenceSignal && (
+                      <div
+                        className={`alpha-decay-banner ${convergenceTierChipClass(convergenceSignal.tier)}`}
+                        style={{ marginTop: 0, marginBottom: '0.9rem' }}
+                      >
+                        <div style={{ width: '100%' }}>
+                          <div>
+                            <strong style={{ marginRight: '0.45rem' }}>
+                              {convergenceTierLabel(convergenceSignal.tier)}:
+                            </strong>
+                            <span>{convergenceSignal.headline}</span>
+                          </div>
+                          {convergenceSignal.reasons.length > 0 && (
+                            <div className="convergence-reasons" style={{ marginTop: '0.5rem' }}>
+                              {convergenceSignal.reasons.map((r, ri) => (
+                                <span key={`sd-conv-r-${ri}`} className="convergence-reason-pill">
+                                  {r}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {convergenceSignal.activistIntent && (
+                            <div className="item4-intent-box" style={{ marginTop: '0.55rem' }}>
+                              <strong>13D Item 4 Intent:</strong> &ldquo;{convergenceSignal.activistIntent}&rdquo;
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {insiderActivity && insiderActivity.openMarketBuyCount > 0 ? (
+                      <>
+                        <div className="insider-kpi-grid" style={{ marginBottom: '0.85rem' }}>
+                          <div className="insider-kpi-cell">
+                            <span className="xbrl-lbl">Open-Market Buys (90d)</span>
+                            <strong className="mono ret-pos">
+                              {insiderActivity.openMarketBuyCount} buy{insiderActivity.openMarketBuyCount === 1 ? '' : 's'} ·{' '}
+                              {formatUsdCompact(insiderActivity.totalBuyValueUsd)}
+                            </strong>
+                            <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              {insiderActivity.totalBuyShares.toLocaleString()} shares
+                            </span>
+                          </div>
+
+                          <div className="insider-kpi-cell">
+                            <span className="xbrl-lbl">Distinct / C-Suite Buyers</span>
+                            <strong className="mono">
+                              {insiderActivity.distinctBuyersCount} buyer{insiderActivity.distinctBuyersCount === 1 ? '' : 's'}
+                            </strong>
+                            <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              {insiderActivity.cSuiteBuyersCount} C-Suite · {insiderActivity.directorBuyersCount} Director
+                            </span>
+                          </div>
+
+                          <div className="insider-kpi-cell">
+                            <span className="xbrl-lbl">Avg Buy Price vs Q-VWAP</span>
+                            <strong className="mono">
+                              {insiderActivity.avgBuyPriceUsd != null
+                                ? `$${insiderActivity.avgBuyPriceUsd.toFixed(2)}`
+                                : '—'}
+                            </strong>
+                            <span
+                              className={`mono ${returnClass(buyVsVwapPct != null ? -buyVsVwapPct : null)}`}
+                              style={{ fontSize: '0.7rem' }}
+                            >
+                              {buyVsVwapPct != null
+                                ? `${formatSignedPct(buyVsVwapPct, 1)} vs Q-VWAP`
+                                : 'Q-VWAP pending'}
+                            </span>
+                          </div>
+
+                          <div className="insider-kpi-cell">
+                            <span className="xbrl-lbl">Plan &amp; Discretionary Sells</span>
+                            <strong className="mono">
+                              {insiderActivity.non10b5Count} Discretionary buy{insiderActivity.non10b5Count === 1 ? '' : 's'}
+                            </strong>
+                            <span
+                              className={`mono ${insiderActivity.discretionarySellValueUsd > 0 ? 'ret-warn' : ''}`}
+                              style={{ fontSize: '0.7rem', color: insiderActivity.discretionarySellValueUsd > 0 ? 'var(--warn-text)' : 'var(--text-muted)' }}
+                            >
+                              {insiderActivity.discretionarySellValueUsd > 0
+                                ? `Disc. sells ${formatUsdCompact(insiderActivity.discretionarySellValueUsd)}`
+                                : 'No offsetting disc. sells'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {insiderActivity.recentTransactions.length > 0 && (
+                          <div className="table-scroll" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+                            <table className="data-table compact" aria-label="Recent Form 4 open-market insider purchases">
+                              <thead>
+                                <tr>
+                                  <th>Tx Date</th>
+                                  <th>Insider &amp; Role</th>
+                                  <th className="num">Shares</th>
+                                  <th className="num">Price</th>
+                                  <th className="num">Value</th>
+                                  <th>Plan</th>
+                                  <th>SEC Form 4</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {insiderActivity.recentTransactions.map((tx, idx) => (
+                                  <tr key={`${tx.accessionNumber}-${idx}`}>
+                                    <td className="mono">{tx.transactionDate || tx.filingDate}</td>
+                                    <td>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                        <span style={{ fontWeight: 600 }}>{tx.insiderName}</span>
+                                        {tx.isCsuite && (
+                                          <span className="chip pos" style={{ fontSize: '0.64rem' }}>C-Suite</span>
+                                        )}
+                                      </div>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                        {tx.insiderRole}
+                                      </div>
+                                    </td>
+                                    <td className="num mono">{tx.shares.toLocaleString()}</td>
+                                    <td className="num mono">${tx.pricePerShare.toFixed(2)}</td>
+                                    <td className="num mono" style={{ fontWeight: 700 }}>
+                                      {formatUsdCompact(tx.valueUsd)}
+                                    </td>
+                                    <td>
+                                      <span className={`chip ${tx.is10b5Plan ? '' : 'pos'}`} style={{ fontSize: '0.66rem' }}>
+                                        {tx.is10b5Plan ? '10b5-1' : 'Discretionary'}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      <a
+                                        href={tx.edgarUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-ext-link mono"
+                                        style={{ fontSize: '0.75rem' }}
+                                      >
+                                        Form 4 <ExternalLink size={11} />
+                                      </a>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+                        {insiderActivity && insiderActivity.discretionarySellValueUsd > 0 ? (
+                          <>
+                            No open-market Form 4 (&apos;P&apos;) purchases recorded for {detail.ticker} over the past{' '}
+                            {insiderActivity.lookbackDays} days;{' '}
+                            <strong className="mono" style={{ color: 'var(--warn-text)' }}>
+                              {formatUsdCompact(insiderActivity.discretionarySellValueUsd)}
+                            </strong>{' '}
+                            in discretionary open-market sales detected (option exercises &apos;M&apos;, RSU grants &apos;A&apos;, tax withholdings &apos;F&apos;, and gifts &apos;G&apos; excluded).
+                          </>
+                        ) : insiderActivity ? (
+                          <>
+                            No open-market Form 4 (&apos;P&apos;) insider purchases detected for {detail.ticker} in the{' '}
+                            {insiderActivity.lookbackDays}-day window (non-open-market codes M/A/F/G excluded).
+                          </>
+                        ) : (
+                          <>
+                            SEC EDGAR Form 4 open-market (&apos;P&apos;) insider purchases (excluding M/A/F/G option exercises and awards) sync automatically on priority Ideal Portfolio, Screener &amp; Consensus tickers during EDGAR data builds.
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Two-Column Microstructure + XBRL Fundamentals */}
                 <div className="split-grid" style={{ gridTemplateColumns: '1.1fr 1fr' }}>
                   {/* Est Quarter VWAP & Entry Zone */}
@@ -849,45 +1105,61 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                     </div>
                     <div className="alerts-strip-list" style={{ padding: '0.85rem 1.25rem' }}>
                       {detail.midQuarterAlerts.map((al) => (
-                        <div key={al.id} className="alert-row-card">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-                            <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
-                            {al.stakeStatus && (
-                              <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>
-                                {al.stakeStatus}
+                        <div
+                          key={al.id}
+                          className="alert-row-card"
+                          style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.45rem' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                              <span className={`chip ${al.isActivist ? 'neg' : 'warn'}`}>{al.form}</span>
+                              {al.stakeStatus && (
+                                <span className={`chip ${stakeStatusChipClass(al.stakeStatus)}`}>
+                                  {al.stakeStatus}
+                                </span>
+                              )}
+                              {al.isActivist && al.item4Category && (
+                                <span className={`chip ${item4CategoryChipClass(al.item4Category)}`}>
+                                  {al.item4Category}
+                                </span>
+                              )}
+                              {al.percentOfClass != null && (
+                                <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
+                              )}
+                              {al.sharesOwned != null && al.sharesOwned > 0 && (
+                                <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                  {compactShares(al.sharesOwned)} sh
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className="fund-link-btn"
+                                style={{ fontSize: '0.86rem' }}
+                                onClick={() => onSelectFund(al.filerCik)}
+                              >
+                                {al.fundName} <ArrowUpRight size={13} />
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                {al.eventDate ? `Event ${al.eventDate} · ` : ''}Filed {al.filingDate}
                               </span>
-                            )}
-                            {al.percentOfClass != null && (
-                              <span className="chip mono">{al.percentOfClass.toFixed(1)}%</span>
-                            )}
-                            {al.sharesOwned != null && al.sharesOwned > 0 && (
-                              <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                                {compactShares(al.sharesOwned)} sh
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              className="fund-link-btn"
-                              style={{ fontSize: '0.86rem' }}
-                              onClick={() => onSelectFund(al.filerCik)}
-                            >
-                              {al.fundName} <ArrowUpRight size={13} />
-                            </button>
+                              <a
+                                href={al.filingDocUrl || al.edgarUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-ext-link mono"
+                                style={{ fontSize: '0.76rem' }}
+                              >
+                                {al.accessionNumber} <ExternalLink size={11} />
+                              </a>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                              {al.eventDate ? `Event ${al.eventDate} · ` : ''}Filed {al.filingDate}
-                            </span>
-                            <a
-                              href={al.edgarUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-ext-link mono"
-                              style={{ fontSize: '0.76rem' }}
-                            >
-                              {al.accessionNumber} <ExternalLink size={11} />
-                            </a>
-                          </div>
+                          {al.item4Intent && (
+                            <div className="item4-intent-box">
+                              <strong>Item 4 Intent:</strong> &ldquo;{al.item4Intent}&rdquo;
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

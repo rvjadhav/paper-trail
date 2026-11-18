@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Flame,
   Search,
   ShieldCheck,
   Sparkles,
@@ -12,7 +13,9 @@ import {
 import type {
   ActionVerdict,
   ConsensusHolding,
+  DualConvictionSignal,
   EntryZoneStatus,
+  Form4InsiderSummary,
   FundSummary,
   IdealPortfolioData,
   MarketCapTier,
@@ -35,12 +38,16 @@ import {
   actionVerdictShortLabel,
   alphaDecayChipClass,
   alphaDecayLabel,
+  convergenceTierChipClass,
+  convergenceTierLabel,
   downloadCsv,
   entryZoneChipClass,
   formatPct,
   formatSignedPct,
   formatSignedUsd,
   formatUsdCompact,
+  insiderSignalChipClass,
+  insiderSignalLabelText,
   returnClass,
   tierChipClass,
 } from '../utils/format';
@@ -51,6 +58,8 @@ interface HoldingsTabProps {
   stocksIndex: Record<string, StockIndexEntry>;
   funds?: FundSummary[];
   idealPortfolio?: IdealPortfolioData;
+  dualConvictionByTicker?: Record<string, DualConvictionSignal>;
+  form4Signals?: Record<string, Form4InsiderSummary>;
   mode: ReturnMode;
   onModeChange: (m: ReturnMode) => void;
   onSelectFund: (cik: string) => void;
@@ -135,12 +144,25 @@ function matchesCapFilter(
   return capTier === filter;
 }
 
+function hasConvergenceSignalForTicker(
+  ticker: string,
+  dualConvictionByTicker?: Record<string, DualConvictionSignal>,
+  form4Signals?: Record<string, Form4InsiderSummary>
+): boolean {
+  const upper = ticker.toUpperCase();
+  if (dualConvictionByTicker?.[upper] ?? dualConvictionByTicker?.[ticker]) return true;
+  const f4 = form4Signals?.[upper] ?? form4Signals?.[ticker];
+  return Boolean(f4 && f4.openMarketBuyCount > 0);
+}
+
 export const HoldingsTab: FC<HoldingsTabProps> = ({
   topHoldings,
   signalScreener,
   stocksIndex,
   funds,
   idealPortfolio,
+  dualConvictionByTicker,
+  form4Signals,
   mode,
   onModeChange,
   onSelectFund,
@@ -157,6 +179,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
   const [capFilter, setCapFilter] = useState<CapFilter>('ALL');
   const [entryFilter, setEntryFilter] = useState<EntryFilter>('ALL');
   const [alphaFilter, setAlphaFilter] = useState<AlphaFilter>('ALL');
+  const [convergenceOnly, setConvergenceOnly] = useState(false);
   const [verdictFilter, setVerdictFilter] = useState<VerdictFilter>('ALL');
   const [search, setSearch] = useState('');
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
@@ -233,6 +256,22 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     return { lag, fomo };
   }, [subTab, unifiedList, consensusList, rawScreenerPool, unifiedByTicker, quarterLabel]);
 
+  const convergenceCount = useMemo(() => {
+    const source =
+      subTab === 'MATRIX'
+        ? unifiedList
+        : subTab === 'CONSENSUS'
+          ? consensusList
+          : rawScreenerPool;
+    let cnt = 0;
+    for (const item of source) {
+      if (hasConvergenceSignalForTicker(item.ticker, dualConvictionByTicker, form4Signals)) {
+        cnt += 1;
+      }
+    }
+    return cnt;
+  }, [subTab, unifiedList, consensusList, rawScreenerPool, dualConvictionByTicker, form4Signals]);
+
   const verdictCounts = useMemo(() => {
     const counts: Record<ActionVerdict, number> = {
       'STRONG ACCUMULATE': 0,
@@ -279,6 +318,12 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         if (!matchesEntryFilter(item.entryZoneStatus, entryFilter)) return false;
         if (alphaFilter !== 'ALL' && item.alphaDecayStatus !== alphaFilter) return false;
         if (verdictFilter !== 'ALL' && item.actionVerdict !== verdictFilter) return false;
+        if (
+          convergenceOnly &&
+          !hasConvergenceSignalForTicker(item.ticker, dualConvictionByTicker, form4Signals)
+        ) {
+          return false;
+        }
         if (!q) return true;
         return (
           item.ticker.toLowerCase().includes(q) ||
@@ -338,6 +383,9 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     entryFilter,
     alphaFilter,
     verdictFilter,
+    convergenceOnly,
+    dualConvictionByTicker,
+    form4Signals,
     search,
     matrixSortBy,
     matrixSortAsc,
@@ -365,6 +413,12 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
               isCoreConsensus: true,
             });
           if (act.verdict !== verdictFilter) return false;
+        }
+        if (
+          convergenceOnly &&
+          !hasConvergenceSignalForTicker(item.ticker, dualConvictionByTicker, form4Signals)
+        ) {
+          return false;
         }
         if (!q) return true;
         return (
@@ -409,6 +463,9 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     entryFilter,
     alphaFilter,
     verdictFilter,
+    convergenceOnly,
+    dualConvictionByTicker,
+    form4Signals,
     unifiedByTicker,
     skillMap,
     quarterLabel,
@@ -439,6 +496,12 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
             isCoreConsensus: item.eliteHoldersCount >= 5,
           });
         if (act.verdict !== verdictFilter) return false;
+      }
+      if (
+        convergenceOnly &&
+        !hasConvergenceSignalForTicker(item.ticker, dualConvictionByTicker, form4Signals)
+      ) {
+        return false;
       }
       if (!q) return true;
       return (
@@ -497,6 +560,9 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     entryFilter,
     alphaFilter,
     verdictFilter,
+    convergenceOnly,
+    dualConvictionByTicker,
+    form4Signals,
     unifiedByTicker,
     skillMap,
     quarterLabel,
@@ -549,7 +615,49 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
     return <span className="ticker-badge">{ticker}</span>;
   };
 
+  const renderConvergenceBadges = (ticker: string) => {
+    const upper = ticker.toUpperCase();
+    const conv = dualConvictionByTicker?.[upper] ?? dualConvictionByTicker?.[ticker];
+    const f4 = form4Signals?.[upper] ?? form4Signals?.[ticker];
+    const hasBuy = Boolean(f4 && f4.openMarketBuyCount > 0);
+    if (!conv && !hasBuy) return null;
+    return (
+      <div style={{ display: 'flex', gap: '0.24rem', flexWrap: 'wrap', marginTop: '0.22rem' }}>
+        {conv && (
+          <span
+            className={`chip ${convergenceTierChipClass(conv.tier)}`}
+            style={{ fontSize: '0.62rem' }}
+            title={conv.headline}
+          >
+            {convergenceTierLabel(conv.tier)}
+          </span>
+        )}
+        {f4 && hasBuy && (
+          <span
+            className={`chip ${insiderSignalChipClass(f4.insiderSignalLabel)}`}
+            style={{ fontSize: '0.62rem' }}
+            title={`Form 4 open-market ('P') buys: ${f4.openMarketBuyCount} trades by ${f4.distinctBuyersCount} insiders`}
+          >
+            {insiderSignalLabelText(f4.insiderSignalLabel)} · {formatUsdCompact(f4.totalBuyValueUsd)}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const handleExport = () => {
+    const csvConvergencePair = (ticker: string): [string, string] => {
+      const upper = ticker.toUpperCase();
+      const conv = dualConvictionByTicker?.[upper] ?? dualConvictionByTicker?.[ticker];
+      const f4 = form4Signals?.[upper] ?? form4Signals?.[ticker];
+      return [
+        conv ? convergenceTierLabel(conv.tier) : '',
+        f4 && f4.openMarketBuyCount > 0
+          ? `${insiderSignalLabelText(f4.insiderSignalLabel)} (${formatUsdCompact(f4.totalBuyValueUsd)})`
+          : '',
+      ];
+    };
+
     if (subTab === 'MATRIX') {
       downloadCsv(
         `paper-trail-conviction-matrix-${mode}.csv`,
@@ -566,6 +674,8 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           'Pillar 3 XBRL Quality (/25)',
           'Pillar 4 Thesis Persistence (/25)',
           'Signals / Sources',
+          'Convergence Signal',
+          'Form 4 Insider Signal',
           'Price (USD)',
           'Est Q-VWAP (USD)',
           'vs Q-VWAP (%)',
@@ -586,39 +696,44 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           'Net Flow (USD)',
           'TTM Return (%)',
         ],
-        filteredMatrix.map((item, idx) => [
-          idx + 1,
-          item.ticker,
-          item.name,
-          item.subSector || item.sector,
-          item.marketCapTier ?? '',
-          item.actionVerdict,
-          item.actionabilityScore,
-          item.actionability.pillars.flowImpulse,
-          item.actionability.pillars.priceDiscipline,
-          item.actionability.pillars.xbrlQuality,
-          item.actionability.pillars.thesisPersistence,
-          item.sourceTags.join(' | '),
-          item.priceUsd ?? '',
-          item.estQuarterVwap ?? '',
-          item.pctVsQuarterVwap ?? '',
-          item.entryZoneStatus ?? '',
-          alphaDecayLabel(item.alphaDecayStatus),
-          item.filingToTodayPct ?? '',
-          item.avgEliteHoldingQuarters ?? '',
-          item.fundamentals?.revenueGrowthYoYPct ?? '',
-          item.fundamentals?.fcfMarginPct ?? '',
-          item.fundamentals?.operatingMarginPct ?? '',
-          item.fundamentals?.shareDilutionYoYPct ?? '',
-          item.holderCount,
-          item.eliteHoldersCount,
-          item.newCount,
-          item.addedCount,
-          item.trimmedCount,
-          item.exitedCount,
-          item.netFlowUsd ?? '',
-          item.stockTtmPct ?? '',
-        ])
+        filteredMatrix.map((item, idx) => {
+          const [convStr, f4Str] = csvConvergencePair(item.ticker);
+          return [
+            idx + 1,
+            item.ticker,
+            item.name,
+            item.subSector || item.sector,
+            item.marketCapTier ?? '',
+            item.actionVerdict,
+            item.actionabilityScore,
+            item.actionability.pillars.flowImpulse,
+            item.actionability.pillars.priceDiscipline,
+            item.actionability.pillars.xbrlQuality,
+            item.actionability.pillars.thesisPersistence,
+            item.sourceTags.join(' | '),
+            convStr,
+            f4Str,
+            item.priceUsd ?? '',
+            item.estQuarterVwap ?? '',
+            item.pctVsQuarterVwap ?? '',
+            item.entryZoneStatus ?? '',
+            alphaDecayLabel(item.alphaDecayStatus),
+            item.filingToTodayPct ?? '',
+            item.avgEliteHoldingQuarters ?? '',
+            item.fundamentals?.revenueGrowthYoYPct ?? '',
+            item.fundamentals?.fcfMarginPct ?? '',
+            item.fundamentals?.operatingMarginPct ?? '',
+            item.fundamentals?.shareDilutionYoYPct ?? '',
+            item.holderCount,
+            item.eliteHoldersCount,
+            item.newCount,
+            item.addedCount,
+            item.trimmedCount,
+            item.exitedCount,
+            item.netFlowUsd ?? '',
+            item.stockTtmPct ?? '',
+          ];
+        })
       );
       return;
     }
@@ -632,6 +747,8 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
           'Company',
           'Action Verdict',
           'Actionability Score (/100)',
+          'Convergence Signal',
+          'Form 4 Insider Signal',
           'Sub-Sector',
           'Market Cap Tier',
           'Price (USD)',
@@ -655,12 +772,15 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         filteredConsensus.map((item, idx) => {
           const ad = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel });
           const act = getConsensusActionability(item);
+          const [convStr, f4Str] = csvConvergencePair(item.ticker);
           return [
             idx + 1,
             item.ticker,
             item.name,
             act.verdict,
             act.score,
+            convStr,
+            f4Str,
             item.subSector || item.sector,
             item.marketCapTier ?? '',
             item.priceUsd ?? '',
@@ -694,6 +814,8 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
         'Company',
         'Action Verdict',
         'Actionability Score (/100)',
+        'Convergence Signal',
+        'Form 4 Insider Signal',
         'Sub-Sector',
         'Market Cap Tier',
         'Price (USD)',
@@ -720,12 +842,15 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
       activeScreenerList.map((item, idx) => {
         const ad = resolveAlphaDecayMetrics(item, { latestQuarterLabel: quarterLabel });
         const act = getScreenerActionability(item);
+        const [convStr, f4Str] = csvConvergencePair(item.ticker);
         return [
           idx + 1,
           item.ticker,
           item.name,
           act.verdict,
           act.score,
+          convStr,
+          f4Str,
           item.subSector || item.sector,
           item.marketCapTier ?? '',
           item.priceUsd ?? '',
@@ -959,6 +1084,21 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                   {af.label}
                 </button>
               ))}
+            </div>
+
+            <div className="segmented-group" role="group" aria-label="Filter by Form 4 and Dual-Conviction convergence">
+              <button
+                type="button"
+                id="convergence-filter-toggle"
+                className={`seg-btn ${convergenceOnly ? 'active' : ''}`}
+                aria-pressed={convergenceOnly}
+                onClick={() => setConvergenceOnly((v) => !v)}
+                title="Filter to tickers with concurrent Form 4 open-market insider purchases or mid-quarter Schedule 13D activist catalysts"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.32rem' }}
+              >
+                <Flame size={13} color={convergenceOnly ? 'currentColor' : 'var(--pos-text)'} />
+                Dual-Conviction &amp; Form 4 ({convergenceCount})
+              </button>
             </div>
           </div>
 
@@ -1235,6 +1375,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                               ))}
                             </div>
                           )}
+                          {renderConvergenceBadges(item.ticker)}
                         </td>
                         <td style={{ minWidth: '165px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
@@ -1643,6 +1784,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                             <span>Avg wt {item.avgHolderWeightPct.toFixed(1)}%</span>
                             {item.marketCapTier && <span>· {item.marketCapTier}</span>}
                           </div>
+                          {renderConvergenceBadges(item.ticker)}
                         </td>
                         <td style={{ minWidth: '162px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.32rem', flexWrap: 'wrap' }}>
@@ -1996,6 +2138,7 @@ export const HoldingsTab: FC<HoldingsTabProps> = ({
                             {item.marketCapTier ? ` · ${item.marketCapTier}` : ''}
                             {item.totalValueUsd > 0 ? ` · ${formatUsdCompact(item.totalValueUsd)} held` : ''}
                           </div>
+                          {renderConvergenceBadges(item.ticker)}
                         </td>
                         <td style={{ minWidth: '162px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.32rem', flexWrap: 'wrap' }}>
