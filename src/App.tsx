@@ -273,24 +273,24 @@ export function App() {
           <div className="status-items">
             <span className="status-item">
               <span className="status-dot" aria-hidden="true" />
-              <span>SEC EDGAR Sync:</span>
+              <span>EDGAR Sync:</span>
               <span className="status-strong">{generatedFormatted}</span>
             </span>
             <span className="status-item">
-              <span>Latest Quarter:</span>
+              <span>Quarter:</span>
               <span className="status-strong">{dataset.metadata.latestQuarterCovered}</span>
             </span>
             <span className="status-item">
-              <span>Market Prices As Of:</span>
+              <span>Prices:</span>
               <span className="status-strong">{dataset.metadata.asOfDate}</span>
             </span>
             <span className="status-item">
-              <span>13W T-Bill (^IRX):</span>
+              <span>T-Bill (^IRX):</span>
               <span className="status-strong">{dataset.metadata.riskFreeLatestPct.toFixed(2)}%</span>
             </span>
             <span className="status-item">
               <Calendar size={12} />
-              <span>Next 13F Season:</span>
+              <span>Next 13F:</span>
               <span className="status-strong">{dataset.metadata.next13fSeasonLabel}</span>
             </span>
           </div>
@@ -300,11 +300,15 @@ export function App() {
             className="status-link-btn"
             onClick={() => setShowMethodology(true)}
           >
-            <Info size={12} /> Methodology &amp; Universe Funnel
+            <Info size={12} />
+            <span>Methodology &amp; Universe Funnel</span>
             {funnel && (
-              <span className="funnel-pill" title="Full-universe SEC Form 13F Bulk Data Sets screening funnel">
+              <span
+                className="funnel-pill"
+                title={`Full-universe SEC Form 13F screening funnel: ${funnel.totalCiksScanned.toLocaleString()} CIKs → ${funnel.elite50Count} Elite / ${funnel.qualifiedFundsCount} Funds`}
+              >
                 <Database size={10} />
-                {funnel.totalCiksScanned.toLocaleString()} CIKs → {funnel.elite50Count} Elite / {funnel.qualifiedFundsCount} Funds
+                {funnel.totalCiksScanned.toLocaleString()} CIKs → {funnel.elite50Count}/{funnel.qualifiedFundsCount}
               </span>
             )}
           </button>
@@ -328,7 +332,8 @@ export function App() {
                 </a>
               </h1>
               <p className="brand-subtitle">
-                Following the SEC Form 13F &amp; 13D/13G paper trail across elite technology managers to build high-conviction portfolios.
+                Following the SEC Form 13F &amp; 13D/13G paper trail across elite technology managers to build{' '}
+                <span className="nowrap">high-conviction</span> portfolios.
               </p>
             </div>
 
