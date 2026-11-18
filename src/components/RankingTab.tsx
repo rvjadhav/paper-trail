@@ -40,7 +40,13 @@ interface RankingTabProps {
 }
 
 type TierFilter = 'ELITE50' | 'TOP100' | 'ALL' | 'EXCLUDED';
-type SortMetric = 'skillScore' | 'return' | 'sortinoRatio' | 'infoRatioVsQqq' | 'battingAvgPct';
+type SortMetric =
+  | 'skillScore'
+  | 'equityAumUsd'
+  | 'return'
+  | 'sortinoRatio'
+  | 'infoRatioVsQqq'
+  | 'battingAvgPct';
 type HorizonFilter = 'ALL' | '8Q' | '12Q' | '20Q';
 
 function getSortMetricValue(
@@ -49,6 +55,7 @@ function getSortMetricValue(
   mode: ReturnMode,
   windowSize: ReturnWindow
 ): number | null {
+  if (metric === 'equityAumUsd') return Number.isFinite(fund.equityAumUsd) ? fund.equityAumUsd : null;
   if (metric === 'return') return fund.returns[mode][windowSize];
   return fund.metrics[mode][metric];
 }
@@ -296,7 +303,13 @@ export const RankingTab: FC<RankingTabProps> = ({
     tierFilter === 'ELITE50'
       ? `Elite ${eliteCount} Skill-Ranked Concentrated Tech Funds`
       : tierFilter === 'TOP100'
-        ? `Top ${Math.min(100, eligibleCount)} Cohort (${sortMetric === 'return' ? `${windowSize} Return · ${returnTop100Count} pool` : 'Risk-Adjusted Sort'})`
+        ? `Top ${Math.min(100, eligibleCount)} Cohort (${
+            sortMetric === 'return'
+              ? `${windowSize} Return · ${returnTop100Count} pool`
+              : sortMetric === 'equityAumUsd'
+                ? 'Total Fund Size Sort'
+                : 'Risk-Adjusted Sort'
+          })`
         : tierFilter === 'ALL'
           ? `All ${eligibleCount} Leaderboard-Eligible Specialist Funds`
           : `Excluded Single-Stock / Ultra-Concentrated Books (${excludedCount})`;
@@ -554,6 +567,7 @@ export const RankingTab: FC<RankingTabProps> = ({
                   { id: 'sortinoRatio', label: 'Sortino' },
                   { id: 'infoRatioVsQqq', label: 'IR vs QQQ' },
                   { id: 'battingAvgPct', label: 'Bat %' },
+                  { id: 'equityAumUsd', label: 'Fund Size' },
                 ] as const
               ).map((m) => (
                 <button
@@ -602,7 +616,13 @@ export const RankingTab: FC<RankingTabProps> = ({
               <tr>
                 <th>#</th>
                 <th>Fund / Strategy</th>
-                <th className="num">Total Fund Size</th>
+                <th
+                  className={`num sortable ${sortMetric === 'equityAumUsd' ? 'active-col' : ''}`}
+                  onClick={() => handleSortMetricClick('equityAumUsd')}
+                  title="Rank by 13F Equity AUM (Total Fund Size in USD)"
+                >
+                  Total Fund Size {sortMetric === 'equityAumUsd' ? sortArrow : ''}
+                </th>
                 <th>Top Holdings</th>
                 <th className="num">Tech %</th>
                 <th
@@ -706,11 +726,11 @@ export const RankingTab: FC<RankingTabProps> = ({
                       )}
                     </td>
 
-                    <td className="num">
+                    <td className={`num ${sortMetric === 'equityAumUsd' ? 'active-col' : ''}`}>
                       <div className="mono" style={{ fontWeight: 600 }}>
                         {formatUsdCompact(fund.equityAumUsd)}
                       </div>
-                      <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '0.71rem', color: 'var(--text-muted)', fontWeight: 400 }}>
                         {fund.equityPositionCount} stocks · EffN {fund.effectivePositions} · {fund.quartersTracked}Q
                         {fund.etfSharePct > 0 ? ` · ${fund.etfSharePct.toFixed(0)}% ETF stripped` : ''}
                       </div>
