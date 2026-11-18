@@ -313,7 +313,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+          <div className="drawer-header-actions">
             {(fromFundDrawer || update.inRankings) && onOpenFundProfile && (
               <button
                 type="button"

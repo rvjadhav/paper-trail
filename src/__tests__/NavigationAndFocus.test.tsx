@@ -382,5 +382,38 @@ describe('useModalFocusTrap and App Navigation', () => {
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toHaveTextContent('NVIDIA Corp');
     });
+
+    vi.restoreAllMocks();
+  });
+
+  it('renders Methodology modal within container-relative width and closes via backdrop or Escape', async () => {
+    const mockSummary = makeMockSummary();
+    vi.spyOn(dataLoader, 'fetchSummary').mockResolvedValue(mockSummary);
+
+    render(<App />);
+    const methBtn = await screen.findByRole('button', { name: /Methodology & Universe Funnel/i });
+    fireEvent.click(methBtn);
+
+    const dialog = screen.getByRole('dialog', { name: /Data Methodology/i });
+    expect(dialog).toHaveClass('drawer-backdrop');
+    const panel = dialog.querySelector('.drawer-panel') as HTMLElement | null;
+    expect(panel).not.toBeNull();
+    expect(panel!.style.width).toBe('min(760px, 100%)');
+
+    // Clicking inside the centered panel must not close it
+    fireEvent.click(panel!);
+    expect(screen.getByRole('dialog', { name: /Data Methodology/i })).toBeInTheDocument();
+
+    // Clicking the surrounding backdrop closes it
+    fireEvent.click(dialog);
+    expect(screen.queryByRole('dialog', { name: /Data Methodology/i })).not.toBeInTheDocument();
+
+    // Re-open and close with Escape
+    fireEvent.click(methBtn);
+    expect(screen.getByRole('dialog', { name: /Data Methodology/i })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: /Data Methodology/i })).not.toBeInTheDocument();
+
+    vi.restoreAllMocks();
   });
 });
