@@ -1063,6 +1063,149 @@ describe('Conviction Matrix UI integration across Drawer, HoldingsTab, and Ideal
     expect(screen.getByText(/Caution: distributing signal/i)).toBeInTheDocument();
   });
 
+  it('toggles Risk Style between Balanced Compounder and High-Upside Growth, switches backtest metrics, and displays Vol Shield', () => {
+    window.localStorage.clear();
+
+    const posDef = makeIdealPosition({
+      rank: 1,
+      ticker: 'DEFV',
+      name: 'Steady Bank Corp',
+      subSector: 'Financial Services',
+      isTechTmt: false,
+      rawScore: 100,
+      inflectionScore: 100,
+      highUpsideScore: 50,
+      highUpsideInflectionScore: 50,
+      idealWeightPct: 60,
+      fundamentalQualityScore: 48,
+      downsideVolPct: 18,
+      qualityOverrideActive: false,
+    });
+    const posGrowth = makeIdealPosition({
+      rank: 2,
+      ticker: 'GRWT',
+      name: 'Hyper AI Compounder',
+      subSector: 'Enterprise Software',
+      isTechTmt: true,
+      rawScore: 65,
+      inflectionScore: 75,
+      highUpsideScore: 140,
+      highUpsideInflectionScore: 160,
+      idealWeightPct: 40,
+      fundamentalQualityScore: 93,
+      downsideVolPct: 52,
+      qualityOverrideActive: true,
+    });
+
+    const idealPortfolio: IdealPortfolioData = {
+      positionCount: 2,
+      maxPositionCapPct: 80,
+      maxSubSectorCapPct: 30,
+      defaultRiskStyle: 'balanced',
+      rankedFundsCount: 50,
+      effectivePositions: 1.9,
+      top10WeightPct: 100,
+      methodologySummary: 'Dual-style ideal portfolio',
+      sectorBreakdown: [
+        { sector: 'Financial Services', weightPct: 60, stockCount: 1 },
+        { sector: 'Enterprise Software', weightPct: 40, stockCount: 1 },
+      ],
+      positions: [posDef, posGrowth],
+      candidatePool: [posDef, posGrowth],
+      backtest: {
+        quarter_end: {
+          returns: { YTD: 15, TTM: 22.4, '18M': 24, '2Y': 28, '3Y': 70.1, '5Y': 100 },
+          cagrPct: 20,
+          maxDrawdownPct: -14,
+          sharpeProxy: 1.5,
+          sortinoRatio: 2.0,
+          infoRatioVsQqq: 0.5,
+          curve: [
+            { date: '2025-01-15', nav: 100 },
+            { date: '2026-01-15', nav: 122 },
+          ],
+        },
+        filing_lag: {
+          returns: { YTD: 14, TTM: 21.2, '18M': 25, '2Y': 30, '3Y': 68.5, '5Y': 95 },
+          cagrPct: 19,
+          maxDrawdownPct: -15,
+          sharpeProxy: 1.4,
+          sortinoRatio: 1.9,
+          infoRatioVsQqq: 0.4,
+          curve: [
+            { date: '2025-01-15', nav: 100 },
+            { date: '2026-01-15', nav: 121 },
+          ],
+        },
+      },
+      backtestHighUpside: {
+        quarter_end: {
+          returns: { YTD: 21, TTM: 34.8, '18M': 40, '2Y': 52, '3Y': 118.4, '5Y': 160 },
+          cagrPct: 29,
+          maxDrawdownPct: -22,
+          sharpeProxy: 1.6,
+          sortinoRatio: 2.3,
+          infoRatioVsQqq: 1.1,
+          curve: [
+            { date: '2025-01-15', nav: 100 },
+            { date: '2026-01-15', nav: 135 },
+          ],
+        },
+        filing_lag: {
+          returns: { YTD: 20, TTM: 33.6, '18M': 39, '2Y': 50, '3Y': 114.2, '5Y': 152 },
+          cagrPct: 28,
+          maxDrawdownPct: -23,
+          sharpeProxy: 1.5,
+          sortinoRatio: 2.2,
+          infoRatioVsQqq: 1.0,
+          curve: [
+            { date: '2025-01-15', nav: 100 },
+            { date: '2026-01-15', nav: 134 },
+          ],
+        },
+      },
+    };
+
+    render(
+      <IdealPortfolioTab
+        idealPortfolio={idealPortfolio}
+        benchmarks={{
+          QQQ: makeBenchmark('QQQ', 'Invesco QQQ'),
+          SPY: makeBenchmark('SPY', 'SPDR S&P 500'),
+          XLK: makeBenchmark('XLK', 'Tech Select SPDR'),
+        }}
+        stocksIndex={{
+          DEFV: makeStockIndexEntry({ ticker: 'DEFV', name: 'Steady Bank Corp', priceUsd: 100 }),
+          GRWT: makeStockIndexEntry({ ticker: 'GRWT', name: 'Hyper AI Compounder', priceUsd: 100 }),
+        }}
+        latestQuarterLabel="2026 Q3"
+        mode="filing_lag"
+        onModeChange={() => {}}
+        onSelectFund={() => {}}
+        onSelectStock={() => {}}
+      />
+    );
+
+    const balancedBtn = screen.getByRole('button', { name: 'Balanced Compounder' });
+    const highUpsideBtn = screen.getByRole('button', { name: 'High-Upside Growth' });
+    expect(balancedBtn).toHaveClass('active');
+    expect(screen.getByText('+21.2%')).toBeInTheDocument();
+    expect(screen.getByText('Vol Shield')).toBeInTheDocument();
+    expect(screen.getByText('Q:93 · DnVol:52%')).toBeInTheDocument();
+
+    // Switch to High-Upside Growth
+    fireEvent.click(highUpsideBtn);
+    expect(highUpsideBtn).toHaveClass('active');
+    expect(screen.getByText('+33.6%')).toBeInTheDocument();
+    expect(screen.getByText(/Out-of-Sample Quarterly Rebalance Backtest · High-Upside Growth/i)).toBeInTheDocument();
+    expect(screen.getByText(/vol-exempt elite compounders/i)).toBeInTheDocument();
+
+    // Reset Default restores Balanced Compounder and its backtest
+    fireEvent.click(screen.getByRole('button', { name: /Reset Default/i }));
+    expect(balancedBtn).toHaveClass('active');
+    expect(screen.getByText('+21.2%')).toBeInTheDocument();
+  });
+
   it('toggles HoldingsTab between Curated Signals and All Held Stocks from stocksIndex, renders index-only metadata honestly, and opens Dossier', () => {
     const strongConsensus = makeConsensusHolding({ ticker: 'ALPH', name: 'Alpha Chips Inc' });
     const signalScreener: SignalScreenerData = {

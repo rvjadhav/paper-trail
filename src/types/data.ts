@@ -434,6 +434,11 @@ export interface IdealPortfolioPosition {
   isTechTmt: boolean;
   rawScore: number;
   inflectionScore: number;
+  highUpsideScore?: number;
+  highUpsideInflectionScore?: number;
+  downsideVolPct?: number | null;
+  fundamentalQualityScore?: number | null;
+  qualityOverrideActive?: boolean;
   idealWeightPct: number;
   convictionScore: number;
   holderCount: number;
@@ -491,6 +496,7 @@ export interface IdealPortfolioData {
   positionCount: number;
   maxPositionCapPct: number;
   maxSubSectorCapPct?: number;
+  defaultRiskStyle?: 'balanced' | 'high_upside';
   rankedFundsCount: number;
   effectivePositions: number;
   top10WeightPct: number;
@@ -503,6 +509,10 @@ export interface IdealPortfolioData {
   positions: IdealPortfolioPosition[];
   candidatePool: IdealPortfolioPosition[];
   backtest: {
+    quarter_end: IdealPortfolioBacktestMode;
+    filing_lag: IdealPortfolioBacktestMode;
+  };
+  backtestHighUpside?: {
     quarter_end: IdealPortfolioBacktestMode;
     filing_lag: IdealPortfolioBacktestMode;
   };

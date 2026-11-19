@@ -2603,6 +2603,255 @@ class TestP0AuditAndIdealUpgrades(unittest.TestCase):
             self.assertTrue(any("EXIT SIGNAL" in e for e in bad_errors2))
             self.assertTrue(any("Corrupt/systemic YoY share-count swing" in e for e in bad_errors2))
 
+    def test_asymmetric_downside_vol_fundamental_quality_override_and_risk_styles(self) -> None:
+        n_days = 260
+        # 1. Pure upside breakout (big green surges, almost no down days): never penalized by downside semi-deviation
+        up_surge = [100.0]
+        for i in range(1, n_days):
+            r = 0.045 if (i % 5 == 0) else 0.002 if (i % 2 == 0) else -0.001
+            up_surge.append(up_surge[-1] * (1.0 + r))
+        pdata_surge = (np.array(up_surge, dtype=np.float64), 0, n_days - 1)
+        m_surge = build_data._compute_pit_downside_vol_metrics(pdata_surge, n_days - 1)
+        assert m_surge is not None
+        self.assertLess(m_surge[0], 0.15)  # tiny downside vol
+        self.assertGreater(m_surge[1], 0.30)  # big upside vol
+        self.assertGreaterEqual(build_data._compute_pit_vol_mult(pdata_surge, n_days - 1, quality_override=0.0, risk_style="balanced"), 1.0)
+
+        # 2. High-beta violent stock (symmetric +/-4.5% swings): elite compounder is shielded while weak stock is cut to ~0.65x
+        high_beta = [100.0]
+        for i in range(1, n_days):
+            r = 0.045 if (i % 2 == 0) else -0.042
+            high_beta.append(high_beta[-1] * (1.0 + r))
+        pdata_hb = (np.array(high_beta, dtype=np.float64), 0, n_days - 1)
+        vm_weak_bal = build_data._compute_pit_vol_mult(pdata_hb, n_days - 1, quality_override=0.0, risk_style="balanced")
+        vm_elite_bal = build_data._compute_pit_vol_mult(pdata_hb, n_days - 1, quality_override=0.95, risk_style="balanced")
+        vm_elite_hu = build_data._compute_pit_vol_mult(pdata_hb, n_days - 1, quality_override=0.95, risk_style="high_upside")
+        self.assertLessEqual(vm_weak_bal, 0.72)
+        self.assertGreaterEqual(vm_elite_bal, 0.93)
+        self.assertGreater(vm_elite_hu, 1.0)
+        self.assertLessEqual(vm_elite_hu, 1.15)
+
+        # 3. Low-vol sleepy defensive gets boost in Balanced (>1.05) but NO boost in High-Upside (<=1.0)
+        calm = [100.0 * (1.0004 ** i) * (1.003 if i % 2 == 0 else 0.997) for i in range(n_days)]
+        pdata_calm = (np.array(calm, dtype=np.float64), 0, n_days - 1)
+        self.assertGreater(build_data._compute_pit_vol_mult(pdata_calm, n_days - 1, quality_override=0.2, risk_style="balanced"), 1.10)
+        self.assertLessEqual(build_data._compute_pit_vol_mult(pdata_calm, n_days - 1, quality_override=0.2, risk_style="high_upside"), 1.0)
+
+        # 4. XBRL Fundamental Quality Profile + Rule-of-40 deep-burn anti-gaming guard + hyperscaler CapEx tolerance
+        elite_prof = build_data._compute_fundamental_quality_profile(
+            {"revenueGrowthYoYPct": 65.0, "operatingMarginPct": 44.0, "fcfMarginPct": 50.0, "shareDilutionYoYPct": -1.2},
+            {"verdict": "STRONG ACCUMULATE"},
+            buy_impulse=0.35,
+        )
+        self.assertGreaterEqual(elite_prof["qualityScore"], 85.0)
+        self.assertGreaterEqual(elite_prof["qualityOverride"], 0.95)
+        self.assertGreaterEqual(elite_prof["highUpsideMult"], 1.35)
+
+        burn_prof = build_data._compute_fundamental_quality_profile(
+            {"revenueGrowthYoYPct": 479.0, "operatingMarginPct": -115.5, "fcfMarginPct": -40.0, "shareDilutionYoYPct": 18.0},
+            {"verdict": "HOLD"},
+            buy_impulse=0.20,
+        )
+        self.assertEqual(burn_prof["qualityOverride"], 0.0)
+        self.assertEqual(burn_prof["balancedFundamentalMult"], 0.90)
+        self.assertEqual(burn_prof["highUpsideMult"], 0.78)
+
+        hyperscaler_prof = build_data._compute_fundamental_quality_profile(
+            {"revenueGrowthYoYPct": 15.0, "operatingMarginPct": 16.0, "fcfMarginPct": -5.5, "shareDilutionYoYPct": 0.4},
+            {"verdict": "HOLD"},
+            buy_impulse=0.05,
+        )
+        self.assertGreater(hyperscaler_prof["qualityScore"], 40.0)
+        self.assertGreater(hyperscaler_prof["balancedFundamentalMult"], 0.95)
+
+        dist_prof = build_data._compute_fundamental_quality_profile(
+            {"revenueGrowthYoYPct": 65.0, "operatingMarginPct": 44.0, "fcfMarginPct": 50.0, "shareDilutionYoYPct": -1.2},
+            {"verdict": "EXIT SIGNAL"},
+            buy_impulse=-0.40,
+        )
+        self.assertEqual(dist_prof["qualityOverride"], 0.0)
+
+        # 5. 200-DMA broken-trend guard: cuts weak stock, bypassed for fortress compounder held through market drawdown
+        broken = [200.0] * 210 + [140.0] * 50
+        pdata_broken = (np.array(broken, dtype=np.float64), 0, n_days - 1)
+        rm_weak = build_data._compute_pit_price_regime_mult(pdata_broken, n_days - 1, None, buy_impulse=0.0, quality_override=0.0, risk_style="balanced")
+        rm_fortress = build_data._compute_pit_price_regime_mult(pdata_broken, n_days - 1, None, buy_impulse=0.0, quality_override=0.85, risk_style="balanced")
+        self.assertLess(rm_weak, 0.90)
+        self.assertEqual(rm_fortress, 1.0)
+
+        # 6. compute_ideal_portfolio_weights dual-style scoring & EXIT SIGNAL 0% enforcement in both modes
+        cal_dates = [f"2025-{(i // 22) + 1:02d}-{(i % 22) + 1:02d}" for i in range(n_days)]
+        win_indices = {"TTM": 5, "3Y": 0, "5Y": 0}
+        cusip_meta = {
+            "C_ELIT": {"ticker": "ELIT", "name": "Elite AI Corp", "sector": "Technology", "industry": "Software—Infrastructure", "isTechTmt": True},
+            "C_DEFV": {"ticker": "DEFV", "name": "Sleepy Bank", "sector": "Financial Services", "industry": "Banks—Diversified", "isTechTmt": False},
+            "C_EXIT": {"ticker": "EXIT", "name": "Exiting Corp", "sector": "Technology", "industry": "Semiconductors", "isTechTmt": True},
+        }
+        funds = [
+            {
+                "cik": f"000000000{k}",
+                "name": f"Elite Fund {k}",
+                "metrics": {"filing_lag": {"skillScore": 85.0}},
+                "holdings": [
+                    {"cusip": "C_ELIT", "ticker": "ELIT", "name": "Elite AI Corp", "sector": "Technology", "industry": "Software—Infrastructure", "isTechTmt": True, "securityType": "EQUITY", "weightPct": 6.0, "valueUsd": 60e6, "status": "ADDED"},
+                    {"cusip": "C_DEFV", "ticker": "DEFV", "name": "Sleepy Bank", "sector": "Financial Services", "industry": "Banks—Diversified", "isTechTmt": False, "securityType": "EQUITY", "weightPct": 6.0, "valueUsd": 60e6, "status": "UNCHANGED"},
+                    {"cusip": "C_EXIT", "ticker": "EXIT", "name": "Exiting Corp", "sector": "Technology", "industry": "Semiconductors", "isTechTmt": True, "securityType": "EQUITY", "weightPct": 7.0, "valueUsd": 70e6, "status": "TRIMMED"},
+                ],
+            }
+            for k in (1, 2, 3)
+        ]
+        navs = {f["cik"]: np.linspace(1.0, 1.6, n_days) for f in funds}
+        aligned = {"ELIT": pdata_hb, "DEFV": pdata_calm, "EXIT": pdata_calm}
+        fundamentals = {
+            "ELIT": {"revenueGrowthYoYPct": 72.0, "operatingMarginPct": 40.0, "fcfMarginPct": 46.0, "shareDilutionYoYPct": 0.5},
+            "DEFV": {"revenueGrowthYoYPct": 3.0, "operatingMarginPct": 22.0, "fcfMarginPct": 18.0, "shareDilutionYoYPct": 0.0},
+            "EXIT": {"revenueGrowthYoYPct": 10.0, "operatingMarginPct": 15.0, "fcfMarginPct": 12.0, "shareDilutionYoYPct": 1.0},
+        }
+        actionability = {
+            "ELIT": {"verdict": "STRONG ACCUMULATE"},
+            "DEFV": {"verdict": "HOLD"},
+            "EXIT": {"verdict": "EXIT SIGNAL"},
+        }
+        w_bal, agg_bal, _ = build_data.compute_ideal_portfolio_weights(
+            funds,
+            mode="filing_lag",
+            cusip_meta=cusip_meta,
+            fund_navs_mode=navs,
+            cal_dates=cal_dates,
+            win_indices=win_indices,
+            max_names=10,
+            cap_pct=80.0,
+            aligned_prices=aligned,
+            n_dates=n_days,
+            actionability_by_ticker=actionability,
+            subsector_cap_pct=80.0,
+            fundamentals_by_ticker=fundamentals,
+            risk_style="balanced",
+        )
+        w_hu, agg_hu, _ = build_data.compute_ideal_portfolio_weights(
+            funds,
+            mode="filing_lag",
+            cusip_meta=cusip_meta,
+            fund_navs_mode=navs,
+            cal_dates=cal_dates,
+            win_indices=win_indices,
+            max_names=10,
+            cap_pct=80.0,
+            aligned_prices=aligned,
+            n_dates=n_days,
+            actionability_by_ticker=actionability,
+            subsector_cap_pct=80.0,
+            fundamentals_by_ticker=fundamentals,
+            risk_style="high_upside",
+        )
+        self.assertEqual(w_bal.get("EXIT", 0.0), 0.0)
+        self.assertEqual(w_hu.get("EXIT", 0.0), 0.0)
+        self.assertTrue(agg_bal["ELIT"]["qualityOverrideActive"])
+        self.assertGreater(agg_bal["ELIT"]["highUpsideScore"], agg_bal["ELIT"]["rawScore"])
+        self.assertGreater(w_hu["ELIT"] - w_hu["DEFV"], w_bal["ELIT"] - w_bal["DEFV"])
+        self.assertEqual(agg_hu["ELIT"]["fundamentalQualityScore"], agg_bal["ELIT"]["fundamentalQualityScore"])
+
+    def test_run_ideal_portfolio_backtest_high_upside_pit_style(self) -> None:
+        cal_dates = [
+            (date(2021, 1, 4) + timedelta(days=i)).strftime("%Y-%m-%d")
+            for i in range(600)
+            if (date(2021, 1, 4) + timedelta(days=i)).weekday() < 5
+        ]
+        n = len(cal_dates)
+        # TECHU: strong upside convexity; DEFSL: flat low-vol non-tech; plus 14 peers so weights stay below 8% cap
+        tech_px = [100.0]
+        def_px = [100.0]
+        for i in range(1, n):
+            tech_px.append(tech_px[-1] * (1.032 if i % 4 == 0 else 0.996))
+            def_px.append(def_px[-1] * (1.002 if i % 2 == 0 else 0.999))
+        aligned: dict[str, tuple[np.ndarray, int, int]] = {
+            "TECHU": (np.array(tech_px, dtype=np.float64), 0, n - 1),
+            "DEFSL": (np.array(def_px, dtype=np.float64), 0, n - 1),
+        }
+        ticker_is_tech: dict[str, bool] = {"TECHU": True, "DEFSL": False}
+        subsectors = ["Semiconductors", "Enterprise Software", "Cloud & Infrastructure", "Cybersecurity", "Consumer Internet"]
+        ticker_sub_sector: dict[str, str] = {"TECHU": "Enterprise Software", "DEFSL": "Financial Services"}
+        base_w: dict[str, float] = {"TECHU": 0.06, "DEFSL": 0.08}
+        base_sh: dict[str, float] = {"TECHU": 100.0, "DEFSL": 100.0}
+        curr_sh: dict[str, float] = {"TECHU": 135.0, "DEFSL": 100.0}
+        for j in range(14):
+            tk = f"PEER{j:02d}"
+            aligned[tk] = (np.linspace(50.0 + j, 80.0 + j, n), 0, n - 1)
+            ticker_is_tech[tk] = (j % 3 != 0)
+            ticker_sub_sector[tk] = subsectors[j % len(subsectors)] if ticker_is_tech[tk] else "Healthcare"
+            base_w[tk] = 0.06
+            base_sh[tk] = 100.0
+            curr_sh[tk] = 100.0
+
+        qqq_nav = np.linspace(1.0, 1.25, n)
+        ciks = [f"000100000{i}" for i in range(6)]
+        snaps_by_cik: dict[str, list[dict[str, object]]] = {}
+        navs_by_cik: dict[str, np.ndarray] = {}
+        for idx_c, cik in enumerate(ciks):
+            navs_by_cik[cik] = np.linspace(1.0, 1.35 + idx_c * 0.05, n)
+            snaps_by_cik[cik] = [
+                {
+                    "reportDate": "2021-06-30",
+                    "effDate": "2021-06-30",
+                    "eqAum": 500_000_000.0,
+                    "techPct": 75.0,
+                    "posCount": len(base_w),
+                    "effN": 12.0,
+                    "maxSingle": 10.0,
+                    "weights": dict(base_w),
+                    "shares": dict(base_sh),
+                },
+                {
+                    "reportDate": "2021-09-30",
+                    "effDate": "2021-09-30",
+                    "eqAum": 550_000_000.0,
+                    "techPct": 75.0,
+                    "posCount": len(base_w),
+                    "effN": 12.0,
+                    "maxSingle": 10.0,
+                    "weights": dict(base_w),
+                    "shares": dict(curr_sh),
+                },
+            ]
+        segs_bal = build_data.run_ideal_portfolio_backtest(
+            bt_mode="quarter_end",
+            all_quarters=["2021-06-30", "2021-09-30"],
+            all_bt_ciks=ciks,
+            snaps_by_cik=snaps_by_cik,
+            navs_by_cik=navs_by_cik,
+            cal_dates=cal_dates,
+            as_of_date=cal_dates[-1],
+            aligned_prices=aligned,
+            ticker_is_tech=ticker_is_tech,
+            curated_bt_ciks=set(),
+            qqq_nav=qqq_nav,
+            ticker_sub_sector=ticker_sub_sector,
+            subsector_cap=0.50,
+            risk_style="balanced",
+        )
+        segs_hu = build_data.run_ideal_portfolio_backtest(
+            bt_mode="quarter_end",
+            all_quarters=["2021-06-30", "2021-09-30"],
+            all_bt_ciks=ciks,
+            snaps_by_cik=snaps_by_cik,
+            navs_by_cik=navs_by_cik,
+            cal_dates=cal_dates,
+            as_of_date=cal_dates[-1],
+            aligned_prices=aligned,
+            ticker_is_tech=ticker_is_tech,
+            curated_bt_ciks=set(),
+            qqq_nav=qqq_nav,
+            ticker_sub_sector=ticker_sub_sector,
+            subsector_cap=0.50,
+            risk_style="high_upside",
+        )
+        self.assertEqual(len(segs_bal), 1)
+        self.assertEqual(len(segs_hu), 1)
+        w_bal = segs_bal[0][1]
+        w_hu = segs_hu[0][1]
+        self.assertAlmostEqual(sum(w_hu.values()), 1.0, places=4)
+        self.assertGreater(w_hu["TECHU"] / w_hu["DEFSL"], w_bal["TECHU"] / w_bal["DEFSL"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

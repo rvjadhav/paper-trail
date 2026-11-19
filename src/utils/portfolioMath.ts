@@ -2,6 +2,7 @@ import type { IdealPortfolioPosition, StockIndexEntry } from '../types/data';
 
 export type UniverseFilter = 'ALL' | 'EX_MEGA' | 'EMERGING';
 export type SignalMode = 'rawScore' | 'inflectionScore';
+export type RiskStyle = 'balanced' | 'high_upside';
 export type SectorCapOption = null | 35 | 30 | 25;
 export type RebalanceMode = 'full' | 'buyOnly';
 
@@ -80,6 +81,60 @@ export function canonicalizeInputTicker(raw: string, knownTickers?: Set<string>)
   return upper;
 }
 
+/**
+ * Resolve candidate scoring weight for the active Signal Mode + Risk Style.
+ * Uses precomputed pipeline scores (`highUpsideScore` / `highUpsideInflectionScore`)
+ * when available, with a deterministic client-side fallback for legacy snapshots.
+ */
+export function resolveCandidateScore(
+  pos: IdealPortfolioPosition,
+  signalMode: SignalMode,
+  riskStyle: RiskStyle = 'balanced'
+): number {
+  const baseScore = signalMode === 'inflectionScore' ? pos.inflectionScore : pos.rawScore;
+  if (riskStyle !== 'high_upside') {
+    return Number.isFinite(baseScore) ? baseScore : 0;
+  }
+  const precomputed =
+    signalMode === 'inflectionScore' ? pos.highUpsideInflectionScore : pos.highUpsideScore;
+  if (precomputed != null && Number.isFinite(precomputed) && precomputed > 0) {
+    return precomputed;
+  }
+
+  // Deterministic fallback for legacy snapshots without precomputed highUpsideScore:
+  // favors high-growth profitable Tech/TMT compounders and avoids cash-burning traps.
+  let mult = pos.isTechTmt ? 1.0 : 0.74;
+  const f = pos.fundamentals;
+  if (f) {
+    const rg = f.revenueGrowthYoYPct;
+    const om = f.operatingMarginPct;
+    const fm = f.fcfMarginPct;
+    const margins = [om, fm].filter((v): v is number => v != null && Number.isFinite(v));
+    const bestM = margins.length > 0 ? Math.max(...margins) : null;
+    const worstM = margins.length > 0 ? Math.min(...margins) : null;
+    const deepBurn = worstM != null && worstM < -20 && (bestM == null || bestM < 5);
+
+    if (deepBurn) {
+      mult *= 0.80;
+    } else {
+      if (rg != null && Number.isFinite(rg)) {
+        if (rg >= 20 && (bestM == null || bestM >= 5)) {
+          mult *= 1.08 + Math.min(0.30, ((rg - 20) / 60) * 0.30);
+        } else if (rg < 10) {
+          mult *= 0.84;
+        }
+      }
+      if (bestM != null && bestM >= 25) {
+        mult *= 1.08;
+      }
+      if (f.shareDilutionYoYPct != null && f.shareDilutionYoYPct > 8) {
+        mult *= 0.90;
+      }
+    }
+  }
+  return Math.max(0.01, (Number.isFinite(baseScore) ? baseScore : 0) * mult);
+}
+
 export function buildConstrainedPortfolio(
   candidatePool: IdealPortfolioPosition[],
   universeFilter: UniverseFilter,
@@ -87,9 +142,10 @@ export function buildConstrainedPortfolio(
   maxNames: number,
   capPct: number,
   sectorCapPct: SectorCapOption,
-  defaultWeightMap: Map<string, number>
+  defaultWeightMap: Map<string, number>,
+  riskStyle: RiskStyle = 'balanced'
 ): { positions: DynamicPosition[]; constraintNote: string | null } {
-  const filtered = candidatePool.filter((p) => {
+  const universeFiltered = candidatePool.filter((p) => {
     if (universeFilter === 'EX_MEGA') {
       return p.marketCapTier === 'Large $30B-$200B' || p.marketCapTier === 'Emerging <$30B';
     }
@@ -99,10 +155,16 @@ export function buildConstrainedPortfolio(
     return true;
   });
 
+  // Enforce 0% EXIT SIGNAL guard consistently across interactive builder presets
+  const nonExitFiltered = universeFiltered.filter(
+    (p) => p.actionVerdict !== 'EXIT SIGNAL' && p.actionability?.verdict !== 'EXIT SIGNAL'
+  );
+  const filtered = nonExitFiltered.length > 0 ? nonExitFiltered : universeFiltered;
+
   const sorted = [...filtered].sort((a, b) => {
-    const sa = signalMode === 'inflectionScore' ? b.inflectionScore : b.rawScore;
-    const sb = signalMode === 'inflectionScore' ? a.inflectionScore : a.rawScore;
-    return sa - sb;
+    const sb = resolveCandidateScore(b, signalMode, riskStyle);
+    const sa = resolveCandidateScore(a, signalMode, riskStyle);
+    return sb - sa;
   });
 
   if (sorted.length === 0) {
@@ -180,7 +242,7 @@ export function buildConstrainedPortfolio(
   }
 
   const rawScores = sliced.map((p) =>
-    Math.max(0.01, signalMode === 'inflectionScore' ? p.inflectionScore : p.rawScore)
+    Math.max(0.01, resolveCandidateScore(p, signalMode, riskStyle))
   );
   const sumRaw = rawScores.reduce((a, b) => a + b, 0) || 1;
   const weights = rawScores.map((s) => (s / sumRaw) * 100);
@@ -247,11 +309,12 @@ export function buildConstrainedPortfolio(
   const indexed = sliced
     .map((pos, idx) => ({
       pos,
+      score: rawScores[idx],
       exact: Math.min(effStockCap, weights[idx]),
       w: Math.min(effStockCap, Math.round(weights[idx] * 100) / 100),
       sec: pos.subSector || pos.sector,
     }))
-    .sort((a, b) => b.exact - a.exact || b.pos.rawScore - a.pos.rawScore);
+    .sort((a, b) => b.exact - a.exact || b.score - a.score);
 
   const secRoundedSums = new Map<string, number>();
   for (const item of indexed) {
@@ -289,7 +352,7 @@ export function buildConstrainedPortfolio(
     if (!moved) break;
   }
 
-  indexed.sort((a, b) => b.w - a.w || b.pos.rawScore - a.pos.rawScore);
+  indexed.sort((a, b) => b.w - a.w || b.score - a.score);
 
   const out: DynamicPosition[] = indexed.map(({ pos, w }, idx) => {
     const defW = defaultWeightMap.get(pos.ticker);

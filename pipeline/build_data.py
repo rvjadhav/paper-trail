@@ -737,34 +737,220 @@ def _select_top_names_with_subsector_breadth(
     return dict(selected)
 
 
-def _compute_pit_vol_mult(
+def _linear_scale(val: float, lo_x: float, lo_y: float, hi_x: float, hi_y: float) -> float:
+    if val <= lo_x:
+        return lo_y
+    if val >= hi_x:
+        return hi_y
+    return lo_y + (hi_y - lo_y) * ((val - lo_x) / (hi_x - lo_x))
+
+
+def _compute_fundamental_quality_profile(
+    fundamentals: dict[str, Any] | None,
+    actionability: dict[str, Any] | None = None,
+    buy_impulse: float = 0.0,
+) -> dict[str, Any]:
+    """
+    Evaluate SEC XBRL fundamental quality (revenue growth, GAAP operating margin, FCF margin,
+    profitability-gated Rule of 40, and share dilution discipline) combined with institutional flow.
+    Returns:
+      - qualityScore (0-100 or None when XBRL unavailable)
+      - qualityOverride (0.0-1.0): exempts high-quality compounders from downside-vol haircuts
+      - balancedFundamentalMult (0.90-1.12): subtle quality tilt in Balanced Compounder mode
+      - highUpsideMult (0.72-1.45): strong growth/profitability upside multiplier in High-Upside Growth mode
+    """
+    verdict = (actionability or {}).get("verdict")
+    is_dist = verdict in ("EXIT SIGNAL", "DISTRIBUTION WARNING")
+    is_cons = verdict in ("STRONG ACCUMULATE", "ACCUMULATE ON DIP")
+
+    if not fundamentals:
+        q_ov = 0.35 if (not is_dist and is_cons and buy_impulse >= 0.15) else 0.0
+        return {
+            "qualityScore": None,
+            "qualityOverride": q_ov,
+            "balancedFundamentalMult": 1.0,
+            "highUpsideMult": 1.02 if (not is_dist and is_cons) else (0.90 if is_dist else 0.95),
+        }
+
+    rg = fundamentals.get("revenueGrowthYoYPct")
+    om = fundamentals.get("operatingMarginPct")
+    fm = fundamentals.get("fcfMarginPct")
+    dl = fundamentals.get("shareDilutionYoYPct")
+
+    margins = [float(m) for m in (om, fm) if m is not None]
+    if rg is None and not margins:
+        q_ov = 0.35 if (not is_dist and is_cons and buy_impulse >= 0.15) else 0.0
+        return {
+            "qualityScore": None,
+            "qualityOverride": q_ov,
+            "balancedFundamentalMult": 1.0,
+            "highUpsideMult": 1.02 if (not is_dist and is_cons) else (0.90 if is_dist else 0.95),
+        }
+
+    rg_f = float(rg) if rg is not None else None
+    om_f = float(om) if om is not None else None
+    fm_f = float(fm) if fm is not None else None
+    dl_f = float(dl) if dl is not None else None
+
+    best_m = max(margins) if margins else None
+    worst_m = min(margins) if margins else None
+    # Guard against cash-burning hyper-growth names gaming Rule of 40 (e.g. +400% rev / -115% OpM)
+    deep_burn = bool(worst_m is not None and worst_m < -20.0 and (best_m is None or best_m < 5.0))
+
+    # 1. Growth velocity (0..35)
+    if rg_f is not None:
+        if rg_f < 0.0:
+            g_pts = max(0.0, 4.0 + rg_f * 0.25)
+        else:
+            g_pts = _linear_scale(rg_f, 0.0, 4.0, 45.0, 35.0)
+    else:
+        g_pts = 14.0
+
+    # 2. Core profitability (0..35), respecting heavy-CapEx hyperscalers with strong GAAP OpM
+    if fm_f is not None and om_f is not None:
+        m_blend = 0.55 * fm_f + 0.45 * om_f
+        if om_f >= 10.0:
+            m_blend = max(m_blend, 0.75 * om_f)
+    elif fm_f is not None:
+        m_blend = fm_f
+    elif om_f is not None:
+        m_blend = om_f
+    else:
+        m_blend = 12.0
+    p_pts = 0.0 if deep_burn else _linear_scale(m_blend, -15.0, 0.0, 38.0, 35.0)
+
+    # 3. Profitability-gated Rule of 40 bonus (0..20)
+    r40_pts = 0.0
+    if not deep_burn and rg_f is not None and best_m is not None and best_m >= 5.0:
+        if fm_f is not None and om_f is not None and om_f >= 10.0:
+            m_for_r40 = max(fm_f, 0.75 * om_f)
+        else:
+            m_for_r40 = fm_f if fm_f is not None else om_f
+        assert m_for_r40 is not None
+        r40 = min(100.0, rg_f) + min(60.0, m_for_r40)
+        r40_pts = _linear_scale(r40, 20.0, 0.0, 70.0, 20.0)
+
+    # 4. Dilution discipline (-12..+10)
+    d_pts = 5.0
+    if dl_f is not None:
+        if dl_f <= 0.0:
+            d_pts = 10.0
+        elif dl_f <= 2.5:
+            d_pts = 7.0
+        elif dl_f <= 5.0:
+            d_pts = 3.0
+        elif dl_f <= 10.0:
+            d_pts = -4.0
+        else:
+            d_pts = -12.0
+
+    q_score = max(0.0, min(100.0, round(g_pts + p_pts + r40_pts + d_pts, 1)))
+
+    if is_dist or deep_burn:
+        q_ov = 0.0
+    else:
+        q_ov = max(0.0, min(1.0, (q_score - 42.0) / 38.0))
+        if buy_impulse < -0.15 and not is_cons:
+            q_ov *= 0.5
+        if is_cons and q_score >= 65.0:
+            q_ov = min(1.0, q_ov + 0.10)
+        q_ov = round(q_ov, 3)
+
+    bal_mult = 0.90 if deep_burn else round(0.93 + 0.19 * (q_score / 100.0), 4)
+
+    if deep_burn:
+        hu_mult = 0.78
+    else:
+        hu_mult = 0.76 + 0.54 * (q_score / 100.0)
+        if q_score >= 60.0 and not is_dist and rg_f is not None and rg_f >= 20.0:
+            hu_mult += min(0.16, ((rg_f - 20.0) / 50.0) * 0.16)
+        if rg_f is not None and rg_f < 12.0:
+            hu_mult *= 0.84
+        hu_mult = max(0.72, min(1.45, round(hu_mult, 4)))
+
+    return {
+        "qualityScore": q_score,
+        "qualityOverride": q_ov,
+        "balancedFundamentalMult": bal_mult,
+        "highUpsideMult": hu_mult,
+    }
+
+
+def _compute_pit_downside_vol_metrics(
     pdata: tuple[Any, int, int] | None,
     ref_idx: int,
-    target_vol: float = 0.32,
-) -> float:
+) -> tuple[float, float, float] | None:
     """
-    Strictly point-in-time inverse-sqrt trailing 63-day realized volatility multiplier.
-    Damps high-beta cyclical risk budgets (e.g., 75%-vol names -> 0.65x) while boosting
-    steady quality compounders (e.g., 22%-vol names -> 1.21x), bounded to [0.65, 1.30].
+    Compute strictly point-in-time trailing 63-day asymmetric volatility metrics:
+      - down_vol_equiv: annualized downside semi-deviation scaled by sqrt(2) so symmetric
+        returns match total annualized vol, while pure upside surges are NEVER penalized.
+      - up_vol_equiv: annualized upside semi-deviation scaled by sqrt(2).
+      - upside_ratio: up_vol_equiv / max(0.08, down_vol_equiv) (return convexity).
     """
     if pdata is None or ref_idx <= 0:
-        return 1.0
+        return None
     arr, first_idx, last_idx = pdata
     end_i = min(ref_idx, last_idx)
     start_i = max(first_idx, end_i - 63)
     if end_i - start_i < 20:
-        return 1.0
+        return None
     sub = arr[start_i : end_i + 1]
     if np.any(np.isnan(sub)) or np.any(sub <= 0):
-        return 1.0
+        return None
     rets = np.diff(sub) / sub[:-1]
     if len(rets) < 20:
+        return None
+    neg_sq = np.minimum(0.0, rets) ** 2
+    pos_sq = np.maximum(0.0, rets) ** 2
+    down_vol_equiv = float(math.sqrt(float(np.mean(neg_sq)) * 2.0) * math.sqrt(252.0))
+    up_vol_equiv = float(math.sqrt(float(np.mean(pos_sq)) * 2.0) * math.sqrt(252.0))
+    if not (math.isfinite(down_vol_equiv) and math.isfinite(up_vol_equiv)):
+        return None
+    if down_vol_equiv <= 1e-4 and up_vol_equiv <= 1e-4:
+        return None
+    upside_ratio = up_vol_equiv / max(0.08, down_vol_equiv)
+    return down_vol_equiv, up_vol_equiv, upside_ratio
+
+
+def _compute_pit_vol_mult(
+    pdata: tuple[Any, int, int] | None,
+    ref_idx: int,
+    target_vol: float = 0.32,
+    quality_override: float = 0.0,
+    risk_style: str = "balanced",
+) -> float:
+    """
+    Strictly point-in-time asymmetric downside semi-deviation sizing multiplier:
+      - Uses downside-only semi-deviation so upside breakouts never trigger a penalty.
+      - Balanced Compounder ('balanced'): inverse-sqrt downside-vol sizing [0.65, 1.25],
+        with a Fundamental Quality Override that lifts the haircut floor up to 0.95x for
+        fundamentally elite high-beta compounders while keeping 0.65x protection on weak names.
+      - High-Upside Growth ('high_upside'): removes low-vol defensive bias (caps defensive
+        boost at 1.0x), fully exempts strong-fundamental compounders from vol haircuts, and
+        rewards upside convexity/torque (up to 1.15x) while keeping 0.65x guard on weak names.
+    """
+    metrics = _compute_pit_downside_vol_metrics(pdata, ref_idx)
+    if metrics is None:
         return 1.0
-    ann_vol = float(np.std(rets, ddof=1)) * math.sqrt(252.0)
-    if not math.isfinite(ann_vol) or ann_vol <= 1e-4:
-        return 1.0
-    raw_mult = (target_vol / max(0.15, ann_vol)) ** 0.50
-    return max(0.65, min(1.30, raw_mult))
+    down_vol_equiv, up_vol_equiv, _ = metrics
+    raw_mult = (target_vol / max(0.15, down_vol_equiv)) ** 0.50
+    q = max(0.0, min(1.0, float(quality_override)))
+
+    if risk_style == "high_upside":
+        if q >= 0.50:
+            torque_span = min(1.0, max(0.0, (up_vol_equiv - 0.25) / 0.45))
+            return min(1.15, 1.0 + 0.14 * torque_span * q)
+        base_hu = max(0.65, min(1.0, raw_mult))
+        if base_hu < 1.0 and q > 0.0:
+            base_hu = base_hu + (1.0 - base_hu) * (0.60 * q)
+        return max(0.65, min(1.0, base_hu))
+
+    base_mult = max(0.65, min(1.25, raw_mult))
+    if base_mult < 1.0 and q > 0.0:
+        floor_q = 0.65 + 0.30 * q
+        relieved = base_mult + (1.0 - base_mult) * (0.85 * q)
+        base_mult = max(base_mult, min(0.98, max(floor_q, relieved)))
+    return base_mult
 
 
 def _compute_pit_price_regime_mult(
@@ -772,13 +958,17 @@ def _compute_pit_price_regime_mult(
     ref_idx: int,
     qd_idx: int | None,
     buy_impulse: float,
+    quality_override: float = 0.0,
+    risk_style: str = "balanced",
 ) -> float:
     """
     Strictly point-in-time entry-discipline & trend-breakdown guard:
       1. Anti-chasing lag haircut: if price surged >35% between quarter-end and filing-lag
-         execution, damp allocation down to 0.78x.
+         execution, damp allocation (down to 0.78x balanced; 0.85x for elite high-upside).
       2. Broken-trend guard: if price sits >10% below trailing 200-DMA AND Elite managers are
-         not aggressively net-buying the dip (buy_impulse <= 0.15), damp down to 0.75x.
+         not aggressively buying the dip AND fundamental quality override is not active,
+         damp down to 0.75x. Fortress-fundamental compounders held through broad corrections
+         bypass the 200-DMA cut so they retain full recovery upside.
     """
     if pdata is None or ref_idx <= 0:
         return 1.0
@@ -789,6 +979,7 @@ def _compute_pit_price_regime_mult(
 
     mult = 1.0
     cur_px = float(arr[end_i])
+    q = max(0.0, min(1.0, float(quality_override)))
 
     # 1. Filing-lag parabolic run-up anti-chasing haircut
     if qd_idx is not None and end_i > qd_idx >= first_idx:
@@ -796,10 +987,16 @@ def _compute_pit_price_regime_mult(
         if not math.isnan(q_px) and q_px > 0:
             runup = (cur_px / q_px) - 1.0
             if runup > 0.35:
-                mult *= max(0.78, 1.0 - (runup - 0.35) * 0.63)
+                chase_floor = 0.85 if (risk_style == "high_upside" and q >= 0.60) else 0.78
+                mult *= max(chase_floor, 1.0 - (runup - 0.35) * 0.63)
 
-    # 2. 200-DMA structural breakdown guard (only when not aggressively bought on dip)
-    if end_i - first_idx >= 180 and buy_impulse <= 0.15:
+    # 2. 200-DMA structural breakdown guard (bypassed for aggressive Elite dip-buying or fortress-quality compounders)
+    quality_bypass = (
+        (q >= 0.55 and buy_impulse >= -0.05)
+        if risk_style == "high_upside"
+        else (q >= 0.70 and buy_impulse >= -0.05)
+    )
+    if end_i - first_idx >= 180 and buy_impulse <= 0.15 and not quality_bypass:
         sma_start = max(first_idx, end_i - 199)
         win = arr[sma_start : end_i + 1]
         if not np.any(np.isnan(win)):
@@ -890,15 +1087,21 @@ def compute_ideal_portfolio_weights(
     actionability_by_ticker: dict[str, dict[str, Any]] | None = None,
     latest_quarter_end: str | None = None,
     subsector_cap_pct: float = IDEAL_MAX_SUBSECTOR_CAP_PCT,
+    fundamentals_by_ticker: dict[str, dict[str, Any]] | None = None,
+    risk_style: str = "balanced",
 ) -> tuple[dict[str, float], dict[str, dict[str, Any]], list[tuple[str, float]]]:
     """
     Score actively traded US stocks across Elite-50 / ranked funds by:
       - 50/50 blended Orthogonal Multi-Horizon Return & Risk-Adjusted Skill Score^1.5
       - sqrt(portfolio weight) × Tech/TMT relevance × multi-fund consensus
       - Full QoQ accumulation impulse INCLUDING complete fund exits (NEW/ADDED/TRIMMED/EXITED)
-      - Inverse-sqrt 63d realized volatility sizing + lag anti-chasing & 200-DMA breakdown guard
+      - Asymmetric 63d downside semi-deviation sizing + SEC XBRL Fundamental Quality Override
+        (shields high-beta elite compounders while keeping 0.65x guard on weak/cash-burning names)
+      - Lag anti-chasing & quality-aware 200-DMA breakdown guard
       - Actionability Matrix alignment (excludes EXIT SIGNAL from Top-40, damps DISTRIBUTION WARNING)
       - Simultaneous single-stock (8%) AND sub-sector (30%) water-fill caps.
+    Computes both Balanced Compounder ('rawScore') and High-Upside Growth ('highUpsideScore')
+    scores on every qualified stock; 'risk_style' selects which score drives returned weights.
     Returns (weights_0_to_1, stock_scoring_details, sorted_qualified_items).
     """
     if not funds_subset:
@@ -1025,32 +1228,94 @@ def compute_ideal_portfolio_weights(
         buy_impulse = (
             1.35 * rec["netNew"] + 1.0 * rec["netAdd"] - 0.85 * rec["netTrim"] - 1.50 * net_exit
         ) / max(1, cnt + net_exit)
-        mom_mult = 1.0 + 0.28 * max(-0.85, min(1.0, buy_impulse))
-        tech_mult = 1.0 if rec["isTechTmt"] else 0.68
+
+        act_info = actionability_by_ticker.get(t) if actionability_by_ticker is not None else None
+        act_mult = 1.0
+        if act_info:
+            verdict = act_info.get("verdict")
+            if verdict == "EXIT SIGNAL":
+                act_mult = 0.25
+                exit_signal_excluded.add(t)
+            elif verdict == "DISTRIBUTION WARNING":
+                act_mult = 0.65
+            elif verdict == "STRONG ACCUMULATE":
+                act_mult = 1.12
+            elif verdict == "ACCUMULATE ON DIP":
+                act_mult = 1.04
+
+        fund_t = fundamentals_by_ticker.get(t) if fundamentals_by_ticker is not None else None
+        fprof = _compute_fundamental_quality_profile(fund_t, act_info, buy_impulse)
+        q_override = float(fprof["qualityOverride"])
 
         pdata = aligned_prices.get(t) if aligned_prices is not None else None
-        vol_mult = _compute_pit_vol_mult(pdata, ref_idx)
-        regime_mult = _compute_pit_price_regime_mult(pdata, ref_idx, qd_idx, buy_impulse)
+        down_metrics = _compute_pit_downside_vol_metrics(pdata, ref_idx)
+        raw_down_mult = (0.32 / max(0.15, down_metrics[0])) ** 0.50 if down_metrics is not None else 1.0
+        quality_override_active = bool(down_metrics is not None and raw_down_mult < 0.95 and q_override >= 0.50)
 
-        act_mult = 1.0
-        if actionability_by_ticker is not None:
-            act_info = actionability_by_ticker.get(t)
-            if act_info:
-                verdict = act_info.get("verdict")
-                if verdict == "EXIT SIGNAL":
-                    act_mult = 0.25
-                    exit_signal_excluded.add(t)
-                elif verdict == "DISTRIBUTION WARNING":
-                    act_mult = 0.65
-                elif verdict == "STRONG ACCUMULATE":
-                    act_mult = 1.12
-                elif verdict == "ACCUMULATE ON DIP":
-                    act_mult = 1.04
+        # Balanced Compounder scoring
+        mom_mult_bal = 1.0 + 0.28 * max(-0.85, min(1.0, buy_impulse))
+        tech_mult_bal = 1.0 if rec["isTechTmt"] else 0.68
+        vol_mult_bal = _compute_pit_vol_mult(
+            pdata,
+            ref_idx,
+            quality_override=q_override,
+            risk_style="balanced",
+        )
+        regime_mult_bal = _compute_pit_price_regime_mult(
+            pdata,
+            ref_idx,
+            qd_idx,
+            buy_impulse,
+            quality_override=q_override,
+            risk_style="balanced",
+        )
+        bal_score = (
+            rec["convSum"]
+            * consensus_mult
+            * mom_mult_bal
+            * tech_mult_bal
+            * vol_mult_bal
+            * regime_mult_bal
+            * act_mult
+            * float(fprof["balancedFundamentalMult"])
+        )
 
-        score = rec["convSum"] * consensus_mult * mom_mult * tech_mult * vol_mult * regime_mult * act_mult
-        rec["rawScore"] = score
+        # High-Upside Growth scoring
+        mom_mult_hu = 1.0 + 0.40 * max(-0.85, min(1.20, buy_impulse))
+        tech_mult_hu = 1.0 if rec["isTechTmt"] else 0.50
+        vol_mult_hu = _compute_pit_vol_mult(
+            pdata,
+            ref_idx,
+            quality_override=q_override,
+            risk_style="high_upside",
+        )
+        regime_mult_hu = _compute_pit_price_regime_mult(
+            pdata,
+            ref_idx,
+            qd_idx,
+            buy_impulse,
+            quality_override=q_override,
+            risk_style="high_upside",
+        )
+        hu_score = (
+            rec["convSum"]
+            * consensus_mult
+            * mom_mult_hu
+            * tech_mult_hu
+            * vol_mult_hu
+            * regime_mult_hu
+            * act_mult
+            * float(fprof["highUpsideMult"])
+        )
+
+        rec["rawScore"] = bal_score
+        rec["highUpsideScore"] = hu_score
+        rec["downsideVolPct"] = round(down_metrics[0] * 100.0, 1) if down_metrics is not None else None
+        rec["fundamentalQualityScore"] = fprof["qualityScore"]
+        rec["qualityOverride"] = q_override
+        rec["qualityOverrideActive"] = quality_override_active
         rec["netBuy"] = rec["netNew"] + rec["netAdd"]
-        qualified[t] = score
+        qualified[t] = hu_score if risk_style == "high_upside" else bal_score
         subsector_by_ticker[t] = classify_sub_sector(rec["sector"] or "Other", rec["industry"] or "", rec["isTechTmt"])
 
     sorted_items = sorted(qualified.items(), key=lambda x: x[1], reverse=True)
@@ -1103,13 +1368,16 @@ def run_ideal_portfolio_backtest(
     qqq_nav: np.ndarray | None = None,
     ticker_sub_sector: dict[str, str] | None = None,
     subsector_cap: float = IDEAL_MAX_SUBSECTOR_CAP_PCT / 100.0,
+    risk_style: str = "balanced",
 ) -> list[tuple[int, dict[str, float]]]:
     """
     Reconstruct survivorship-free quarterly point-in-time backtest segments for the
     Elite-50 Ideal Portfolio in Quarter-End or zero-look-ahead T+1 45-Day Filing-Lag mode,
     mirroring uniform live fund qualification, rolling 4Q persistence, seasoned >=8Q Elite
     preference, 50/50 Orthogonal + Skill Score, split-adjusted QoQ accumulation/exit impulse,
-    PIT volatility sizing, lag anti-chasing / 200-DMA breakdown guard, and 30% sub-sector cap.
+    strictly PIT asymmetric downside-vol sizing + PIT quality override (zero look-ahead XBRL),
+    lag anti-chasing / 200-DMA breakdown guard, and 30% sub-sector cap.
+    Supports risk_style in {'balanced', 'high_upside'}.
     """
     _ = curated_bt_ciks  # Retained for signature compatibility; uniform qualification applied to all CIKs
     segs: list[tuple[int, dict[str, float]]] = []
@@ -1387,17 +1655,50 @@ def run_ideal_portfolio_backtest(
             buy_imp = (
                 1.35 * s_new.get(t, 0) + 1.0 * s_add.get(t, 0) - 0.85 * s_trim.get(t, 0) - 1.50 * ex_cnt
             ) / max(1, cnt + ex_cnt)
-            mom_m = 1.0 + 0.28 * max(-0.85, min(1.0, buy_imp))
-            tech_m = 1.0 if ticker_is_tech.get(t, False) else 0.68
+
             pdata = aligned_prices.get(t)
-            vol_m = _compute_pit_vol_mult(pdata, rebal_idx)
+            # Strictly point-in-time quality override proxy (zero look-ahead XBRL):
+            # combines Elite-50 breadth, QoQ flow impulse, absence of mass exits, and
+            # trailing 63d upside/downside return convexity known strictly at rebal_idx.
+            exit_ratio = ex_cnt / max(1, cnt + ex_cnt)
+            down_m = _compute_pit_downside_vol_metrics(pdata, rebal_idx)
+            upside_ratio = down_m[2] if down_m is not None else 1.0
+            if exit_ratio >= 0.30 or buy_imp < -0.35:
+                pit_q_ov = 0.0
+            else:
+                breadth_q = _linear_scale(float(cnt), 2.0, 0.0, 14.0, 0.45)
+                flow_q = _linear_scale(buy_imp, -0.10, 0.0, 0.45, 0.35)
+                convex_q = _linear_scale(upside_ratio, 0.85, 0.0, 1.45, 0.25)
+                pit_q_ov = max(0.0, min(1.0, breadth_q + flow_q + convex_q))
+
+            if risk_style == "high_upside":
+                mom_m = 1.0 + 0.40 * max(-0.85, min(1.20, buy_imp))
+                tech_m = 1.0 if ticker_is_tech.get(t, False) else 0.50
+                convex_tilt = (
+                    _linear_scale(upside_ratio, 0.75, 0.88, 1.50, 1.18)
+                    if (down_m is not None and exit_ratio < 0.25)
+                    else (0.85 if exit_ratio >= 0.25 else 1.0)
+                )
+            else:
+                mom_m = 1.0 + 0.28 * max(-0.85, min(1.0, buy_imp))
+                tech_m = 1.0 if ticker_is_tech.get(t, False) else 0.68
+                convex_tilt = 1.0
+
+            vol_m = _compute_pit_vol_mult(
+                pdata,
+                rebal_idx,
+                quality_override=pit_q_ov,
+                risk_style=risk_style,
+            )
             regime_m = _compute_pit_price_regime_mult(
                 pdata,
                 rebal_idx,
                 qd_idx if bt_mode == "filing_lag" else None,
                 buy_imp,
+                quality_override=pit_q_ov,
+                risk_style=risk_style,
             )
-            filt_scores[t] = sc * cons_m * mom_m * tech_m * vol_m * regime_m
+            filt_scores[t] = sc * cons_m * mom_m * tech_m * vol_m * regime_m * convex_tilt
 
         sorted_bt = sorted(filt_scores.items(), key=lambda x: x[1], reverse=True)
         top40 = _select_top_names_with_subsector_breadth(
@@ -5009,6 +5310,7 @@ def main() -> None:
         qqq_nav=qqq_nav,
         ticker_sub_sector=ticker_sub_sector,
         subsector_cap=IDEAL_MAX_SUBSECTOR_CAP_PCT / 100.0,
+        risk_style="balanced",
     )
     bt_segments_lag = run_ideal_portfolio_backtest(
         bt_mode="filing_lag",
@@ -5027,11 +5329,55 @@ def main() -> None:
         qqq_nav=qqq_nav,
         ticker_sub_sector=ticker_sub_sector,
         subsector_cap=IDEAL_MAX_SUBSECTOR_CAP_PCT / 100.0,
+        risk_style="balanced",
     )
     ideal_nav_qe = simulate_nav_series(bt_segments_qe, aligned_prices, n_dates)
     ideal_nav_lag = simulate_nav_series(bt_segments_lag, aligned_prices, n_dates, tx_cost_bps=DEFAULT_LAG_TX_COST_BPS)
     ideal_rets_qe, ideal_met_qe = compute_returns_and_metrics(ideal_nav_qe, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
     ideal_rets_lag, ideal_met_lag = compute_returns_and_metrics(ideal_nav_lag, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
+
+    bt_hu_segments_qe = run_ideal_portfolio_backtest(
+        bt_mode="quarter_end",
+        all_quarters=all_quarters,
+        all_bt_ciks=all_bt_ciks,
+        snaps_by_cik=pit_snapshots["quarter_end"],
+        navs_by_cik=fund_navs["quarter_end"],
+        cal_dates=cal_dates,
+        as_of_date=as_of_date,
+        aligned_prices=aligned_prices,
+        ticker_is_tech=ticker_is_tech,
+        curated_bt_ciks=curated_bt_ciks,
+        excluded_etfs=excluded_etf_tickers,
+        splits_map=splits_map,
+        rf_ann_arr=rf_ann_arr,
+        qqq_nav=qqq_nav,
+        ticker_sub_sector=ticker_sub_sector,
+        subsector_cap=IDEAL_MAX_SUBSECTOR_CAP_PCT / 100.0,
+        risk_style="high_upside",
+    )
+    bt_hu_segments_lag = run_ideal_portfolio_backtest(
+        bt_mode="filing_lag",
+        all_quarters=all_quarters,
+        all_bt_ciks=all_bt_ciks,
+        snaps_by_cik=pit_snapshots["filing_lag"],
+        navs_by_cik=fund_navs["filing_lag"],
+        cal_dates=cal_dates,
+        as_of_date=as_of_date,
+        aligned_prices=aligned_prices,
+        ticker_is_tech=ticker_is_tech,
+        curated_bt_ciks=curated_bt_ciks,
+        excluded_etfs=excluded_etf_tickers,
+        splits_map=splits_map,
+        rf_ann_arr=rf_ann_arr,
+        qqq_nav=qqq_nav,
+        ticker_sub_sector=ticker_sub_sector,
+        subsector_cap=IDEAL_MAX_SUBSECTOR_CAP_PCT / 100.0,
+        risk_style="high_upside",
+    )
+    ideal_hu_nav_qe = simulate_nav_series(bt_hu_segments_qe, aligned_prices, n_dates)
+    ideal_hu_nav_lag = simulate_nav_series(bt_hu_segments_lag, aligned_prices, n_dates, tx_cost_bps=DEFAULT_LAG_TX_COST_BPS)
+    ideal_hu_rets_qe, ideal_hu_met_qe = compute_returns_and_metrics(ideal_hu_nav_qe, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
+    ideal_hu_rets_lag, ideal_hu_met_lag = compute_returns_and_metrics(ideal_hu_nav_lag, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
 
     # Step 11: External Public APIs (OHLCV Q-VWAP + SEC XBRL Fundamentals + Nasdaq Market Caps + Elite-50 13D/13G Alerts) & Stock Dossiers
     all_dossier_builders: dict[str, dict[str, Any]] = {}
@@ -5206,8 +5552,8 @@ def main() -> None:
             })
 
     # Determine prioritized ticker list for XBRL fundamentals batch fetch
-    cand80_tickers = [t for t, _ in ideal_sorted_items[:80]]
-    xbrl_priority_set: set[str] = set(cand80_tickers)
+    cand120_tickers = [t for t, _ in ideal_sorted_items[:120]]
+    xbrl_priority_set: set[str] = set(cand120_tickers)
     for mode in MODES:
         for h in top_holdings_out[mode]:
             xbrl_priority_set.add(h["ticker"])
@@ -5543,12 +5889,18 @@ def main() -> None:
         "actionVerdict",
     )
 
-    # Final Actionability-aligned Ideal Portfolio pass: ensures 0% EXIT SIGNAL weight,
-    # damps DISTRIBUTION WARNING, incorporates full EXITED moves, vol-sizing, and 30% sub-sector cap.
+    # Final Actionability- & Fundamentals-aligned Ideal Portfolio pass: ensures 0% EXIT SIGNAL
+    # weight, damps DISTRIBUTION WARNING, applies asymmetric 63d downside semi-deviation + SEC XBRL
+    # Fundamental Quality Override, and computes both Balanced Compounder and High-Upside Growth scores.
     actionability_by_ticker = {
         t_k: enr_v["actionability"]
         for t_k, enr_v in enrichment_by_ticker.items()
         if enr_v.get("actionability")
+    }
+    fundamentals_by_ticker = {
+        t_k: enr_v["fundamentals"]
+        for t_k, enr_v in enrichment_by_ticker.items()
+        if enr_v.get("fundamentals")
     }
     ideal_weights, ideal_stock_agg, ideal_sorted_items = compute_ideal_portfolio_weights(
         ideal_pool_funds,
@@ -5566,11 +5918,49 @@ def main() -> None:
         actionability_by_ticker=actionability_by_ticker,
         latest_quarter_end=latest_pe_mode,
         subsector_cap_pct=IDEAL_MAX_SUBSECTOR_CAP_PCT,
+        fundamentals_by_ticker=fundamentals_by_ticker,
+        risk_style="balanced",
     )
 
-    # Build Ideal Portfolio Top-40 positions AND Top-80 candidatePool (for interactive filters)
+    # Build Ideal Portfolio Top-40 positions AND Top-80 candidatePool (union of active Balanced
+    # positions + Top-65 Balanced + Top-15 unique High-Upside Growth non-exit candidates so both
+    # Risk Styles have full candidate depth in the interactive UI builder).
     ideal_rank_map = {t: idx + 1 for idx, (t, _) in enumerate(ideal_sorted_items[:80])}
-    top80_raw = [ideal_stock_agg[t]["rawScore"] for t, _ in ideal_sorted_items[:80]] if ideal_sorted_items else [1.0]
+    pool_tickers: list[str] = []
+    pool_seen: set[str] = set()
+    for t, _ in sorted(ideal_weights.items(), key=lambda x: x[1], reverse=True):
+        if t not in pool_seen:
+            pool_seen.add(t)
+            pool_tickers.append(t)
+    for t, _ in ideal_sorted_items:
+        if len(pool_tickers) >= 65:
+            break
+        if t not in pool_seen:
+            pool_seen.add(t)
+            pool_tickers.append(t)
+    hu_sorted_items = sorted(
+        [(t, float(ideal_stock_agg[t].get("highUpsideScore", sc))) for t, sc in ideal_sorted_items],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+    for t, _ in hu_sorted_items:
+        if len(pool_tickers) >= 80:
+            break
+        if t in pool_seen:
+            continue
+        if (actionability_by_ticker.get(t) or {}).get("verdict") == "EXIT SIGNAL":
+            continue
+        pool_seen.add(t)
+        pool_tickers.append(t)
+    for t, _ in ideal_sorted_items:
+        if len(pool_tickers) >= 80:
+            break
+        if t not in pool_seen:
+            pool_seen.add(t)
+            pool_tickers.append(t)
+    pool_tickers.sort(key=lambda t: float(ideal_stock_agg[t]["rawScore"]), reverse=True)
+
+    top80_raw = [float(ideal_stock_agg[t]["rawScore"]) for t in pool_tickers] if pool_tickers else [1.0]
     max_raw_score = max(top80_raw) if top80_raw else 1.0
     holder_counts_sel = sorted(len(ideal_stock_agg[t]["backers"]) for t in ideal_weights)
     core_q75 = holder_counts_sel[int(0.75 * max(0, len(holder_counts_sel) - 1))] if holder_counts_sel else 12
@@ -5586,11 +5976,13 @@ def main() -> None:
     ideal_candidate_pool: list[dict[str, Any]] = []
     ideal_sector_totals: dict[str, dict[str, Any]] = {}
 
-    for idx, (t, raw_sc) in enumerate(ideal_sorted_items[:80]):
+    for idx, t in enumerate(pool_tickers):
         rec = ideal_stock_agg[t]
+        bal_raw = float(rec["rawScore"])
+        hu_raw = float(rec.get("highUpsideScore", bal_raw))
         w_dec = ideal_weights.get(t, 0.0)
         w_pct = round(w_dec * 100.0, 2)
-        conv_score = round((rec["rawScore"] / max_raw_score) * 100.0, 1) if max_raw_score > 0 else 50.0
+        conv_score = round((bal_raw / max_raw_score) * 100.0, 1) if max_raw_score > 0 else 50.0
         backers_sorted = sorted(rec["backers"], key=lambda x: x["weightPct"], reverse=True)
         cnt_b = len(backers_sorted)
         avg_fw = sum(rec["weights"]) / max(1, len(rec["weights"]))
@@ -5600,7 +5992,9 @@ def main() -> None:
 
         # Fresh Inflection score emphasizes net new initiations + share adds over trims & full exits
         buy_impulse = (1.5 * rec["netNew"] + 1.0 * rec["netAdd"] - 1.0 * rec["netTrim"] - 1.5 * net_ex) / max(1, cnt_b + net_ex)
-        inflection_score = round(raw_sc * (1.0 + 0.65 * max(-0.75, min(1.5, buy_impulse))), 4)
+        inflection_mult = 1.0 + 0.65 * max(-0.75, min(1.5, buy_impulse))
+        inflection_score = round(bal_raw * inflection_mult, 4)
+        hu_inflection_score = round(hu_raw * inflection_mult, 4)
 
         if cnt_b >= core_thresh:
             tag = "Core Consensus"
@@ -5624,8 +6018,13 @@ def main() -> None:
             "subSector": sub_sec,
             "industry": rec["industry"],
             "isTechTmt": rec["isTechTmt"],
-            "rawScore": round(raw_sc, 4),
+            "rawScore": round(bal_raw, 4),
             "inflectionScore": inflection_score,
+            "highUpsideScore": round(hu_raw, 4),
+            "highUpsideInflectionScore": hu_inflection_score,
+            "downsideVolPct": rec.get("downsideVolPct"),
+            "fundamentalQualityScore": rec.get("fundamentalQualityScore"),
+            "qualityOverrideActive": bool(rec.get("qualityOverrideActive")),
             "idealWeightPct": w_pct,
             "convictionScore": conv_score,
             "holderCount": cnt_b,
@@ -5678,14 +6077,16 @@ def main() -> None:
         "positionCount": len(ideal_positions),
         "maxPositionCapPct": 8.0,
         "maxSubSectorCapPct": IDEAL_MAX_SUBSECTOR_CAP_PCT,
+        "defaultRiskStyle": "balanced",
         "rankedFundsCount": len(ideal_pool_funds),
         "effectivePositions": round(ideal_eff_n, 1),
         "top10WeightPct": round(sum(p["idealWeightPct"] for p in ideal_positions[:10]), 2),
         "methodologySummary": (
             f"Constructed from active US equity holdings across the Elite {len(ideal_pool_funds)} Skill-Ranked managers "
             f"(50/50 Orthogonal Multi-Horizon Return & Risk-Adjusted Skill). Positions are scored by conviction^1.5 × "
-            f"√(weight) × full QoQ accumulation/exit impulse × inverse-√(63d vol) sizing × Actionability guard "
-            f"(0% EXIT SIGNAL), with 8% single-stock and {int(IDEAL_MAX_SUBSECTOR_CAP_PCT)}% sub-sector caps."
+            f"√(weight) × full QoQ accumulation/exit impulse × asymmetric 63d downside semi-deviation with SEC XBRL "
+            f"Fundamental Quality Override × Actionability guard (0% EXIT SIGNAL), with 8% single-stock and "
+            f"{int(IDEAL_MAX_SUBSECTOR_CAP_PCT)}% sub-sector caps. Supports Balanced Compounder & High-Upside Growth styles."
         ),
         "sectorBreakdown": [
             {"sector": v["sector"], "weightPct": round(v["weightPct"], 2), "stockCount": v["stockCount"]}
@@ -5711,6 +6112,26 @@ def main() -> None:
                 "sortinoRatio": ideal_met_lag["sortinoRatio"],
                 "infoRatioVsQqq": ideal_met_lag["infoRatioVsQqq"],
                 "curve": downsample_curve(cal_dates, ideal_nav_lag, step=5),
+            },
+        },
+        "backtestHighUpside": {
+            "quarter_end": {
+                "returns": ideal_hu_rets_qe,
+                "cagrPct": ideal_hu_met_qe["cagrPct"],
+                "maxDrawdownPct": ideal_hu_met_qe["maxDrawdownPct"],
+                "sharpeProxy": ideal_hu_met_qe["sharpeProxy"],
+                "sortinoRatio": ideal_hu_met_qe["sortinoRatio"],
+                "infoRatioVsQqq": ideal_hu_met_qe["infoRatioVsQqq"],
+                "curve": downsample_curve(cal_dates, ideal_hu_nav_qe, step=5),
+            },
+            "filing_lag": {
+                "returns": ideal_hu_rets_lag,
+                "cagrPct": ideal_hu_met_lag["cagrPct"],
+                "maxDrawdownPct": ideal_hu_met_lag["maxDrawdownPct"],
+                "sharpeProxy": ideal_hu_met_lag["sharpeProxy"],
+                "sortinoRatio": ideal_hu_met_lag["sortinoRatio"],
+                "infoRatioVsQqq": ideal_hu_met_lag["infoRatioVsQqq"],
+                "curve": downsample_curve(cal_dates, ideal_hu_nav_lag, step=5),
             },
         },
     }

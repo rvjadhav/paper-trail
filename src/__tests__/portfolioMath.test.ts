@@ -4,6 +4,7 @@ import {
   buildConstrainedPortfolio,
   computeRebalancePlan,
   parseHoldingsInput,
+  resolveCandidateScore,
   type DynamicPosition,
 } from '../utils/portfolioMath';
 
@@ -210,5 +211,81 @@ describe('portfolioMath', () => {
     expect(semiWeight).toBeLessThanOrEqual(30.05);
     const totalWeight = positions.reduce((s, p) => s + p.dynamicWeightPct, 0);
     expect(Math.round(totalWeight * 100) / 100).toBe(100);
+  });
+
+  it('switches ranking/weights for High-Upside Growth, applies legacy fallback guard, and excludes EXIT SIGNAL stocks', () => {
+    const eliteGrowth: IdealPortfolioPosition = {
+      ...makePosition('PLTR', 'Enterprise Software', 4, 70),
+      highUpsideScore: 135,
+      highUpsideInflectionScore: 155,
+      qualityOverrideActive: true,
+      fundamentalQualityScore: 92,
+      downsideVolPct: 54,
+    };
+    const sleepyDef: IdealPortfolioPosition = {
+      ...makePosition('DEFV', 'Financial Services', 6, 95),
+      isTechTmt: false,
+      highUpsideScore: 55,
+      highUpsideInflectionScore: 55,
+    };
+    const exitStock: IdealPortfolioPosition = {
+      ...makePosition('EXIT', 'Semiconductors', 5, 200),
+      highUpsideScore: 220,
+      actionVerdict: 'EXIT SIGNAL',
+    };
+    const peerSubSectors = ['Cloud Infrastructure', 'Cybersecurity', 'Semiconductors', 'Consumer Internet'];
+    const peers = Array.from({ length: 14 }, (_, i) =>
+      makePosition(
+        `P${i}`,
+        peerSubSectors[i % peerSubSectors.length],
+        4,
+        65 - i
+      )
+    );
+    const pool = [eliteGrowth, sleepyDef, exitStock, ...peers];
+    const defaultMap = new Map(pool.map((p) => [p.ticker, p.idealWeightPct]));
+
+    const bal = buildConstrainedPortfolio(pool, 'ALL', 'rawScore', 15, 15, 35, defaultMap, 'balanced');
+    const hu = buildConstrainedPortfolio(pool, 'ALL', 'rawScore', 15, 15, 35, defaultMap, 'high_upside');
+
+    expect(bal.positions.some((p) => p.ticker === 'EXIT')).toBe(false);
+    expect(hu.positions.some((p) => p.ticker === 'EXIT')).toBe(false);
+
+    const balPltr = bal.positions.find((p) => p.ticker === 'PLTR')!.dynamicWeightPct;
+    const balDefv = bal.positions.find((p) => p.ticker === 'DEFV')!.dynamicWeightPct;
+    const huPltr = hu.positions.find((p) => p.ticker === 'PLTR')!.dynamicWeightPct;
+    const huDefv = hu.positions.find((p) => p.ticker === 'DEFV')!.dynamicWeightPct;
+    expect(balDefv).toBeGreaterThan(balPltr);
+    expect(huPltr).toBeGreaterThan(huDefv);
+
+    // Legacy snapshot fallback (no highUpsideScore): boosts profitable high-growth tech, damps deep cash burner
+    const legacyElite: IdealPortfolioPosition = {
+      ...makePosition('LEG1', 'Enterprise Software', 5, 80),
+      fundamentals: {
+        revenueTtmUsd: 5e9,
+        revenueGrowthYoYPct: 65,
+        operatingMarginPct: 35,
+        fcfMarginPct: 40,
+        rdIntensityPct: 14,
+        shareDilutionYoYPct: 0.5,
+      },
+    };
+    const legacyBurn: IdealPortfolioPosition = {
+      ...makePosition('BURN', 'Cloud Infrastructure', 5, 80),
+      fundamentals: {
+        revenueTtmUsd: 1e9,
+        revenueGrowthYoYPct: 400,
+        operatingMarginPct: -110,
+        fcfMarginPct: -45,
+        rdIntensityPct: 30,
+        shareDilutionYoYPct: 18,
+      },
+    };
+    expect(resolveCandidateScore(legacyElite, 'rawScore', 'high_upside')).toBeGreaterThan(
+      resolveCandidateScore(legacyElite, 'rawScore', 'balanced')
+    );
+    expect(resolveCandidateScore(legacyBurn, 'rawScore', 'high_upside')).toBeLessThan(
+      resolveCandidateScore(legacyBurn, 'rawScore', 'balanced')
+    );
   });
 });

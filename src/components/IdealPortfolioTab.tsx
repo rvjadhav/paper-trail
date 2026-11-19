@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FC } from 'react';
-import { AlertTriangle, Calculator, Check, Download, Info, RotateCcw, Save } from 'lucide-react';
+import { AlertTriangle, Calculator, Check, Download, Info, RotateCcw, Save, ShieldCheck } from 'lucide-react';
 import type {
   ActionVerdict,
   BenchmarkSeries,
@@ -40,6 +40,7 @@ import {
   parseHoldingsInput,
   type DynamicPosition,
   type RebalanceMode,
+  type RiskStyle,
   type SectorCapOption,
   type SignalMode,
   type UniverseFilter,
@@ -83,6 +84,7 @@ const VERDICT_ORDER: ActionVerdict[] = [
 interface SavedBuilderPreset {
   universeFilter: UniverseFilter;
   signalMode: SignalMode;
+  riskStyle?: RiskStyle;
   maxNames: number;
   capPct: number;
   sectorCapPct: SectorCapOption;
@@ -145,12 +147,17 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         : idealPortfolio.maxSubSectorCapPct === 25
           ? 25
           : null;
+  const defaultRiskStyle: RiskStyle =
+    idealPortfolio.defaultRiskStyle === 'high_upside' ? 'high_upside' : 'balanced';
 
   const [universeFilter, setUniverseFilter] = useState<UniverseFilter>(
     initialPreset.universeFilter ?? 'ALL'
   );
   const [signalMode, setSignalMode] = useState<SignalMode>(
     initialPreset.signalMode ?? 'rawScore'
+  );
+  const [riskStyle, setRiskStyle] = useState<RiskStyle>(
+    initialPreset.riskStyle ?? defaultRiskStyle
   );
   const [maxNames, setMaxNames] = useState<number>(initialPreset.maxNames ?? defaultMaxNames);
   const [capPct, setCapPct] = useState<number>(initialPreset.capPct ?? 8);
@@ -259,6 +266,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   const isDefault =
     universeFilter === 'ALL' &&
     signalMode === 'rawScore' &&
+    riskStyle === defaultRiskStyle &&
     maxNames === idealPortfolio.positions.length &&
     capPct === 8 &&
     sectorCapPct === defaultSectorCap;
@@ -285,7 +293,8 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
       maxNames,
       capPct,
       sectorCapPct,
-      defaultWeightMap
+      defaultWeightMap,
+      riskStyle
     );
     return { activePositions: res.positions, constraintNote: res.constraintNote };
   }, [
@@ -294,6 +303,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     idealPortfolio.candidatePool,
     universeFilter,
     signalMode,
+    riskStyle,
     maxNames,
     capPct,
     sectorCapPct,
@@ -349,7 +359,13 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     return hhi > 0 ? 1 / hhi : activePositions.length;
   }, [activePositions]);
 
-  const bt = idealPortfolio.backtest[mode];
+  const isHighUpsideBacktest =
+    riskStyle === 'high_upside' && Boolean(idealPortfolio.backtestHighUpside);
+  const activeBacktestSuite =
+    riskStyle === 'high_upside' && idealPortfolio.backtestHighUpside
+      ? idealPortfolio.backtestHighUpside
+      : idealPortfolio.backtest;
+  const bt = activeBacktestSuite[mode];
 
   const knownTickers = useMemo(() => {
     const s = new Set(Object.keys(stocksIndex));
@@ -501,6 +517,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
       const payload: SavedBuilderPreset = {
         universeFilter,
         signalMode,
+        riskStyle,
         maxNames,
         capPct,
         sectorCapPct,
@@ -517,6 +534,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   const handleResetPreset = () => {
     setUniverseFilter('ALL');
     setSignalMode('rawScore');
+    setRiskStyle(defaultRiskStyle);
     setMaxNames(defaultMaxNames);
     setCapPct(8);
     setSectorCapPct(defaultSectorCap);
@@ -541,11 +559,12 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
 
   const handleExport = () => {
     downloadCsv(
-      `paper-trail-ideal-portfolio-${universeFilter.toLowerCase()}-${signalMode}-${displayedPositions.length}names.csv`,
+      `paper-trail-ideal-portfolio-${riskStyle}-${universeFilter.toLowerCase()}-${signalMode}-${displayedPositions.length}names.csv`,
       [
         'Rank',
         'Ticker',
         'Company',
+        'Risk Style',
         'Action Verdict',
         'Actionability Score (/100)',
         'Sub-Sector',
@@ -562,6 +581,9 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         'XBRL Rev YoY (%)',
         'XBRL Op Margin (%)',
         'XBRL FCF Margin (%)',
+        'XBRL Quality (/100)',
+        '63d Downside Vol (%)',
+        'Quality Vol Shield',
         'Conviction Score',
         'Ranked Holders',
         'Avg Fund Weight (%)',
@@ -580,6 +602,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
           p.rank,
           p.ticker,
           p.name,
+          riskStyle === 'high_upside' ? 'High-Upside Growth' : 'Balanced Compounder',
           act.verdict,
           act.score,
           p.subSector || p.sector,
@@ -596,6 +619,9 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
           p.fundamentals?.revenueGrowthYoYPct ?? '',
           p.fundamentals?.operatingMarginPct ?? '',
           p.fundamentals?.fcfMarginPct ?? '',
+          p.fundamentalQualityScore ?? '',
+          p.downsideVolPct ?? '',
+          p.qualityOverrideActive ? 'Active' : '',
           p.convictionScore,
           p.holderCount,
           p.avgFundWeightPct,
@@ -700,6 +726,30 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                   {u.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="builder-ctrl-group">
+            <span className="builder-ctrl-label">Risk Style</span>
+            <div className="segmented-group" role="group" aria-label="Risk style">
+              <button
+                type="button"
+                id="builder-risk-balanced"
+                className={`seg-btn ${riskStyle === 'balanced' ? 'active' : ''}`}
+                onClick={() => setRiskStyle('balanced')}
+                title="Asymmetric 63d downside semi-deviation with SEC XBRL Fundamental Quality Override — shields elite compounders while protecting drawdowns on weak names"
+              >
+                Balanced Compounder
+              </button>
+              <button
+                type="button"
+                id="builder-risk-high-upside"
+                className={`seg-btn ${riskStyle === 'high_upside' ? 'active' : ''}`}
+                onClick={() => setRiskStyle('high_upside')}
+                title="Removes low-vol defensive bias, fully exempts strong-fundamental high-beta compounders from vol haircuts, and tilts toward high revenue growth, FCF quality & upside convexity"
+              >
+                High-Upside Growth
+              </button>
             </div>
           </div>
 
@@ -1080,7 +1130,10 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
           </div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Backtest TTM ({mode === 'quarter_end' ? 'QE' : '45d Lag'})</div>
+          <div className="metric-label">
+            Backtest TTM ({mode === 'quarter_end' ? 'QE' : '45d Lag'}
+            {isHighUpsideBacktest ? ' · High-Upside' : ''})
+          </div>
           <div className={`metric-value ${returnClass(bt.returns.TTM)}`}>
             {formatSignedPct(bt.returns.TTM)}
           </div>
@@ -1089,7 +1142,9 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
           </div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Backtest 3Y / Risk Ratios</div>
+          <div className="metric-label">
+            Backtest 3Y / Risk Ratios{isHighUpsideBacktest ? ' · High-Upside' : ''}
+          </div>
           <div className={`metric-value ${returnClass(bt.returns['3Y'])}`}>
             {formatSignedPct(bt.returns['3Y'])}
           </div>
@@ -1121,14 +1176,20 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
         <div className="panel" style={{ marginBottom: 0 }}>
           <div className="panel-header">
             <div>
-              <h3 className="panel-title">Out-of-Sample Quarterly Rebalance Backtest</h3>
+              <h3 className="panel-title">
+                Out-of-Sample Quarterly Rebalance Backtest
+                {isHighUpsideBacktest ? ' · High-Upside Growth' : ' · Balanced Compounder'}
+              </h3>
               <p className="panel-subtitle">
-                Survivorship-free baseline simulation (Default 40-stock 8%-capped Elite-50 model vs. QQQ &amp; SPY)
+                Survivorship-free baseline simulation (40-stock 8%-capped{' '}
+                {isHighUpsideBacktest ? 'High-Upside Growth' : 'Balanced Compounder'} Elite-50 model vs. QQQ &amp; SPY)
               </p>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.35rem', marginTop: '0.3rem', fontSize: '0.73rem', color: 'var(--text-muted)' }}>
                 <Info size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
                 <span>
-                  Curve tracks the canonical 40-stock 8%-capped Elite-50 baseline; builder filters customize today&apos;s live allocation weights.
+                  {isHighUpsideBacktest
+                    ? 'Curve tracks the strictly point-in-time High-Upside Growth baseline (zero look-ahead XBRL); other builder filters customize today’s live allocation weights.'
+                    : 'Curve tracks the canonical 40-stock 8%-capped Balanced Compounder baseline; builder filters customize today’s live allocation weights.'}
                 </span>
               </div>
             </div>
@@ -1156,16 +1217,16 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
               series={[
                 {
                   id: 'ideal-lag',
-                  label: 'Ideal Portfolio (45d Lag)',
+                  label: isHighUpsideBacktest ? 'High-Upside Model (45d Lag)' : 'Ideal Portfolio (45d Lag)',
                   color: 'var(--chart-teal)',
-                  points: idealPortfolio.backtest.filing_lag.curve,
+                  points: activeBacktestSuite.filing_lag.curve,
                 },
                 {
                   id: 'ideal-qe',
-                  label: 'Ideal Portfolio (QE)',
+                  label: isHighUpsideBacktest ? 'High-Upside Model (QE)' : 'Ideal Portfolio (QE)',
                   color: 'var(--accent-primary)',
                   dashed: true,
-                  points: idealPortfolio.backtest.quarter_end.curve,
+                  points: activeBacktestSuite.quarter_end.curve,
                 },
                 {
                   id: 'qqq',
@@ -1201,6 +1262,13 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
               </div>
               <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 <li><strong>Source Cohort:</strong> Elite {idealPortfolio.rankedFundsCount} Skill-Ranked Concentrated Tech Managers.</li>
+                <li>
+                  <strong>Risk Style:</strong>{' '}
+                  {riskStyle === 'high_upside'
+                    ? 'High-Upside Growth (vol-exempt elite compounders · growth & convexity tilt · 0% EXIT SIGNAL)'
+                    : 'Balanced Compounder (asymmetric downside-vol sizing + XBRL Quality Override · 0% EXIT SIGNAL)'}
+                  .
+                </li>
                 <li><strong>Scoring Lens:</strong> {signalMode === 'rawScore' ? 'Core Compounder (multi-horizon conviction)' : 'Fresh Inflection (+QoQ initiations/adds)'}.</li>
                 <li><strong>Universe:</strong> {universeFilter === 'ALL' ? 'All-Cap Tech & TMT' : universeFilter === 'EX_MEGA' ? 'Excluding Mega-Caps >$200B' : 'Emerging Tech <$30B'}.</li>
                 <li><strong>Risk Caps:</strong> {capPct}% max single stock{sectorCapPct ? ` · ${sectorCapPct}% max sub-sector` : ' · No sub-sector cap'}.</li>
@@ -1446,17 +1514,39 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                       <span style={{ color: 'var(--text-muted)' }}>/100</span>
                     </td>
                     <td>
-                      <span
-                        className={`chip ${
-                          p.rationaleTag === 'Top-Decile Alpha'
-                            ? 'pos'
-                            : p.rationaleTag === 'Active Accumulation'
-                              ? 'tech'
-                              : ''
-                        }`}
-                      >
-                        {p.rationaleTag}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', alignItems: 'flex-start' }}>
+                        <span
+                          className={`chip ${
+                            p.rationaleTag === 'Top-Decile Alpha'
+                              ? 'pos'
+                              : p.rationaleTag === 'Active Accumulation'
+                                ? 'tech'
+                                : ''
+                          }`}
+                        >
+                          {p.rationaleTag}
+                        </span>
+                        {p.qualityOverrideActive && (
+                          <span
+                            className="chip pos"
+                            style={{ fontSize: '0.62rem' }}
+                            title={`XBRL Fundamental Quality Override active (Q-Score ${
+                              p.fundamentalQualityScore != null ? p.fundamentalQualityScore.toFixed(0) : '—'
+                            }/100 · 63d downside vol ${
+                              p.downsideVolPct != null ? `${p.downsideVolPct.toFixed(0)}%` : '—'
+                            }): shielded from volatility haircut to preserve high-beta recovery upside.`}
+                          >
+                            <ShieldCheck size={11} /> Vol Shield
+                          </span>
+                        )}
+                        {(p.fundamentalQualityScore != null || p.downsideVolPct != null) && (
+                          <span className="mono" style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>
+                            {p.fundamentalQualityScore != null ? `Q:${p.fundamentalQualityScore.toFixed(0)}` : ''}
+                            {p.fundamentalQualityScore != null && p.downsideVolPct != null ? ' · ' : ''}
+                            {p.downsideVolPct != null ? `DnVol:${p.downsideVolPct.toFixed(0)}%` : ''}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="num mono">
                       <div><strong>{p.holderCount}</strong> Elite</div>
