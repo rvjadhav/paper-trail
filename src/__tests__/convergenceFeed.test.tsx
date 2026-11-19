@@ -187,6 +187,66 @@ describe('Dual-Conviction & Form 4 Convergence Engine', () => {
     expect(feed[1].tier).toBe('ACTIVIST_13F_CONVERGENCE');
     expect(feed[1].activistIntent).toMatch(/strategic alternatives/i);
   });
+
+  it('prevents deep drawdowns (<-20% vs Q-VWAP), negative flows, and CLUSTER_SELL from triggering PRIME', () => {
+    const deepDrawdown = computeDualConvictionSignal({
+      ticker: 'FALL',
+      name: 'Falling Knife Corp',
+      form4Summary: makeForm4Cluster({ ticker: 'FALL' }),
+      pctVsQuarterVwap: -32,
+      actionabilityScore: 76,
+      actionVerdict: 'STRONG ACCUMULATE',
+      newCount: 2,
+      addedCount: 2,
+      eliteBuyersCount: 3,
+      eliteHoldersCount: 5,
+      netEstFlowUsd: 90_000_000,
+    });
+    expect(deepDrawdown).not.toBeNull();
+    expect(deepDrawdown!.nearQuarterVwap).toBe(false);
+    expect(deepDrawdown!.tier).toBe('DUAL_CONVICTION_EXTENDED');
+    expect(deepDrawdown!.headline).toMatch(/deep drawdown/i);
+
+    const negFlow = computeDualConvictionSignal({
+      ticker: 'OUTFL',
+      name: 'Negative Flow Corp',
+      form4Summary: makeForm4Cluster({ ticker: 'OUTFL' }),
+      pctVsQuarterVwap: -4,
+      actionabilityScore: 68,
+      actionVerdict: 'ACCUMULATE ON DIP',
+      newCount: 3,
+      addedCount: 2,
+      trimmedCount: 1,
+      eliteBuyersCount: 2,
+      eliteHoldersCount: 5,
+      netEstFlowUsd: -120_000_000,
+    });
+    expect(negFlow).not.toBeNull();
+    expect(negFlow!.has13FAccumulation).toBe(false);
+    expect(negFlow!.tier).toBe('INSIDER_CLUSTER_WATCH');
+
+    const sellCluster = computeDualConvictionSignal({
+      ticker: 'DUMP',
+      name: 'Insider Dump Corp',
+      form4Summary: makeForm4Cluster({
+        ticker: 'DUMP',
+        openMarketBuyCount: 0,
+        distinctBuyersCount: 0,
+        clusterDetected: false,
+        discretionarySellValueUsd: 18_000_000,
+        sellClusterDetected: true,
+        insiderSignalLabel: 'CLUSTER_SELL',
+      }),
+      pctVsQuarterVwap: -2,
+      actionabilityScore: 74,
+      actionVerdict: 'STRONG ACCUMULATE',
+      newCount: 2,
+      addedCount: 2,
+      eliteBuyersCount: 2,
+      netEstFlowUsd: 80_000_000,
+    });
+    expect(sellCluster).toBeNull();
+  });
 });
 
 describe('Convergence Feed UI across UpdatesTab, StockDetailDrawer, and HoldingsTab', () => {

@@ -416,4 +416,73 @@ describe('useModalFocusTrap and App Navigation', () => {
 
     vi.restoreAllMocks();
   });
+
+  it('hydrates from manifest + split bootstrap.json and lazily fetches screener/updates/stocks with ?v= hashes', async () => {
+    dataLoader.resetDataLoaderCacheForTests();
+    const mockSummary = makeMockSummary();
+    const { signalScreener, fundUpdates, stocksIndex, ...bootstrapPayload } = mockSummary;
+    const manifest = {
+      schemaVersion: 2,
+      generatedAt: mockSummary.metadata.generatedAt,
+      asOfDate: mockSummary.metadata.asOfDate,
+      files: {
+        'bootstrap.json': 'aaa111222333',
+        'screener.json': 'bbb444555666',
+        'updates_feed.json': 'ccc777888999',
+        'stocks_search.json': 'ddd000111222',
+      },
+    };
+
+    const requestedUrls: string[] = [];
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      if (url === './data/manifest.json') {
+        return new Response(JSON.stringify(manifest), { status: 200 });
+      }
+      if (url === './data/bootstrap.json?v=aaa111222333') {
+        return new Response(JSON.stringify(bootstrapPayload), { status: 200 });
+      }
+      if (url === './data/stocks_search.json?v=ddd000111222') {
+        return new Response(JSON.stringify({ stocksIndex }), { status: 200 });
+      }
+      if (url === './data/screener.json?v=bbb444555666') {
+        return new Response(JSON.stringify({ signalScreener }), { status: 200 });
+      }
+      if (url === './data/updates_feed.json?v=ccc777888999') {
+        return new Response(JSON.stringify({ fundUpdates }), { status: 200 });
+      }
+      return new Response('Not Found', { status: 404 });
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(document.getElementById('panel-ranking')).not.toBeNull();
+    });
+
+    // Initial load fetches manifest, bootstrap, and background stocks_search — NOT monolithic summary.json, screener, or updates
+    await waitFor(() => {
+      expect(requestedUrls).toContain('./data/stocks_search.json?v=ddd000111222');
+    });
+    expect(requestedUrls).toContain('./data/bootstrap.json?v=aaa111222333');
+    expect(requestedUrls.some((u) => u.includes('summary.json'))).toBe(false);
+    expect(requestedUrls).not.toContain('./data/screener.json?v=bbb444555666');
+    expect(requestedUrls).not.toContain('./data/updates_feed.json?v=ccc777888999');
+
+    // Switching to Holdings lazily fetches screener.json with manifest hash
+    fireEvent.click(screen.getByRole('tab', { name: /Holdings/i }));
+    await waitFor(() => {
+      expect(requestedUrls).toContain('./data/screener.json?v=bbb444555666');
+    });
+
+    // Switching to Updates lazily fetches updates_feed.json with manifest hash
+    fireEvent.click(screen.getByRole('tab', { name: /Updates/i }));
+    await waitFor(() => {
+      expect(requestedUrls).toContain('./data/updates_feed.json?v=ccc777888999');
+    });
+
+    fetchMock.mockRestore();
+    dataLoader.resetDataLoaderCacheForTests();
+  });
 });

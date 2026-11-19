@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import math
 import tempfile
+import time
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
@@ -21,6 +22,7 @@ import funds_config
 import sec_bulk
 import sec_client
 import security_resolver
+import validate_dataset
 
 
 class TestSecIngestionAndLookAhead(unittest.TestCase):
@@ -136,8 +138,12 @@ class TestSecIngestionAndLookAhead(unittest.TestCase):
         }
 
         cal_dates = [
-            "2026-06-30", "2026-08-14", "2026-09-15",
-            "2026-09-30", "2026-10-15", "2026-11-01", "2026-11-10",
+            "2026-06-30",
+            "2026-08-14", "2026-08-17",
+            "2026-09-15", "2026-09-16",
+            "2026-09-30",
+            "2026-10-15", "2026-10-16",
+            "2026-11-01", "2026-11-02", "2026-11-10",
         ]
         cusip_meta = {
             "67066G104": {"ticker": "NVDA", "isTechTmt": True},
@@ -148,17 +154,17 @@ class TestSecIngestionAndLookAhead(unittest.TestCase):
         _, lag_segs, _, _, _, _ = build_data.build_fund_timelines(
             [q1_stale_restatement, q2_snap, q3_snap], cusip_meta, cal_dates, len(cal_dates)
         )
-        # Timeline segments:
-        # 2026-08-14 -> 100% NVDA (zero look-ahead on MSFT confidential position!)
-        # 2026-09-15 -> 50% NVDA / 50% MSFT (after confidential amendment filed)
-        # 2026-10-15 -> 100% META
+        # Timeline segments execute at T+1 (next trading day strictly after SEC filingDate):
+        # 2026-08-14 filing -> idx 2 (2026-08-17) 100% NVDA (zero look-ahead on MSFT confidential position!)
+        # 2026-09-15 filing -> idx 4 (2026-09-16) 50% NVDA / 50% MSFT (after confidential amendment filed)
+        # 2026-10-15 filing -> idx 7 (2026-10-16) 100% META
         # 2026-11-01 stale Q1 restatement is ignored -> META stays at 100%, AAPL NOT injected!
         self.assertEqual(len(lag_segs), 3)
-        self.assertEqual(lag_segs[0], (1, {"NVDA": 1.0}))
-        self.assertEqual(lag_segs[1][0], 2)
+        self.assertEqual(lag_segs[0], (2, {"NVDA": 1.0}))
+        self.assertEqual(lag_segs[1][0], 4)
         self.assertAlmostEqual(lag_segs[1][1]["NVDA"], 0.5, places=4)
         self.assertAlmostEqual(lag_segs[1][1]["MSFT"], 0.5, places=4)
-        self.assertEqual(lag_segs[2], (4, {"META": 1.0}))
+        self.assertEqual(lag_segs[2], (7, {"META": 1.0}))
 
 
 class TestCusipResolverHygiene(unittest.TestCase):
@@ -605,8 +611,8 @@ class TestSignalsAndEnrichment(unittest.TestCase):
             ticker_is_tech={tk: True for tk in tickers},
             curated_bt_ciks=set(),
         )
-        # Q3-2021 filing_lag (2021-11-15) must NOT be skipped due to s_h=0 NaN gap
-        expected_q3_idx = build_data.find_idx_on_or_after(cal_dates, "2021-11-15")
+        # Q3-2021 filing_lag (2021-11-15) executes at T+1 (strictly after filing deadline) and must NOT be skipped
+        expected_q3_idx = build_data.find_idx_strictly_after(cal_dates, "2021-11-15")
         self.assertIsNotNone(expected_q3_idx)
         self.assertGreaterEqual(len(segs), 1)
         self.assertEqual(segs[0][0], expected_q3_idx)
@@ -1823,6 +1829,51 @@ class TestForm4And13DConvergence(unittest.TestCase):
         </ownershipDocument>
         """
 
+        msft_sell1_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>0</aff10b5One>
+          <issuer><issuerCik>0000789019</issuerCik><issuerTradingSymbol>MSFT</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000021</rptOwnerCik><rptOwnerName>MSFT CEO</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>Chief Executive Officer</officerTitle></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-07</value></transactionDate>
+              <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>1500</value></transactionShares>
+                <transactionPricePerShare><value>400.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+        msft_sell2_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <aff10b5One>0</aff10b5One>
+          <issuer><issuerCik>0000789019</issuerCik><issuerTradingSymbol>MSFT</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000022</rptOwnerCik><rptOwnerName>MSFT CFO</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>Chief Financial Officer</officerTitle></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <transactionDate><value>2026-11-08</value></transactionDate>
+              <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>1250</value></transactionShares>
+                <transactionPricePerShare><value>400.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+
         efts_p_response = {
             "hits": {
                 "total": {"value": 2, "relation": "eq"},
@@ -1850,7 +1901,7 @@ class TestForm4And13DConvergence(unittest.TestCase):
         }
         efts_s_response = {
             "hits": {
-                "total": {"value": 1, "relation": "eq"},
+                "total": {"value": 3, "relation": "eq"},
                 "hits": [
                     {
                         "_id": "0000050863-26-000102:sell4.xml",
@@ -1859,6 +1910,24 @@ class TestForm4And13DConvergence(unittest.TestCase):
                             "file_date": "2026-11-09",
                             "form": "4",
                             "ciks": ["0009000012", "0000050863"],
+                        },
+                    },
+                    {
+                        "_id": "0000789019-26-000301:msft_sell1.xml",
+                        "_source": {
+                            "adsh": "0000789019-26-000301",
+                            "file_date": "2026-11-07",
+                            "form": "4",
+                            "ciks": ["0009000021", "0000789019"],
+                        },
+                    },
+                    {
+                        "_id": "0000789019-26-000302:msft_sell2.xml",
+                        "_source": {
+                            "adsh": "0000789019-26-000302",
+                            "file_date": "2026-11-08",
+                            "form": "4",
+                            "ciks": ["0009000022", "0000789019"],
                         },
                     },
                 ],
@@ -1871,10 +1940,10 @@ class TestForm4And13DConvergence(unittest.TestCase):
         def _fake_fetch_json(url: str, cache_key: object = None, max_age_hours: float = 0) -> dict[str, object]:
             efts_calls.append(url)
             if "q=S" in url:
-                # Only INTC's CIK should enter Pass 2 (MSFT had 0 hits; GOOG only bought ASTS)
+                # Pass 2 scans both p_buy_ciks (INTC) AND top priority CIKs (MSFT, GOOG) for pure discretionary sell clusters
                 self.assertIn("0000050863", url)
-                self.assertNotIn("0000789019", url)
-                self.assertNotIn("0001652044", url)
+                self.assertIn("0000789019", url)
+                self.assertIn("0001652044", url)
                 return efts_s_response
             return efts_p_response
 
@@ -1898,6 +1967,10 @@ class TestForm4And13DConvergence(unittest.TestCase):
                 return intc_disc_sell_xml
             if "asts4.xml" in url:
                 return other_issuer_xml
+            if "msft_sell1.xml" in url:
+                return msft_sell1_xml
+            if "msft_sell2.xml" in url:
+                return msft_sell2_xml
             raise AssertionError(f"Unexpected fetch_bytes URL {url}")
 
         cik_map = {
@@ -1929,8 +2002,15 @@ class TestForm4And13DConvergence(unittest.TestCase):
         self.assertEqual(res["INTC"]["openMarketBuyCount"], 1)
         self.assertEqual(res["INTC"]["discretionarySellValueUsd"], 900000.0)
         self.assertEqual(res["INTC"]["insiderSignalLabel"], "MIXED_SELL_HEAVY")
+        # MSFT has pure discretionary C-suite sell cluster (0 buys, 2 officers selling $1.1M)
+        self.assertIn("MSFT", res)
+        self.assertEqual(res["MSFT"]["openMarketBuyCount"], 0)
+        self.assertEqual(res["MSFT"]["insiderSignalLabel"], "CLUSTER_SELL")
+        self.assertTrue(res["MSFT"]["sellClusterDetected"])
+        self.assertEqual(res["MSFT"]["distinctSellersCount"], 2)
+        self.assertEqual(res["MSFT"]["discretionarySellValueUsd"], 1100000.0)
+        # GOOG only bought ASTS (different issuer) and had 0 own sells -> absent
         self.assertNotIn("GOOG", res)
-        self.assertNotIn("MSFT", res)
 
         # Verify automatic get_submissions fallback if Pass 1 (q=P) fails OR Pass 2 (q=S) fails
         with tempfile.TemporaryDirectory() as td2:
@@ -1954,6 +2034,574 @@ class TestForm4And13DConvergence(unittest.TestCase):
         self.assertEqual(fb_res["INTC"]["discretionarySellValueUsd"], 900000.0)
         self.assertEqual(fb_res["INTC"]["insiderSignalLabel"], "MIXED_SELL_HEAVY")
 
+
+class TestP0AuditAndIdealUpgrades(unittest.TestCase):
+    def test_xbrl_share_count_yoy_no_quarter_summing_and_split_guard(self) -> None:
+        # 4 standalone quarters per year: diluted share counts must be compared like-for-like (NOT summed!)
+        facts_steady = {
+            "facts": {
+                "us-gaap": {
+                    "WeightedAverageNumberOfDilutedSharesOutstanding": {
+                        "units": {
+                            "shares": [
+                                {"start": "2024-01-01", "end": "2024-03-31", "filed": "2024-05-01", "val": 100_000_000},
+                                {"start": "2024-04-01", "end": "2024-06-30", "filed": "2024-08-01", "val": 100_000_000},
+                                {"start": "2024-07-01", "end": "2024-09-30", "filed": "2024-11-01", "val": 100_000_000},
+                                {"start": "2024-10-01", "end": "2024-12-31", "filed": "2025-02-01", "val": 100_000_000},
+                                {"start": "2025-01-01", "end": "2025-03-31", "filed": "2025-05-01", "val": 102_000_000},
+                                {"start": "2025-04-01", "end": "2025-06-30", "filed": "2025-08-01", "val": 102_000_000},
+                                {"start": "2025-07-01", "end": "2025-09-30", "filed": "2025-11-01", "val": 102_000_000},
+                                {"start": "2025-10-01", "end": "2025-12-31", "filed": "2026-02-01", "val": 102_000_000},
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        yoy = enrichment._extract_share_count_yoy(
+            facts_steady,
+            [("us-gaap", "WeightedAverageNumberOfDilutedSharesOutstanding")],
+        )
+        self.assertIsNotNone(yoy)
+        self.assertAlmostEqual(float(yoy), 2.0, places=2)
+
+        # Unadjusted 4:1 split jump must be caught and suppressed as None
+        self.assertTrue(enrichment._is_likely_unadjusted_split_ratio(4.0))
+        self.assertTrue(enrichment._is_likely_unadjusted_split_ratio(0.25))
+        self.assertFalse(enrichment._is_likely_unadjusted_split_ratio(1.03))
+        facts_split = {
+            "facts": {
+                "us-gaap": {
+                    "WeightedAverageNumberOfDilutedSharesOutstanding": {
+                        "units": {
+                            "shares": [
+                                {"start": "2024-10-01", "end": "2024-12-31", "filed": "2025-02-01", "val": 100_000_000},
+                                {"start": "2025-10-01", "end": "2025-12-31", "filed": "2026-02-01", "val": 400_000_000},
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+        self.assertIsNone(
+            enrichment._extract_share_count_yoy(
+                facts_split,
+                [("us-gaap", "WeightedAverageNumberOfDilutedSharesOutstanding")],
+            )
+        )
+
+    def test_form4_espp_materiality_adr_normalization_and_entity_dedup(self) -> None:
+        # 1. ESPP / DRIP footnote open-market Code P must be ignored
+        espp_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <issuer><issuerCik>0001046179</issuerCik><issuerTradingSymbol>TSM</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000101</rptOwnerCik><rptOwnerName>ESPP OFFICER</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isOfficer>1</isOfficer><officerTitle>VP Engineering</officerTitle></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <securityTitle><value>Common Stock</value></securityTitle>
+              <transactionDate><value>2026-10-15</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>500</value><footnoteId id="F1"/></transactionShares>
+                <transactionPricePerShare><value>350.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+          <footnotes>
+            <footnote id="F1">Shares acquired under the Issuer Employee Stock Purchase Plan (ESPP).</footnote>
+          </footnotes>
+        </ownershipDocument>
+        """
+        parsed_espp = enrichment._parse_form4_xml(espp_xml, "0001046179", "acc-espp", "2026-10-16")
+        self.assertIsNotNone(parsed_espp)
+        self.assertEqual(parsed_espp["buys"], [])
+
+        # 2. Micro-buy (<$25K) excluded from material signal; 5:1 ADR ordinary-share price normalized
+        adr_xml = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <issuer><issuerCik>0001046179</issuerCik><issuerTradingSymbol>TSM</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0009000102</rptOwnerCik><rptOwnerName>TSM DIRECTOR</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isDirector>1</isDirector></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <securityTitle><value>Common Shares</value></securityTitle>
+              <transactionDate><value>2026-10-20</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>500</value></transactionShares>
+                <transactionPricePerShare><value>70.50</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+        parsed_adr = enrichment._parse_form4_xml(adr_xml, "0001046179", "acc-adr", "2026-10-21")
+        self.assertIsNotNone(parsed_adr)
+        # 500 ordinary shares @ $70.50 = $35,250 -> normalized to 100 ADS @ $352.50 against $363 ref price
+        summ_adr = enrichment.summarize_form4_transactions_for_ticker(
+            "TSM", "0001046179", [parsed_adr], ref_price_usd=363.0
+        )
+        self.assertEqual(summ_adr["openMarketBuyCount"], 1)
+        self.assertAlmostEqual(summ_adr["avgBuyPriceUsd"], 352.5, places=1)
+        self.assertAlmostEqual(summ_adr["totalBuyValueUsd"], 35250.0, places=1)
+        self.assertFalse(summ_adr["priceUnitMismatch"])
+
+        # Micro-buy below $25K materiality floor (e.g., $3,600) yields NONE
+        micro_doc = dict(parsed_adr)
+        micro_doc["buys"] = [
+            {
+                **parsed_adr["buys"][0],
+                "shares": 10.0,
+                "pricePerShare": 360.0,
+                "valueUsd": 3600.0,
+            }
+        ]
+        summ_micro = enrichment.summarize_form4_transactions_for_ticker(
+            "TSM", "0001046179", [micro_doc], ref_price_usd=363.0
+        )
+        self.assertEqual(summ_micro["insiderSignalLabel"], "NONE")
+        self.assertEqual(summ_micro["distinctBuyersCount"], 0)
+
+        # 3. Affiliated 10%-owner PE/VC entities collapse into 1 buyer AND cannot trigger CLUSTER_BUY
+        pe_xml_1 = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <issuer><issuerCik>0001555555</issuerCik><issuerTradingSymbol>PECO</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0001110001</rptOwnerCik><rptOwnerName>SILVER LAKE PARTNERS V LP</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isTenPercentOwner>1</isTenPercentOwner></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <securityTitle><value>Common Stock</value></securityTitle>
+              <transactionDate><value>2026-10-09</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>10000</value></transactionShares>
+                <transactionPricePerShare><value>50.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+        pe_xml_2 = b"""<?xml version="1.0"?>
+        <ownershipDocument>
+          <documentType>4</documentType>
+          <issuer><issuerCik>0001555555</issuerCik><issuerTradingSymbol>PECO</issuerTradingSymbol></issuer>
+          <reportingOwner>
+            <reportingOwnerId><rptOwnerCik>0002220002</rptOwnerCik><rptOwnerName>SILVER LAKE PARTNERS VI DE LP</rptOwnerName></reportingOwnerId>
+            <reportingOwnerRelationship><isTenPercentOwner>1</isTenPercentOwner></reportingOwnerRelationship>
+          </reportingOwner>
+          <nonDerivativeTable>
+            <nonDerivativeTransaction>
+              <securityTitle><value>Common Stock</value></securityTitle>
+              <transactionDate><value>2026-10-10</value></transactionDate>
+              <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+              <transactionAmounts>
+                <transactionShares><value>12000</value></transactionShares>
+                <transactionPricePerShare><value>50.00</value></transactionPricePerShare>
+                <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+              </transactionAmounts>
+            </nonDerivativeTransaction>
+          </nonDerivativeTable>
+        </ownershipDocument>
+        """
+        pe_docs = [
+            enrichment._parse_form4_xml(pe_xml_1, "0001555555", "acc-sl1", "2026-10-10"),
+            enrichment._parse_form4_xml(pe_xml_2, "0001555555", "acc-sl2", "2026-10-11"),
+        ]
+        summ_pe = enrichment.summarize_form4_transactions_for_ticker(
+            "PECO", "0001555555", [d for d in pe_docs if d is not None], ref_price_usd=50.0
+        )
+        self.assertEqual(summ_pe["distinctBuyersCount"], 1)
+        self.assertFalse(summ_pe["clusterDetected"])
+        self.assertEqual(summ_pe["insiderSignalLabel"], "SINGLE_BUY")
+
+    def test_actionability_humped_price_mcap_flow_and_proportion_exit(self) -> None:
+        # 1. Humped Price Discipline: modest pullback (-6%) beats falling knife (-35%) and chased (+25%)
+        base_kw = dict(
+            new_count=2, added_count=3, trimmed_count=1, exited_count=0,
+            elite_buyers_count=5, elite_sellers_count=1, elite_holders_count=10,
+            total_value_usd=500_000_000.0, net_est_flow_usd=100_000_000.0,
+            market_cap_usd=20_000_000_000.0,
+        )
+        m_sweet = build_data.compute_actionability_matrix(**base_kw, pct_vs_quarter_vwap=-6.0)
+        m_knife = build_data.compute_actionability_matrix(**base_kw, pct_vs_quarter_vwap=-35.0)
+        m_chased = build_data.compute_actionability_matrix(**base_kw, pct_vs_quarter_vwap=25.0)
+        self.assertGreater(m_sweet["pillars"]["priceDiscipline"], m_knife["pillars"]["priceDiscipline"])
+        self.assertGreater(m_sweet["pillars"]["priceDiscipline"], m_chased["pillars"]["priceDiscipline"])
+
+        # 2. Market-cap normalized Flow Impulse: $100M inflow on $5B stock > $100M inflow on $3T mega-cap
+        m_sm = build_data.compute_actionability_matrix(
+            new_count=2, added_count=2, trimmed_count=0, exited_count=0,
+            elite_buyers_count=4, elite_sellers_count=0, elite_holders_count=6,
+            total_value_usd=300_000_000.0, net_est_flow_usd=100_000_000.0,
+            market_cap_usd=5_000_000_000.0,
+        )
+        m_mega = build_data.compute_actionability_matrix(
+            new_count=2, added_count=2, trimmed_count=0, exited_count=0,
+            elite_buyers_count=4, elite_sellers_count=0, elite_holders_count=6,
+            total_value_usd=300_000_000.0, net_est_flow_usd=100_000_000.0,
+            market_cap_usd=3_000_000_000_000.0,
+        )
+        self.assertGreater(m_sm["pillars"]["flowImpulse"], m_mega["pillars"]["flowImpulse"])
+
+        # 3. Proportion-aware EXIT SIGNAL: mega-cap with 20 holders, 2 exits, 10 buyers must NOT falsely EXIT SIGNAL
+        m_megacap_normal = build_data.compute_actionability_matrix(
+            new_count=4, added_count=6, trimmed_count=5, exited_count=2,
+            elite_buyers_count=10, elite_sellers_count=7, elite_holders_count=20,
+            total_value_usd=5_000_000_000.0, net_est_flow_usd=200_000_000.0,
+            pct_vs_quarter_vwap=-4.0, market_cap_usd=2_500_000_000_000.0,
+        )
+        self.assertNotEqual(m_megacap_normal["verdict"], "EXIT SIGNAL")
+
+        # True institutional distribution (85%+ sell dominance, 3/10 exiting, heavy outflow) MUST trigger EXIT SIGNAL
+        m_liquidation = build_data.compute_actionability_matrix(
+            new_count=0, added_count=1, trimmed_count=3, exited_count=3,
+            elite_buyers_count=1, elite_sellers_count=6, elite_holders_count=8,
+            total_value_usd=400_000_000.0, net_est_flow_usd=-250_000_000.0,
+            pct_vs_quarter_vwap=-15.0, market_cap_usd=15_000_000_000.0,
+        )
+        self.assertEqual(m_liquidation["verdict"], "EXIT SIGNAL")
+
+    def test_dual_conviction_bounded_vwap_net_flow_and_sell_suppression(self) -> None:
+        strong_f4 = {
+            "openMarketBuyCount": 2,
+            "totalBuyValueUsd": 500_000.0,
+            "distinctBuyersCount": 2,
+            "cSuiteBuyersCount": 1,
+            "clusterDetected": True,
+            "insiderSignalLabel": "CLUSTER_BUY",
+        }
+        # Deep drawdown (-32%) must NOT qualify as nearQuarterVwap or DUAL_CONVICTION_PRIME
+        res_knife = build_data.compute_dual_conviction_signal(
+            ticker="TTMI", name="TTM Tech",
+            form4_summary=strong_f4,
+            pct_vs_quarter_vwap=-32.0,
+            actionability_score=62.0, action_verdict="HOLD / MONITOR",
+            new_count=2, added_count=1, trimmed_count=1, exited_count=0,
+            elite_buyers_count=3, elite_sellers_count=1, elite_holders_count=8,
+            net_est_flow_usd=50_000_000.0,
+        )
+        self.assertIsNotNone(res_knife)
+        self.assertFalse(res_knife["nearQuarterVwap"])
+        self.assertNotEqual(res_knife["tier"], "DUAL_CONVICTION_PRIME")
+
+        # Negative net_est_flow_usd blocks has13FAccumulation even with new + added >= 2
+        res_neg_flow = build_data.compute_dual_conviction_signal(
+            ticker="TTMI", name="TTM Tech",
+            form4_summary=strong_f4,
+            pct_vs_quarter_vwap=-5.0,
+            actionability_score=65.0, action_verdict="HOLD / MONITOR",
+            new_count=2, added_count=2, trimmed_count=1, exited_count=0,
+            elite_buyers_count=4, elite_sellers_count=1, elite_holders_count=8,
+            net_est_flow_usd=-133_000_000.0,
+        )
+        self.assertIsNotNone(res_neg_flow)
+        self.assertFalse(res_neg_flow["has13FAccumulation"])
+
+        # Pure CLUSTER_SELL Form 4 must be suppressed from buy convergence feed
+        sell_f4 = {
+            "openMarketBuyCount": 0,
+            "totalBuyValueUsd": 0.0,
+            "distinctBuyersCount": 0,
+            "cSuiteBuyersCount": 0,
+            "clusterDetected": False,
+            "discretionarySellValueUsd": 2_000_000.0,
+            "insiderSignalLabel": "CLUSTER_SELL",
+        }
+        res_sell = build_data.compute_dual_conviction_signal(
+            ticker="SELLME", name="Sell Corp",
+            form4_summary=sell_f4,
+            pct_vs_quarter_vwap=-2.0,
+            new_count=2, added_count=2, elite_buyers_count=4, elite_holders_count=8,
+            net_est_flow_usd=50_000_000.0,
+        )
+        self.assertIsNone(res_sell)
+
+    def test_ideal_portfolio_subsector_cap_exit_signal_exclusion_and_tx_cost(self) -> None:
+        # 1. Dual waterfill across 4 sub-sectors: 6 Semis + 5 Software + 4 Cloud + 4 Cyber -> sum==1.0, stock<=0.08, Semis<=0.30
+        raw_scores = {
+            **{f"SEMI{i}": 10.0 - 0.3 * i for i in range(6)},
+            **{f"SOFT{i}": 4.0 - 0.2 * i for i in range(5)},
+            **{f"CLD{i}": 3.5 - 0.2 * i for i in range(4)},
+            **{f"CYB{i}": 3.2 - 0.2 * i for i in range(4)},
+        }
+        sub_map = {
+            **{f"SEMI{i}": "Semiconductors" for i in range(6)},
+            **{f"SOFT{i}": "Software—Application" for i in range(5)},
+            **{f"CLD{i}": "Cloud & Infrastructure" for i in range(4)},
+            **{f"CYB{i}": "Cybersecurity" for i in range(4)},
+        }
+        w_cap = build_data.waterfill_sector_and_stock_capped_weights(
+            raw_scores, sub_map, stock_cap=0.08, subsector_cap=0.30
+        )
+        self.assertAlmostEqual(sum(w_cap.values()), 1.0, places=5)
+        self.assertLessEqual(max(w_cap.values()), 0.0801)
+        semi_sum = sum(w for t, w in w_cap.items() if sub_map[t] == "Semiconductors")
+        self.assertLessEqual(semi_sum, 0.3001)
+
+        # 2. Actionability EXIT SIGNAL exclusion + vol/exit damping in compute_ideal_portfolio_weights
+        n_dates = 80
+        cal_dates = [(date(2026, 1, 2) + timedelta(days=i)).isoformat() for i in range(n_dates)]
+        rng = np.random.default_rng(7)
+        # CALM: steady low-vol uptrend; WILD: huge vol swings; EXITME: tagged EXIT SIGNAL
+        px_calm = 100.0 * np.cumprod(1.0 + np.full(n_dates, 0.001))
+        px_wild = 100.0 * np.cumprod(1.0 + rng.normal(0.001, 0.055, size=n_dates))
+        px_exit = 100.0 * np.cumprod(1.0 + np.full(n_dates, 0.001))
+        px_other = 100.0 * np.cumprod(1.0 + np.full(n_dates, 0.001))
+        aligned = {
+            "CALM": (px_calm, 0, n_dates - 1),
+            "WILD": (px_wild, 0, n_dates - 1),
+            "EXITME": (px_exit, 0, n_dates - 1),
+            "OTHR1": (px_other, 0, n_dates - 1),
+            "OTHR2": (px_other, 0, n_dates - 1),
+            "OTHR3": (px_other, 0, n_dates - 1),
+        }
+        cusip_meta = {
+            "C_CALM": {"ticker": "CALM", "name": "Calm Corp", "sector": "Technology", "industry": "Software—Application", "isTechTmt": True},
+            "C_WILD": {"ticker": "WILD", "name": "Wild Corp", "sector": "Technology", "industry": "Software—Application", "isTechTmt": True},
+            "C_EXIT": {"ticker": "EXITME", "name": "Exit Corp", "sector": "Technology", "industry": "Semiconductors", "isTechTmt": True},
+            "C_O1": {"ticker": "OTHR1", "name": "Other 1", "sector": "Technology", "industry": "Semiconductors", "isTechTmt": True},
+            "C_O2": {"ticker": "OTHR2", "name": "Other 2", "sector": "Technology", "industry": "Information Technology Services", "isTechTmt": True},
+            "C_O3": {"ticker": "OTHR3", "name": "Other 3", "sector": "Technology", "industry": "Software—Infrastructure", "isTechTmt": True},
+        }
+        funds_subset = [
+            {
+                "cik": f"000100000{k}",
+                "name": f"Alpha Tech Fund {k}",
+                "metrics": {"lag": {"skillScore": 75.0}},
+                "latestQuarter": "2026-03-31",
+                "latestEquityAum": 1_000_000_000.0,
+                "holdings": [
+                    {"securityType": "EQUITY", "cusip": "C_CALM", "ticker": "CALM", "name": "Calm Corp", "sector": "Technology", "industry": "Software—Application", "weightPct": 18.0, "valueUsd": 180_000_000.0, "status": "ADDED", "isTechTmt": True},
+                    {"securityType": "EQUITY", "cusip": "C_WILD", "ticker": "WILD", "name": "Wild Corp", "sector": "Technology", "industry": "Software—Application", "weightPct": 18.0, "valueUsd": 180_000_000.0, "status": "TRIMMED", "isTechTmt": True},
+                    {"securityType": "EQUITY", "cusip": "C_EXIT", "ticker": "EXITME", "name": "Exit Corp", "sector": "Technology", "industry": "Semiconductors", "weightPct": 24.0, "valueUsd": 240_000_000.0, "status": "HELD", "isTechTmt": True},
+                    {"securityType": "EQUITY", "cusip": "C_O1", "ticker": "OTHR1", "name": "Other 1", "sector": "Technology", "industry": "Semiconductors", "weightPct": 14.0, "valueUsd": 140_000_000.0, "status": "HELD", "isTechTmt": True},
+                    {"securityType": "EQUITY", "cusip": "C_O2", "ticker": "OTHR2", "name": "Other 2", "sector": "Technology", "industry": "Information Technology Services", "weightPct": 13.0, "valueUsd": 130_000_000.0, "status": "HELD", "isTechTmt": True},
+                    {"securityType": "EQUITY", "cusip": "C_O3", "ticker": "OTHR3", "name": "Other 3", "sector": "Technology", "industry": "Software—Infrastructure", "weightPct": 13.0, "valueUsd": 130_000_000.0, "status": "HELD", "isTechTmt": True},
+                ],
+            }
+            for k in range(3)
+        ]
+        navs = {f["cik"]: np.linspace(100.0, 125.0, n_dates) for f in funds_subset}
+        win_indices = {"TTM": 0, "3Y": 0, "5Y": 0}
+        weights, _, _ = build_data.compute_ideal_portfolio_weights(
+            funds_subset, "lag", cusip_meta, navs, cal_dates, win_indices,
+            max_names=10, cap_pct=35.0, aligned_prices=aligned, n_dates=n_dates,
+            exited_by_ticker={"WILD": 2},
+            actionability_by_ticker={"EXITME": {"verdict": "EXIT SIGNAL", "score": 28.0}},
+            subsector_cap_pct=45.0,
+        )
+        self.assertNotIn("EXITME", weights)
+        self.assertGreater(weights["CALM"], weights["WILD"])
+
+        # 3. simulate_nav_series transaction-cost slippage deduction on rebalance
+        flat_px = np.full(10, 100.0, dtype=np.float64)
+        sim_prices = {"AAA": (flat_px, 0, 9), "BBB": (flat_px, 0, 9)}
+        segs = [(0, {"AAA": 1.0}), (5, {"BBB": 1.0})]  # 100% one-way turnover => 2x = 2.0 total traded
+        nav_zero = build_data.simulate_nav_series(segs, sim_prices, 10, tx_cost_bps=0.0)
+        nav_slip = build_data.simulate_nav_series(segs, sim_prices, 10, tx_cost_bps=10.0)
+        self.assertAlmostEqual(float(nav_zero[-1]), 100.0, places=4)
+        self.assertAlmostEqual(float(nav_slip[-1]), 100.0 * (1.0 - 2.0 * 0.001), places=4)
+
+    def test_security_resolver_14d_fail_ttl_and_dossier_ticker_quarantine(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            cusip_cache_p = td_path / "cusip_cache.json"
+            ticker_meta_p = td_path / "ticker_meta_cache.json"
+            sec_tickers_p = td_path / "company_tickers.json"
+
+            now_ts = time.time()
+            cusip_cache_p.write_text(json.dumps({
+                "111111119": {
+                    "ticker": "CUSIP:111111119",
+                    "name": "Expired Fail",
+                    "resolvedFail": True,
+                    "isResolved": False,
+                    "failTs": now_ts - (20.0 * 86400.0),
+                },
+                "222222229": {
+                    "ticker": "CUSIP:222222229",
+                    "name": "Fresh Fail",
+                    "resolvedFail": True,
+                    "isResolved": False,
+                    "failTs": now_ts - (2.0 * 86400.0),
+                },
+            }), encoding="utf-8")
+            ticker_meta_p.write_text(json.dumps({}), encoding="utf-8")
+            sec_tickers_p.write_text(json.dumps({}), encoding="utf-8")
+
+            openfigi_seen: list[str] = []
+
+            def _fake_openfigi(jobs: list[dict[str, str]]) -> list[dict[str, object]]:
+                for j in jobs:
+                    openfigi_seen.append(str(j.get("idValue") or ""))
+                return [{} for _ in jobs]
+
+            inputs = {
+                "111111119": {"issuer": "EXPIRED CO", "title": "COM"},
+                "222222229": {"issuer": "FRESH CO", "title": "COM"},
+            }
+            with (
+                mock.patch.object(security_resolver, "CUSIP_CACHE_PATH", cusip_cache_p),
+                mock.patch.object(security_resolver, "TICKER_META_PATH", ticker_meta_p),
+                mock.patch.object(security_resolver, "SEC_COMPANY_TICKERS_PATH", sec_tickers_p),
+                mock.patch.object(security_resolver, "_openfigi_batch", side_effect=_fake_openfigi),
+                mock.patch.object(security_resolver, "_yahoo_search", return_value=None),
+            ):
+                security_resolver.resolve_cusips(inputs, cusip_priority={"111111119": 1e9, "222222229": 1e9})
+
+            # Expired fail (>14d) MUST be retried; fresh fail (<14d) MUST remain cached without OpenFIGI call
+            self.assertIn("111111119", openfigi_seen)
+            self.assertNotIn("222222229", openfigi_seen)
+
+        # Dossier ticker quarantine
+        aligned_stub = {"NVDA": (np.array([100.0]), 0, 0)}
+        cm = {
+            "C_BOGUS": {"ticker": "A001053020", "isResolved": False},
+            "C_NVDA": {"ticker": "NVDA", "isResolved": True},
+            "C_BRKB": {"ticker": "BRK-B", "isResolved": True},
+        }
+        self.assertFalse(build_data._is_valid_dossier_ticker("A001053020", "C_BOGUS", cm, aligned_stub))
+        self.assertFalse(build_data._is_valid_dossier_ticker("CUSIP:123456789", "C_BOGUS", cm, aligned_stub))
+        self.assertFalse(build_data._is_valid_dossier_ticker("098765", "C_BOGUS", cm, aligned_stub))
+        self.assertTrue(build_data._is_valid_dossier_ticker("NVDA", "C_NVDA", cm, aligned_stub))
+        self.assertTrue(build_data._is_valid_dossier_ticker("BRK-B", "C_BRKB", cm, aligned_stub))
+
+    def test_emit_data_artifacts_and_strict_validator_circuit_breaker(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            out_dir = Path(td)
+            # Build minimal valid summary meeting all strict validator thresholds
+            funds = [{"cik": f"000100{i:04d}", "name": f"Fund {i}", "elite50": True} for i in range(30)]
+            updates = [{"cik": f"000100{i:04d}", "fundName": f"Fund {i}", "latestQuarter": "2026-09-30"} for i in range(20)]
+            sub_sectors = ["Semiconductors", "Software—Application", "Cloud & Infrastructure", "Cybersecurity"]
+            ideal_positions = [
+                {
+                    "ticker": f"STK{i}",
+                    "idealWeightPct": 5.0,
+                    "subSector": sub_sectors[i % 4],
+                    "actionVerdict": "STRONG BUY",
+                }
+                for i in range(20)
+            ]
+            # Pad stocksIndex to 110 clean entries including AAPL, MSFT, NVDA anchors + make summary > 150KB
+            stocks_index: dict[str, dict[str, object]] = {
+                "AAPL": {"ticker": "AAPL", "name": "Apple Inc.", "priceUsd": 225.0, "marketCapUsd": 3.4e12},
+                "MSFT": {"ticker": "MSFT", "name": "Microsoft Corp", "priceUsd": 420.0, "marketCapUsd": 3.1e12},
+                "NVDA": {"ticker": "NVDA", "name": "NVIDIA Corp", "priceUsd": 140.0, "marketCapUsd": 3.4e12},
+            }
+            for i in range(110):
+                tk = f"T{chr(65 + (i // 26))}{chr(65 + (i % 26))}X"
+                stocks_index[tk] = {
+                    "ticker": tk,
+                    "name": f"Tech Corp {i} " + ("x" * 1600),
+                    "priceUsd": 50.0 + i,
+                    "marketCapUsd": 10e9,
+                }
+            summary_payload = {
+                "metadata": {
+                    "latestQuarterCovered": "2026-09-30",
+                    "asOfDate": "2026-11-18",
+                    "qualifiedFundsCount": 30,
+                    "leaderboardEligibleCount": 30,
+                    "elite50Count": 30,
+                    "total13fFilingsProcessed": 500,
+                    "universeFunnel": {
+                        "totalCiksScanned": 9000,
+                        "qualifiedFundsCount": 30,
+                    },
+                },
+                "funds": funds,
+                "fundUpdates": updates,
+                "idealPortfolio": {"positions": ideal_positions},
+                "stocksIndex": stocks_index,
+                "signalScreener": {"stocks": [], "summary": {}},
+                "midQuarterAlerts": [],
+            }
+            fund_shards = {f"{i:x}": {"funds": {}, "updates": {}} for i in range(16)}
+            stock_shards: dict[int, dict[str, dict[str, object]]] = {i: {} for i in range(8)}
+            for anchor, px, mc in (("AAPL", 225.0, 3.4e12), ("MSFT", 420.0, 3.1e12), ("NVDA", 140.0, 3.4e12)):
+                stock_shards[0][anchor] = {
+                    "ticker": anchor,
+                    "priceUsd": px,
+                    "marketCapUsd": mc,
+                    "fundamentals": {"shareDilutionYoYPct": -2.1},
+                }
+
+            manifest, _ = build_data.emit_data_artifacts(
+                out_dir,
+                summary_payload=summary_payload,
+                fund_shards=fund_shards,
+                stock_shards=stock_shards,
+            )
+            for req in ("bootstrap.json", "screener.json", "updates_feed.json", "stocks_search.json", "summary.json", "manifest.json"):
+                self.assertTrue((out_dir / req).exists(), f"Missing {req}")
+            self.assertIn("bootstrap.json", manifest["files"])
+
+            errors, warnings, stats = validate_dataset.validate_dataset(out_dir, strict=True)
+            self.assertEqual(errors, [], f"Unexpected strict errors: {errors}")
+            self.assertEqual(stats["idealExitSignalWeightPct"], 0.0)
+            self.assertLessEqual(stats["idealTopSubSectorWeightPct"], 30.0)
+
+            # Legitimate +55% dilution on a $75B issuer warns without failing strict deploy
+            stock_shards[1]["UPCE"] = {
+                "ticker": "UPCE",
+                "priceUsd": 120.0,
+                "marketCapUsd": 75e9,
+                "fundamentals": {"shareDilutionYoYPct": 55.0},
+            }
+            build_data.emit_data_artifacts(
+                out_dir,
+                summary_payload=summary_payload,
+                fund_shards=fund_shards,
+                stock_shards=stock_shards,
+            )
+            pos_errors, pos_warnings, _ = validate_dataset.validate_dataset(out_dir, strict=True)
+            self.assertEqual(pos_errors, [], f"Legitimate +55% dilution unexpectedly failed strict: {pos_errors}")
+            self.assertTrue(any("UPCE(+55.0%)" in w for w in pos_warnings))
+
+            # Tampering with bootstrap.json must trigger SHA-256 manifest mismatch failure
+            (out_dir / "bootstrap.json").write_text("{}", encoding="utf-8")
+            bad_errors, _, _ = validate_dataset.validate_dataset(out_dir, strict=True)
+            self.assertTrue(any("Hash mismatch for bootstrap.json" in e for e in bad_errors))
+
+            # Injecting a bogus unpriced ticker, 10% EXIT SIGNAL, and systemic -27% mega-cap swings must fail strict validator
+            summary_payload["stocksIndex"]["A001053020"] = {"ticker": "A001053020", "priceUsd": None}
+            summary_payload["idealPortfolio"]["positions"][0]["actionVerdict"] = "EXIT SIGNAL"
+            summary_payload["idealPortfolio"]["positions"][1]["actionVerdict"] = "EXIT SIGNAL"
+            stock_shards[2]["MEGA1"] = {
+                "ticker": "MEGA1",
+                "priceUsd": 200.0,
+                "marketCapUsd": 140e9,
+                "fundamentals": {"shareDilutionYoYPct": -27.5},
+            }
+            stock_shards[2]["MEGA2"] = {
+                "ticker": "MEGA2",
+                "priceUsd": 300.0,
+                "marketCapUsd": 220e9,
+                "fundamentals": {"shareDilutionYoYPct": -26.0},
+            }
+            build_data.emit_data_artifacts(
+                out_dir,
+                summary_payload=summary_payload,
+                fund_shards=fund_shards,
+                stock_shards=stock_shards,
+            )
+            bad_errors2, _, _ = validate_dataset.validate_dataset(out_dir, strict=True)
+            self.assertTrue(any("unresolved/bogus unpriced ticker" in e for e in bad_errors2))
+            self.assertTrue(any("EXIT SIGNAL" in e for e in bad_errors2))
+            self.assertTrue(any("Corrupt/systemic YoY share-count swing" in e for e in bad_errors2))
 
 
 if __name__ == "__main__":

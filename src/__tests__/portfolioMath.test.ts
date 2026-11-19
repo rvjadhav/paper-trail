@@ -180,4 +180,35 @@ describe('portfolioMath', () => {
     expect(Math.round(totalWeight * 100) / 100).toBe(100);
     expect(Math.max(...positions.map((p) => p.dynamicWeightPct))).toBeLessThanOrEqual(8.01);
   });
+
+  it('enforces 30% sub-sector cap smoothly via waterfill without prematurely dropping #4/#5 names', () => {
+    const subSectors = [
+      'Semiconductors',
+      'Enterprise Software',
+      'Platforms & Interactive',
+      'Cloud Infrastructure',
+      'Cybersecurity',
+    ];
+    const pool: IdealPortfolioPosition[] = [];
+    // 6 strong Semiconductors names + 5 names in each of 4 other sub-sectors
+    for (let i = 0; i < 6; i++) {
+      pool.push(makePosition(`SEMI${i}`, 'Semiconductors', 5, 120 - i * 4));
+    }
+    for (let s = 1; s < subSectors.length; s++) {
+      for (let i = 0; i < 5; i++) {
+        pool.push(makePosition(`S${s}_${i}`, subSectors[s], 4, 80 - s * 4 - i * 2));
+      }
+    }
+    const defaultMap = new Map(pool.map((p) => [p.ticker, p.idealWeightPct]));
+    const { positions } = buildConstrainedPortfolio(pool, 'ALL', 'rawScore', 20, 8, 30, defaultMap);
+
+    expect(positions).toHaveLength(20);
+    const semiPositions = positions.filter((p) => p.subSector === 'Semiconductors');
+    // Should retain more than floor(30/8)=3 Semiconductors names while capping total sub-sector weight at 30%
+    expect(semiPositions.length).toBeGreaterThanOrEqual(5);
+    const semiWeight = semiPositions.reduce((s, p) => s + p.dynamicWeightPct, 0);
+    expect(semiWeight).toBeLessThanOrEqual(30.05);
+    const totalWeight = positions.reduce((s, p) => s + p.dynamicWeightPct, 0);
+    expect(Math.round(totalWeight * 100) / 100).toBe(100);
+  });
 });

@@ -12,6 +12,7 @@ End-to-end Paper Trail 13F data pipeline:
 from __future__ import annotations
 
 import bisect
+import hashlib
 import json
 import math
 import statistics
@@ -58,6 +59,9 @@ LEGACY_MONOLITH_JSON = ROOT_DIR / "src" / "data" / "portfolio_data.json"
 
 WINDOWS = ["YTD", "TTM", "18M", "2Y", "3Y", "5Y"]
 MODES = ["quarter_end", "filing_lag"]
+SKILL_SHRINKAGE_DAYS = 504.0
+DEFAULT_LAG_TX_COST_BPS = 10.0
+IDEAL_MAX_SUBSECTOR_CAP_PCT = 30.0
 
 
 def fund_shard_id(cik: str) -> str:
@@ -66,6 +70,33 @@ def fund_shard_id(cik: str) -> str:
 
 def stock_shard_id(ticker: str) -> int:
     return zlib.crc32(ticker.encode("utf-8")) % 8
+
+
+def _is_valid_dossier_ticker(
+    raw_t: str,
+    cusip: str,
+    cusip_meta: dict[str, dict[str, Any]],
+    aligned_prices: dict[str, tuple[Any, int, int]],
+) -> bool:
+    """Reject unresolved CUSIP placeholders, failed-resolution dust, and unpriced bogus symbols."""
+    if not raw_t or raw_t.startswith("CUSIP:"):
+        return False
+    meta_c = cusip_meta.get(cusip, {})
+    if meta_c.get("isResolved") is False:
+        return False
+    canon_t = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
+    if canon_t in aligned_prices:
+        return True
+    # Unpriced securities must match valid US equity symbol shape (1-5 alpha chars + optional -A/-B class)
+    parts = canon_t.split("-")
+    if len(parts) > 2:
+        return False
+    base = parts[0]
+    if not base.isalpha() or not (1 <= len(base) <= 5) or base != base.upper():
+        return False
+    if len(parts) == 2 and (not parts[1].isalpha() or len(parts[1]) != 1 or parts[1] != parts[1].upper()):
+        return False
+    return True
 
 
 def quarter_label(report_date: str) -> str:
@@ -178,13 +209,17 @@ def build_aligned_price_matrix(
                                 f"({prev_px:.4f} -> {cur_px:.4f}, factor {r:.2f}x).",
                                 flush=True,
                             )
-        # Terminal handling after last_idx: decay sub-$1 distress delistings toward 0 over 20d; hold buyouts >=$1 flat
+        # Strictly causal terminal handling after last_idx (zero peek at dataset end n-1):
+        # for sub-$1 distressed securities, hold 3 trading days for routine quote lag/halts,
+        # then decay linearly toward 0 over the next 12 trading days; hold buyouts >=$1 flat.
         end_val = float(arr[last_idx])
-        stale_days = (n - 1) - last_idx
-        if stale_days > 20 and end_val < 1.0:
+        if end_val < 1.0:
             for step_k, i in enumerate(range(last_idx + 1, n), 1):
-                decay = max(0.0, 1.0 - step_k / 20.0)
-                arr[i] = end_val * decay
+                if step_k <= 3:
+                    arr[i] = end_val
+                else:
+                    decay = max(0.0, 1.0 - (step_k - 3) / 12.0)
+                    arr[i] = end_val * decay
         else:
             for i in range(last_idx + 1, n):
                 arr[i] = end_val
@@ -194,6 +229,14 @@ def build_aligned_price_matrix(
 
 def find_idx_on_or_after(cal_dates: list[str], target_date: str) -> int | None:
     pos = bisect.bisect_left(cal_dates, target_date)
+    if pos < len(cal_dates):
+        return pos
+    return None
+
+
+def find_idx_strictly_after(cal_dates: list[str], target_date: str) -> int | None:
+    """Return index of the first trading day strictly after target_date (T+1 execution)."""
+    pos = bisect.bisect_right(cal_dates, target_date)
     if pos < len(cal_dates):
         return pos
     return None
@@ -211,12 +254,15 @@ def simulate_nav_series(
     aligned_prices: dict[str, tuple[np.ndarray, int, int]],
     n_dates: int,
     min_priced_coverage: float = 0.70,
+    tx_cost_bps: float = 0.0,
 ) -> np.ndarray:
     """
     Simulate buy-and-hold within each rebalance segment [(start_idx, weights_dict), ...].
     - Enforces min_priced_coverage (default 70%); leaves NaN breaks on under-covered segments
     - Renormalizes priced position weights to sum to 1.0 so unpriced equities are NOT
       modeled as a 0%-volatility cash buffer
+    - When tx_cost_bps > 0, deducts round-trip market impact/spread (2 * one_way_turnover *
+      tx_cost_bps / 10_000) against prior drifted ending weights at each rebalance transition.
     Returns array of length n_dates with NaN before first valid segment and Base=100.
     """
     nav = np.full(n_dates, np.nan, dtype=np.float64)
@@ -225,6 +271,7 @@ def simulate_nav_series(
 
     running_nav = 100.0
     started = False
+    prev_end_weights: dict[str, float] | None = None
     for seg_i, (s_idx, weights) in enumerate(segments):
         e_idx = segments[seg_i + 1][0] if seg_i + 1 < len(segments) else (n_dates - 1)
         if s_idx >= n_dates or e_idx <= s_idx:
@@ -232,7 +279,7 @@ def simulate_nav_series(
                 nav[s_idx] = running_nav
             continue
 
-        priced_items: list[tuple[np.ndarray, float, float]] = []
+        priced_items: list[tuple[str, np.ndarray, float, float]] = []
         priced_weight = 0.0
         for ticker, w in weights.items():
             if w <= 0:
@@ -245,25 +292,40 @@ def simulate_nav_series(
             base_idx = s_idx if s_idx >= first_idx else (first_idx if first_idx - s_idx <= 5 else -1)
             if base_idx < 0 or math.isnan(arr[base_idx]) or arr[base_idx] <= 0:
                 continue
-            priced_items.append((arr, float(w), float(arr[base_idx])))
+            priced_items.append((ticker, arr, float(w), float(arr[base_idx])))
             priced_weight += float(w)
 
         if priced_weight < min_priced_coverage or not priced_items:
             if started:
                 # Reset running_nav for any subsequent recovered run while leaving NaN gap
                 running_nav = 100.0
+                prev_end_weights = None
             continue
+
+        norm_weights = {t: w / priced_weight for t, _, w, _ in priced_items}
+        if started and tx_cost_bps > 0.0 and prev_end_weights is not None:
+            all_k = set(prev_end_weights.keys()) | set(norm_weights.keys())
+            one_way_to = 0.5 * sum(abs(norm_weights.get(k, 0.0) - prev_end_weights.get(k, 0.0)) for k in all_k)
+            cost_frac = min(0.05, max(0.0, 2.0 * one_way_to * (tx_cost_bps / 10_000.0)))
+            running_nav *= 1.0 - cost_frac
 
         started = True
         span = np.zeros(e_idx - s_idx + 1, dtype=np.float64)
-        for arr, w, base_px in priced_items:
+        end_contribs: dict[str, float] = {}
+        for ticker, arr, w, base_px in priced_items:
             norm_w = w / priced_weight
             sub = arr[s_idx : e_idx + 1]
             rel = np.where(np.isnan(sub), 1.0, sub / base_px)
             span += norm_w * rel
+            end_contribs[ticker] = norm_w * float(rel[-1])
 
         nav[s_idx : e_idx + 1] = running_nav * span
         running_nav = float(nav[e_idx])
+        end_span = float(span[-1])
+        if end_span > 0:
+            prev_end_weights = {t: c / end_span for t, c in end_contribs.items()}
+        else:
+            prev_end_weights = None
 
     return nav
 
@@ -538,6 +600,218 @@ def waterfill_capped_weights(raw_scores: dict[str, float], cap: float = 0.08) ->
     return fixed
 
 
+def waterfill_sector_and_stock_capped_weights(
+    raw_scores: dict[str, float],
+    subsector_by_ticker: dict[str, str] | None = None,
+    stock_cap: float = 0.08,
+    subsector_cap: float = 0.30,
+) -> dict[str, float]:
+    """
+    Iteratively water-fill proportional weights subject to BOTH:
+      - individual stock cap: w[t] <= stock_cap (default 8%)
+      - sub-sector cap: sum(w[t] for t in sub_sector) <= subsector_cap (default 30%)
+    Falls back cleanly to single-stock waterfill if too few distinct sub-sectors exist
+    for the sub-sector cap to reach 100% total weight.
+    """
+    pos = {k: float(v) for k, v in raw_scores.items() if v > 0}
+    if not pos:
+        return {}
+    if len(pos) * stock_cap < 0.9999:
+        stock_cap = 1.0 / len(pos) + 1e-6
+    if not subsector_by_ticker or subsector_cap <= 0 or subsector_cap >= 0.9999:
+        return waterfill_capped_weights(pos, cap=stock_cap)
+
+    sec_of = {k: subsector_by_ticker.get(k) or "Other" for k in pos}
+    by_sec_all: dict[str, list[str]] = {}
+    for k, s in sec_of.items():
+        by_sec_all.setdefault(s, []).append(k)
+
+    max_feasible = sum(min(subsector_cap, len(ks) * stock_cap) for ks in by_sec_all.values())
+    if max_feasible < 0.9999:
+        lo, hi = subsector_cap, 1.0
+        for _ in range(25):
+            mid = 0.5 * (lo + hi)
+            if sum(min(mid, len(ks) * stock_cap) for ks in by_sec_all.values()) >= 1.0001:
+                hi = mid
+            else:
+                lo = mid
+        subsector_cap = hi
+
+    fixed: dict[str, float] = {}
+    free = dict(pos)
+    rem_budget = 1.0
+    sec_used: dict[str, float] = {}
+
+    for _ in range(len(pos) + len(by_sec_all) + 8):
+        if not free or rem_budget <= 1e-12:
+            break
+        tot_sc = sum(free.values())
+        if tot_sc <= 0:
+            break
+        tent = {k: (sc / tot_sc) * rem_budget for k, sc in free.items()}
+
+        free_by_sec: dict[str, list[str]] = {}
+        for k in free:
+            free_by_sec.setdefault(sec_of[k], []).append(k)
+
+        over_secs = [
+            s
+            for s, ks in free_by_sec.items()
+            if sec_used.get(s, 0.0) + sum(tent[k] for k in ks) > subsector_cap + 1e-9
+            and len(ks) * stock_cap + sec_used.get(s, 0.0) >= subsector_cap - 1e-9
+        ]
+        if over_secs:
+            for s in over_secs:
+                ks = free_by_sec[s]
+                sec_rem = max(0.0, subsector_cap - sec_used.get(s, 0.0))
+                if sec_rem <= 1e-12:
+                    for k in ks:
+                        fixed[k] = 0.0
+                        del free[k]
+                    continue
+                inner_cap = min(1.0, stock_cap / sec_rem)
+                inner_w = waterfill_capped_weights({k: free[k] for k in ks}, cap=inner_cap)
+                for k in ks:
+                    fixed[k] = inner_w.get(k, 0.0) * sec_rem
+                    del free[k]
+                sec_used[s] = sec_used.get(s, 0.0) + sec_rem
+                rem_budget -= sec_rem
+            continue
+
+        over_stocks = [k for k, wt in tent.items() if wt > stock_cap + 1e-9]
+        if over_stocks:
+            for k in over_stocks:
+                fixed[k] = stock_cap
+                sec_used[sec_of[k]] = sec_used.get(sec_of[k], 0.0) + stock_cap
+                rem_budget -= stock_cap
+                del free[k]
+            continue
+
+        for k, wt in tent.items():
+            fixed[k] = wt
+        free.clear()
+        break
+
+    return {k: v for k, v in fixed.items() if v > 1e-12}
+
+
+def _select_top_names_with_subsector_breadth(
+    sorted_items: list[tuple[str, float]],
+    subsector_by_ticker: dict[str, str] | None,
+    max_names: int = 40,
+    subsector_cap: float = 0.30,
+    excluded_tickers: set[str] | None = None,
+) -> dict[str, float]:
+    """
+    Pick up to max_names highest-scoring stocks while preventing one crowded sub-sector
+    from starving diversified slots when a sub-sector cap is active.
+    """
+    excl = excluded_tickers or set()
+    eligible = [(t, sc) for t, sc in sorted_items if t not in excl and sc > 0]
+    if not eligible:
+        return {}
+    if not subsector_by_ticker or len(eligible) <= max_names:
+        return dict(eligible[:max_names])
+
+    distinct_secs = {subsector_by_ticker.get(t, "Other") for t, _ in eligible}
+    if len(distinct_secs) < 4:
+        return dict(eligible[:max_names])
+
+    max_per_sub = max(8, int(math.ceil(max_names * subsector_cap * 1.15)))
+    selected: list[tuple[str, float]] = []
+    deferred: list[tuple[str, float]] = []
+    sec_counts: dict[str, int] = {}
+
+    for t, sc in eligible:
+        if len(selected) >= max_names:
+            break
+        ss = subsector_by_ticker.get(t, "Other")
+        if sec_counts.get(ss, 0) < max_per_sub:
+            selected.append((t, sc))
+            sec_counts[ss] = sec_counts.get(ss, 0) + 1
+        else:
+            deferred.append((t, sc))
+
+    if len(selected) < max_names and deferred:
+        selected.extend(deferred[: max_names - len(selected)])
+    return dict(selected)
+
+
+def _compute_pit_vol_mult(
+    pdata: tuple[Any, int, int] | None,
+    ref_idx: int,
+    target_vol: float = 0.32,
+) -> float:
+    """
+    Strictly point-in-time inverse-sqrt trailing 63-day realized volatility multiplier.
+    Damps high-beta cyclical risk budgets (e.g., 75%-vol names -> 0.65x) while boosting
+    steady quality compounders (e.g., 22%-vol names -> 1.21x), bounded to [0.65, 1.30].
+    """
+    if pdata is None or ref_idx <= 0:
+        return 1.0
+    arr, first_idx, last_idx = pdata
+    end_i = min(ref_idx, last_idx)
+    start_i = max(first_idx, end_i - 63)
+    if end_i - start_i < 20:
+        return 1.0
+    sub = arr[start_i : end_i + 1]
+    if np.any(np.isnan(sub)) or np.any(sub <= 0):
+        return 1.0
+    rets = np.diff(sub) / sub[:-1]
+    if len(rets) < 20:
+        return 1.0
+    ann_vol = float(np.std(rets, ddof=1)) * math.sqrt(252.0)
+    if not math.isfinite(ann_vol) or ann_vol <= 1e-4:
+        return 1.0
+    raw_mult = (target_vol / max(0.15, ann_vol)) ** 0.50
+    return max(0.65, min(1.30, raw_mult))
+
+
+def _compute_pit_price_regime_mult(
+    pdata: tuple[Any, int, int] | None,
+    ref_idx: int,
+    qd_idx: int | None,
+    buy_impulse: float,
+) -> float:
+    """
+    Strictly point-in-time entry-discipline & trend-breakdown guard:
+      1. Anti-chasing lag haircut: if price surged >35% between quarter-end and filing-lag
+         execution, damp allocation down to 0.78x.
+      2. Broken-trend guard: if price sits >10% below trailing 200-DMA AND Elite managers are
+         not aggressively net-buying the dip (buy_impulse <= 0.15), damp down to 0.75x.
+    """
+    if pdata is None or ref_idx <= 0:
+        return 1.0
+    arr, first_idx, last_idx = pdata
+    end_i = min(ref_idx, last_idx)
+    if end_i < first_idx or math.isnan(arr[end_i]) or arr[end_i] <= 0:
+        return 1.0
+
+    mult = 1.0
+    cur_px = float(arr[end_i])
+
+    # 1. Filing-lag parabolic run-up anti-chasing haircut
+    if qd_idx is not None and end_i > qd_idx >= first_idx:
+        q_px = float(arr[qd_idx])
+        if not math.isnan(q_px) and q_px > 0:
+            runup = (cur_px / q_px) - 1.0
+            if runup > 0.35:
+                mult *= max(0.78, 1.0 - (runup - 0.35) * 0.63)
+
+    # 2. 200-DMA structural breakdown guard (only when not aggressively bought on dip)
+    if end_i - first_idx >= 180 and buy_impulse <= 0.15:
+        sma_start = max(first_idx, end_i - 199)
+        win = arr[sma_start : end_i + 1]
+        if not np.any(np.isnan(win)):
+            sma_200 = float(np.mean(win))
+            if sma_200 > 0:
+                dist_200 = (cur_px / sma_200) - 1.0
+                if dist_200 < -0.10:
+                    mult *= max(0.75, 1.0 + (dist_200 + 0.10))
+
+    return mult
+
+
 def compute_orthogonal_fund_scores(
     funds_subset: list[dict[str, Any]],
     fund_navs_mode: dict[str, np.ndarray],
@@ -546,8 +820,9 @@ def compute_orthogonal_fund_scores(
 ) -> dict[str, float]:
     """
     Score funds across 3 NON-OVERLAPPING orthogonal return horizons (0-12M: 35%,
-    12-36M: 40%, 36-60M: 25%) blended with Composite Skill Score (or standalone Skill),
-    eliminating double-counting of the latest year across TTM/18M/2Y/3Y/5Y.
+    12-36M: 40%, 36-60M: 25%) with horizon-coverage Bayesian shrinkage toward
+    the 0.625 cohort midpoint so short-history funds cannot leapfrog seasoned
+    multi-cycle managers on a single momentum year.
     """
     last_idx = len(cal_dates) - 1
     idx_1y = win_indices["TTM"]
@@ -590,7 +865,12 @@ def compute_orthogonal_fund_scores(
             if cik in h_ranks[hname]:
                 num += hw * h_ranks[hname][cik]
                 den += hw
-        scores[cik] = (num / den) if den > 0 else 0.5
+        if den > 0:
+            raw_o = num / den
+            cov = min(1.0, den / 0.75)
+            scores[cik] = 0.625 + cov * (raw_o - 0.625)
+        else:
+            scores[cik] = 0.5
     return scores
 
 
@@ -606,11 +886,19 @@ def compute_ideal_portfolio_weights(
     aligned_prices: dict[str, tuple[Any, int, int]] | None = None,
     n_dates: int = 0,
     excluded_etfs: set[str] | frozenset[str] | None = None,
+    exited_by_ticker: dict[str, int] | None = None,
+    actionability_by_ticker: dict[str, dict[str, Any]] | None = None,
+    latest_quarter_end: str | None = None,
+    subsector_cap_pct: float = IDEAL_MAX_SUBSECTOR_CAP_PCT,
 ) -> tuple[dict[str, float], dict[str, dict[str, Any]], list[tuple[str, float]]]:
     """
-    Score actively traded US stocks across Elite-50 / ranked funds by orthogonal
-    multi-horizon fund score^1.5, sqrt(portfolio weight), Tech/TMT relevance,
-    multi-fund consensus, and continuous QoQ share-delta inflection multiplier.
+    Score actively traded US stocks across Elite-50 / ranked funds by:
+      - 50/50 blended Orthogonal Multi-Horizon Return & Risk-Adjusted Skill Score^1.5
+      - sqrt(portfolio weight) × Tech/TMT relevance × multi-fund consensus
+      - Full QoQ accumulation impulse INCLUDING complete fund exits (NEW/ADDED/TRIMMED/EXITED)
+      - Inverse-sqrt 63d realized volatility sizing + lag anti-chasing & 200-DMA breakdown guard
+      - Actionability Matrix alignment (excludes EXIT SIGNAL from Top-40, damps DISTRIBUTION WARNING)
+      - Simultaneous single-stock (8%) AND sub-sector (30%) water-fill caps.
     Returns (weights_0_to_1, stock_scoring_details, sorted_qualified_items).
     """
     if not funds_subset:
@@ -632,7 +920,7 @@ def compute_ideal_portfolio_weights(
         cik = f["cik"]
         sk = f["metrics"][mode].get("skillScore")
         sk_norm = (0.25 + 0.75 * (sk / 100.0)) if sk is not None else 0.5
-        fund_scores[cik] = 0.65 * ortho_scores.get(cik, 0.5) + 0.35 * sk_norm
+        fund_scores[cik] = 0.50 * ortho_scores.get(cik, 0.5) + 0.50 * sk_norm
 
     stock_agg: dict[str, dict[str, Any]] = {}
     for f in funds_subset:
@@ -692,6 +980,7 @@ def compute_ideal_portfolio_weights(
                     "netNew": 0,
                     "netAdd": 0,
                     "netTrim": 0,
+                    "netExit": int((exited_by_ticker or {}).get(t, 0)),
                 }
             rec = stock_agg[t]
             rec["isTechTmt"] = rec["isTechTmt"] or hm["isTechTmt"]
@@ -713,26 +1002,72 @@ def compute_ideal_portfolio_weights(
             elif hm["status"] == "TRIMMED":
                 rec["netTrim"] += 1
 
+    ref_idx = (n_dates - 1) if n_dates > 0 else max(0, len(cal_dates) - 1)
+    qd_idx = (
+        find_idx_on_or_before(cal_dates, latest_quarter_end)
+        if (latest_quarter_end and cal_dates)
+        else None
+    )
+
     # Require multi-fund backing (>=2) or top high-conviction anchor (>=4.5%)
     qualified: dict[str, float] = {}
+    subsector_by_ticker: dict[str, str] = {}
+    exit_signal_excluded: set[str] = set()
+
     for t, rec in stock_agg.items():
         cnt = len(rec["backers"])
         max_w = max(rec["weights"])
         if cnt < 2 and max_w < 4.5:
             continue
+        net_exit = int(rec.get("netExit", 0))
         consensus_mult = 1.0 + 0.18 * math.log(max(1, cnt))
-        # Continuous QoQ inflection score giving extra signal to fresh NEW + ADDED over TRIMMED
-        buy_impulse = (1.25 * rec["netNew"] + 1.0 * rec["netAdd"] - 1.0 * rec["netTrim"]) / max(1, cnt)
-        mom_mult = 1.0 + 0.14 * max(-0.5, min(1.0, buy_impulse))
+        # Continuous QoQ inflection score incorporating NEW, ADDED, TRIMMED, and full EXITED moves
+        buy_impulse = (
+            1.35 * rec["netNew"] + 1.0 * rec["netAdd"] - 0.85 * rec["netTrim"] - 1.50 * net_exit
+        ) / max(1, cnt + net_exit)
+        mom_mult = 1.0 + 0.28 * max(-0.85, min(1.0, buy_impulse))
         tech_mult = 1.0 if rec["isTechTmt"] else 0.68
-        score = rec["convSum"] * consensus_mult * mom_mult * tech_mult
+
+        pdata = aligned_prices.get(t) if aligned_prices is not None else None
+        vol_mult = _compute_pit_vol_mult(pdata, ref_idx)
+        regime_mult = _compute_pit_price_regime_mult(pdata, ref_idx, qd_idx, buy_impulse)
+
+        act_mult = 1.0
+        if actionability_by_ticker is not None:
+            act_info = actionability_by_ticker.get(t)
+            if act_info:
+                verdict = act_info.get("verdict")
+                if verdict == "EXIT SIGNAL":
+                    act_mult = 0.25
+                    exit_signal_excluded.add(t)
+                elif verdict == "DISTRIBUTION WARNING":
+                    act_mult = 0.65
+                elif verdict == "STRONG ACCUMULATE":
+                    act_mult = 1.12
+                elif verdict == "ACCUMULATE ON DIP":
+                    act_mult = 1.04
+
+        score = rec["convSum"] * consensus_mult * mom_mult * tech_mult * vol_mult * regime_mult * act_mult
         rec["rawScore"] = score
         rec["netBuy"] = rec["netNew"] + rec["netAdd"]
         qualified[t] = score
+        subsector_by_ticker[t] = classify_sub_sector(rec["sector"] or "Other", rec["industry"] or "", rec["isTechTmt"])
 
     sorted_items = sorted(qualified.items(), key=lambda x: x[1], reverse=True)
-    top_scores = dict(sorted_items[:max_names])
-    capped = waterfill_capped_weights(top_scores, cap=cap_pct / 100.0)
+    sub_cap_dec = subsector_cap_pct / 100.0
+    top_scores = _select_top_names_with_subsector_breadth(
+        sorted_items,
+        subsector_by_ticker=subsector_by_ticker,
+        max_names=max_names,
+        subsector_cap=sub_cap_dec,
+        excluded_tickers=exit_signal_excluded,
+    )
+    capped = waterfill_sector_and_stock_capped_weights(
+        top_scores,
+        subsector_by_ticker=subsector_by_ticker,
+        stock_cap=cap_pct / 100.0,
+        subsector_cap=sub_cap_dec,
+    )
     return capped, stock_agg, sorted_items
 
 
@@ -766,13 +1101,17 @@ def run_ideal_portfolio_backtest(
     splits_map: dict[str, Any] | None = None,
     rf_ann_arr: np.ndarray | None = None,
     qqq_nav: np.ndarray | None = None,
+    ticker_sub_sector: dict[str, str] | None = None,
+    subsector_cap: float = IDEAL_MAX_SUBSECTOR_CAP_PCT / 100.0,
 ) -> list[tuple[int, dict[str, float]]]:
     """
     Reconstruct survivorship-free quarterly point-in-time backtest segments for the
-    Elite-50 Ideal Portfolio in Quarter-End or zero-look-ahead 45-Day Filing-Lag mode,
-    mirroring live fund qualification, rolling 4Q persistence, risk-adjusted PIT Skill Score,
-    and split-adjusted QoQ accumulation signals.
+    Elite-50 Ideal Portfolio in Quarter-End or zero-look-ahead T+1 45-Day Filing-Lag mode,
+    mirroring uniform live fund qualification, rolling 4Q persistence, seasoned >=8Q Elite
+    preference, 50/50 Orthogonal + Skill Score, split-adjusted QoQ accumulation/exit impulse,
+    PIT volatility sizing, lag anti-chasing / 200-DMA breakdown guard, and 30% sub-sector cap.
     """
+    _ = curated_bt_ciks  # Retained for signature compatibility; uniform qualification applied to all CIKs
     segs: list[tuple[int, dict[str, float]]] = []
     # Orthogonal horizons matching live scorer: 0-12M (35%), 12-36M (40%), 36-60M (25%)
     ortho_ranges = [(0, 252, 0.35), (252, 756, 0.40), (756, 1260, 0.25)]
@@ -782,33 +1121,38 @@ def run_ideal_portfolio_backtest(
             continue
         qd_dt = datetime.strptime(qd, "%Y-%m-%d")
         if bt_mode == "filing_lag":
-            rebal_dt = max(statutory_deadline_date(qd), (qd_dt + timedelta(days=46)).strftime("%Y-%m-%d"))
-            if rebal_dt > as_of_date:
+            deadline_dt = statutory_deadline_date(qd)
+            if deadline_dt >= as_of_date:
                 continue
+            rebal_idx = find_idx_strictly_after(cal_dates, deadline_dt)
+            if rebal_idx is None:
+                continue
+            filing_cutoff_dt = deadline_dt
+            rebal_dt = cal_dates[rebal_idx]
         else:
             rebal_dt = qd
+            filing_cutoff_dt = qd
+            rebal_idx = find_idx_on_or_after(cal_dates, rebal_dt)
+            if rebal_idx is None:
+                continue
 
-        rebal_idx = find_idx_on_or_after(cal_dates, rebal_dt)
-        if rebal_idx is None:
-            continue
+        qd_idx = find_idx_on_or_before(cal_dates, qd)
 
         active_cands: list[tuple[str, dict[str, Any], dict[str, float], str, list[dict[str, Any]]]] = []
         for cik in all_bt_ciks:
             sn_list = snaps_by_cik.get(cik) or []
-            avail = [s for s in sn_list if s["effDate"] <= rebal_dt]
+            avail = [s for s in sn_list if s["effDate"] <= filing_cutoff_dt]
             if not avail:
                 continue
             cur_s = avail[-1]
-            # Require filing period within 180d + point-in-time concentration/eligibility
+            # Require filing period within 180d + uniform point-in-time concentration/eligibility
             if (qd_dt - datetime.strptime(cur_s["reportDate"], "%Y-%m-%d")).days > 180:
                 continue
-            is_cur = cik in curated_bt_ciks
-            tech_floor = 30.0 if is_cur else 35.0
             if (
                 cur_s["eqAum"] < 100_000_000
-                or cur_s["techPct"] < tech_floor
+                or cur_s["techPct"] < 35.0
                 or cur_s["posCount"] < 5
-                or (cur_s["posCount"] > 250 and not is_cur)
+                or cur_s["posCount"] > 250
                 or cur_s["effN"] < 4.0
                 or cur_s["maxSingle"] > 45.0
             ):
@@ -820,11 +1164,10 @@ def run_ideal_portfolio_backtest(
                 continue
             if len(avail) >= 4:
                 med4q_tech = float(statistics.median(s["techPct"] for s in recent_snaps))
-                persist_floor = 40.0 if is_cur else 50.0
-                if med4q_tech < persist_floor:
+                if med4q_tech < 50.0:
                     continue
 
-            # Prior period snapshot (for split-adjusted +/-5% share-count delta)
+            # Prior period snapshot (for split-adjusted +/-5% share-count delta & full exits)
             prev_same = [s for s in avail if s["reportDate"] < cur_s["reportDate"]]
             prev_shares = prev_same[-1]["shares"] if prev_same else {}
             prev_rd = prev_same[-1]["reportDate"] if prev_same else ""
@@ -926,7 +1269,11 @@ def run_ideal_portfolio_backtest(
                 tot_int = 0
                 eff_indices: list[int] = []
                 for s_snap in avail:
-                    ei = find_idx_on_or_after(cal_dates, s_snap["effDate"])
+                    ei = (
+                        find_idx_strictly_after(cal_dates, s_snap["effDate"])
+                        if bt_mode == "filing_lag"
+                        else find_idx_on_or_after(cal_dates, s_snap["effDate"])
+                    )
                     if ei is not None and ei <= rebal_idx:
                         if not eff_indices or ei > eff_indices[-1]:
                             eff_indices.append(ei)
@@ -934,7 +1281,13 @@ def run_ideal_portfolio_backtest(
                     eff_indices.append(rebal_idx)
                 for ii in range(len(eff_indices) - 1):
                     si_0, si_1 = eff_indices[ii], eff_indices[ii + 1]
-                    if si_1 - si_0 >= 15 and si_0 >= c_start and not math.isnan(nav_arr[si_0]) and not math.isnan(nav_arr[si_1]):
+                    if (
+                        si_1 - si_0 >= 15
+                        and si_0 >= c_start
+                        and not math.isnan(nav_arr[si_0])
+                        and not math.isnan(nav_arr[si_1])
+                        and not np.any(np.isnan(nav_arr[si_0 : si_1 + 1]))
+                    ):
                         tot_int += 1
                         if (nav_arr[si_1] / nav_arr[si_0]) > (qqq_nav[si_1] / qqq_nav[si_0]):
                             beats += 1
@@ -951,13 +1304,13 @@ def run_ideal_portfolio_backtest(
             bat_r = _pct_ranks_desc(pit_bat_pairs)
             for cik, _ in pit_ir_pairs:
                 raw_comp = 0.40 * ir_r[cik] + 0.30 * bat_r[cik] + 0.30 * sort_r[cik]
-                conf = min(1.0, pit_valid_days[cik] / 504.0)
+                conf = min(1.0, pit_valid_days[cik] / SKILL_SHRINKAGE_DAYS)
                 shrunk = 0.50 + conf * (raw_comp - 0.50)
                 pit_skill_norm[cik] = 0.25 + 0.75 * shrunk
 
         has_1y_cohort = 0 in h_ranks_pit and len(h_ranks_pit[0]) >= 25
-        scored_funds: list[tuple[str, float, dict[str, Any], dict[str, float], str]] = []
-        for cik, cur_s, prev_shares, prev_rd, _ in active_cands:
+        scored_funds: list[tuple[str, float, dict[str, Any], dict[str, float], str, int]] = []
+        for cik, cur_s, prev_shares, prev_rd, avail in active_cands:
             if has_1y_cohort and cik not in h_ranks_pit[0]:
                 continue
             num = 0.0
@@ -969,15 +1322,23 @@ def run_ideal_portfolio_backtest(
                     den += hw
             if rebal_idx >= 90 and den <= 0:
                 continue
-            ortho_pit = (0.25 + 0.75 * (num / den)) if den > 0 else 0.5
+            if den > 0:
+                raw_r = num / den
+                cov = min(1.0, den / 0.75)
+                ortho_pit = 0.25 + 0.75 * (0.50 + cov * (raw_r - 0.50))
+            else:
+                ortho_pit = 0.5
             if cik in pit_skill_norm:
-                sc_pit = 0.65 * ortho_pit + 0.35 * pit_skill_norm[cik]
+                sc_pit = 0.50 * ortho_pit + 0.50 * pit_skill_norm[cik]
             else:
                 sc_pit = ortho_pit
-            scored_funds.append((cik, sc_pit, cur_s, prev_shares, prev_rd))
+            distinct_q = len({s["reportDate"] for s in avail})
+            scored_funds.append((cik, sc_pit, cur_s, prev_shares, prev_rd, distinct_q))
 
-        scored_funds.sort(key=lambda x: x[1], reverse=True)
-        top_cohort = scored_funds[: min(50, len(scored_funds))]
+        seasoned = [x for x in scored_funds if x[5] >= 8]
+        cohort_pool = seasoned if len(seasoned) >= 50 else scored_funds
+        cohort_pool.sort(key=lambda x: x[1], reverse=True)
+        top_cohort = cohort_pool[: min(50, len(cohort_pool))]
 
         s_scores: dict[str, float] = {}
         s_max_w: dict[str, float] = {}
@@ -985,10 +1346,15 @@ def run_ideal_portfolio_backtest(
         s_new: dict[str, int] = {}
         s_add: dict[str, int] = {}
         s_trim: dict[str, int] = {}
+        s_exit: dict[str, int] = {}
 
-        for _, f_sc, cur_s, prev_shares, prev_rd in top_cohort:
+        for _, f_sc, cur_s, prev_shares, prev_rd, _ in top_cohort:
             cur_sh_map = cur_s["shares"]
             cur_rd = cur_s["reportDate"]
+            if prev_shares:
+                for pt, psh in prev_shares.items():
+                    if psh > 0 and cur_sh_map.get(pt, 0.0) <= 0 and not pt.startswith("CUSIP:") and pt not in excluded_etfs:
+                        s_exit[pt] = s_exit.get(pt, 0) + 1
             for t, w_val in cur_s["weights"].items():
                 if t.startswith("CUSIP:") or t in excluded_etfs or w_val <= 0:
                     continue
@@ -1016,14 +1382,36 @@ def run_ideal_portfolio_backtest(
             cnt = s_counts[t]
             if cnt < 2 and s_max_w.get(t, 0.0) < 4.5:
                 continue
+            ex_cnt = s_exit.get(t, 0)
             cons_m = 1.0 + 0.18 * math.log(max(1, cnt))
-            buy_imp = (1.25 * s_new.get(t, 0) + 1.0 * s_add.get(t, 0) - 1.0 * s_trim.get(t, 0)) / max(1, cnt)
-            mom_m = 1.0 + 0.14 * max(-0.5, min(1.0, buy_imp))
+            buy_imp = (
+                1.35 * s_new.get(t, 0) + 1.0 * s_add.get(t, 0) - 0.85 * s_trim.get(t, 0) - 1.50 * ex_cnt
+            ) / max(1, cnt + ex_cnt)
+            mom_m = 1.0 + 0.28 * max(-0.85, min(1.0, buy_imp))
             tech_m = 1.0 if ticker_is_tech.get(t, False) else 0.68
-            filt_scores[t] = sc * cons_m * mom_m * tech_m
+            pdata = aligned_prices.get(t)
+            vol_m = _compute_pit_vol_mult(pdata, rebal_idx)
+            regime_m = _compute_pit_price_regime_mult(
+                pdata,
+                rebal_idx,
+                qd_idx if bt_mode == "filing_lag" else None,
+                buy_imp,
+            )
+            filt_scores[t] = sc * cons_m * mom_m * tech_m * vol_m * regime_m
 
-        top40 = dict(sorted(filt_scores.items(), key=lambda x: x[1], reverse=True)[:40])
-        bt_w = waterfill_capped_weights(top40, cap=0.08)
+        sorted_bt = sorted(filt_scores.items(), key=lambda x: x[1], reverse=True)
+        top40 = _select_top_names_with_subsector_breadth(
+            sorted_bt,
+            subsector_by_ticker=ticker_sub_sector,
+            max_names=40,
+            subsector_cap=subsector_cap,
+        )
+        bt_w = waterfill_sector_and_stock_capped_weights(
+            top40,
+            subsector_by_ticker=ticker_sub_sector,
+            stock_cap=0.08,
+            subsector_cap=subsector_cap,
+        )
         if not bt_w:
             continue
         if not segs or rebal_idx > segs[-1][0]:
@@ -2026,7 +2414,8 @@ def build_fund_timelines(
             continue
         hhi = sum(v * v for v in w_lag.values())
         eff_n = (1.0 / hhi) if hhi > 0 else float(pos_cnt)
-        lag_idx = find_idx_on_or_after(cal_dates, ev_fd)
+        # Execute on T+1 (next trading day after filingDate) since 13F-HR drops 4:00-5:30 PM ET
+        lag_idx = find_idx_strictly_after(cal_dates, ev_fd)
         if lag_idx is None:
             lag_idx = n_dates - 1
         if not lag_segments or lag_idx > lag_segments[-1][0]:
@@ -2457,12 +2846,13 @@ def compute_actionability_matrix(
     avg_elite_holding_quarters: float | None = None,
     thesis_persistence: dict[str, Any] | None = None,
     is_core_consensus: bool = False,
+    market_cap_usd: float | None = None,
 ) -> dict[str, Any]:
     """
     Unified Actionable Buy / Trim / Exit Conviction Matrix:
       Combines 4 independent pillars (each 0-25 -> 0-100 Total Score):
-        1. Smart-Money Flow Impulse (split- & price-adjusted net dollar flow weighted by Elite skill)
-        2. Price Discipline (distance to Est. Quarter-VWAP / institutional cost basis)
+        1. Smart-Money Flow Impulse (split- & price-adjusted net dollar flow normalized by market cap & Elite skill)
+        2. Price Discipline (humped distance to Est. Quarter-VWAP rewarding -5%..-10% entries & penalizing chases/falling knives)
         3. XBRL Quality Gate (Rev Growth + FCF Margin less SBC/Share Dilution penalty)
         4. Thesis Persistence (consecutive quarters of net buying vs. multi-fund distribution)
     """
@@ -2534,8 +2924,21 @@ def compute_actionability_matrix(
         skill_mult = min(1.5, max(0.75, avg_active_skill / 55.0))
         eff_flow = float(net_est_flow_usd) * skill_mult
         abs_tanh = math.tanh(eff_flow / 120_000_000.0)
-        if total_value_usd and total_value_usd > 0:
-            rel_tanh = math.tanh(eff_flow / (0.35 * max(float(total_value_usd), 25_000_000.0)))
+        has_rel = bool(total_value_usd and total_value_usd > 0)
+        rel_tanh = (
+            math.tanh(eff_flow / (0.35 * max(float(total_value_usd), 25_000_000.0)))
+            if has_rel
+            else abs_tanh
+        )
+        if market_cap_usd is not None and market_cap_usd > 0:
+            mcap_scale = max(float(market_cap_usd) * 0.005, 15_000_000.0)
+            mcap_tanh = math.tanh(eff_flow / mcap_scale)
+            flow_signal = (
+                0.45 * mcap_tanh + 0.35 * rel_tanh + 0.20 * abs_tanh
+                if has_rel
+                else 0.65 * mcap_tanh + 0.35 * abs_tanh
+            )
+        elif has_rel:
             flow_signal = 0.65 * abs_tanh + 0.35 * rel_tanh
         else:
             flow_signal = abs_tanh
@@ -2544,22 +2947,26 @@ def compute_actionability_matrix(
     else:
         flow_impulse = min(25.0, max(0.0, 12.5 + (part_score - 6.5) * (8.5 / 6.5)))
 
-    # 2. Price Discipline (0-25)
+    # 2. Price Discipline (0-25): humped curve peaks near institutional Q-VWAP (-10%..-5%)
+    # and damps both parabolic chases (>+15%) and severe falling-knife breakdowns (<-20%)
     if pct_vs_quarter_vwap is None:
         price_discipline = 12.5
     else:
         price_discipline = _interp_knots(
             float(pct_vs_quarter_vwap),
             [
-                (-15.0, 25.0),
-                (-5.0, 23.5),
-                (0.0, 21.0),
-                (5.0, 17.5),
-                (10.0, 14.0),
-                (15.0, 10.5),
-                (20.0, 7.0),
-                (30.0, 3.0),
-                (45.0, 0.0),
+                (-45.0, 7.0),
+                (-30.0, 12.0),
+                (-20.0, 18.0),
+                (-10.0, 24.0),
+                (-5.0, 25.0),
+                (0.0, 22.0),
+                (5.0, 18.5),
+                (10.0, 15.0),
+                (15.0, 11.5),
+                (20.0, 8.5),
+                (30.0, 5.0),
+                (45.0, 2.5),
             ],
         )
     if filing_to_today_pct is not None and filing_to_today_pct > 20.0:
@@ -2685,8 +3092,24 @@ def compute_actionability_matrix(
     has_multi_q_sell = bool(
         thesis_persistence and int(thesis_persistence.get("consecutiveNetSellQuarters", 0)) >= 2
     )
+    active_pool = max(1, total_buyers + total_sellers)
+    base_holders = max(active_pool, int(elite_holders_count), len(holders or []))
+    exit_ratio = exited_count / max(1, base_holders + exited_count)
+    sell_dominance = total_sellers / active_pool
+    flow_out_ratio = (
+        (-float(net_est_flow_usd) / float(total_value_usd))
+        if (net_est_flow_usd is not None and net_est_flow_usd < 0.0 and total_value_usd and total_value_usd > 0)
+        else 0.0
+    )
     severe_exit_signal = (
-        (exited_count >= 2 and total_sellers >= total_buyers + 2 and has_neg_or_flat_flow)
+        (
+            exited_count >= 2
+            and total_sellers >= total_buyers + 2
+            and sell_dominance >= 0.65
+            and (exit_ratio >= 0.15 or flow_out_ratio >= 0.15)
+            and has_neg_or_flat_flow
+            and total_score < 58.0
+        )
         or (
             flow_r <= 6.0
             and pers_r <= 6.5
@@ -2844,7 +3267,7 @@ def compute_dual_conviction_signal(
     csuite_cnt = int(f4.get("cSuiteBuyersCount") or 0)
     non10b5_cnt = int(f4.get("non10b5Count") or 0)
     insider_label = str(f4.get("insiderSignalLabel") or "NONE")
-    is_sell_heavy = insider_label == "MIXED_SELL_HEAVY"
+    is_sell_heavy = insider_label in ("MIXED_SELL_HEAVY", "CLUSTER_SELL", "DISCRETIONARY_SELL")
     has_insider_buy = open_buy_cnt > 0 and not is_sell_heavy
     has_form4_cluster = bool(
         f4
@@ -2910,14 +3333,18 @@ def compute_dual_conviction_signal(
     total_sellers = max(0, int(trimmed_count + exited_count))
     flow_val = float(net_est_flow_usd or 0.0)
     is_fomo = alpha_decay_status == "FOMO_TRAP"
-    has_13f_accum = (not is_fomo) and (
+    is_dist_verdict = action_verdict in ("EXIT SIGNAL", "DISTRIBUTION WARNING")
+    flow_positive_or_unknown = (net_est_flow_usd is None) or (flow_val > 0.0)
+    has_13f_accum = (not is_fomo) and (not is_dist_verdict) and flow_positive_or_unknown and (
         action_verdict in ("STRONG ACCUMULATE", "ACCUMULATE ON DIP")
         or (total_buyers > total_sellers and (elite_buyers_count >= 1 or flow_val > 0.0 or new_count >= 2))
         or (elite_buyers_count > elite_sellers_count and total_buyers >= total_sellers and flow_val > 0.0)
     )
 
-    near_q_vwap = pct_vs_quarter_vwap is not None and float(pct_vs_quarter_vwap) <= 12.0
-    extended_or_fomo = bool(is_fomo or (pct_vs_quarter_vwap is not None and float(pct_vs_quarter_vwap) > 12.0))
+    pv_num = float(pct_vs_quarter_vwap) if pct_vs_quarter_vwap is not None else None
+    near_q_vwap = pv_num is not None and (-20.0 <= pv_num <= 12.0)
+    deep_drawdown = pv_num is not None and pv_num < -20.0
+    extended_or_fomo = bool(is_fomo or (pv_num is not None and pv_num > 12.0))
 
     if not (has_form4_cluster or has_13d or (has_insider_buy and (has_13f_accum or has_13g))):
         return None
@@ -2928,7 +3355,7 @@ def compute_dual_conviction_signal(
     elif has_13d and (has_13f_accum or elite_holders_count >= 1 or has_insider_buy):
         tier = "ACTIVIST_13F_CONVERGENCE"
     elif has_insider_buy and (has_13f_accum or has_13d or has_13g):
-        if extended_or_fomo:
+        if extended_or_fomo or deep_drawdown:
             tier = "DUAL_CONVICTION_EXTENDED"
         else:
             tier = "INSIDER_CLUSTER_WATCH"
@@ -2986,11 +3413,15 @@ def compute_dual_conviction_signal(
     )
     s_13f = min(24.0, max(0.0, base_13f + elite_bonus - (8.0 if is_fomo else 0.0)))
 
-    if pct_vs_quarter_vwap is None:
+    if pv_num is None:
         s_vwap = 7.0
     else:
-        pv = float(pct_vs_quarter_vwap)
-        if pv <= -5.0:
+        pv = pv_num
+        if pv < -25.0:
+            s_vwap = 8.0
+        elif pv < -20.0:
+            s_vwap = 11.0
+        elif pv <= -5.0:
             s_vwap = 16.0
         elif pv <= 0.0:
             s_vwap = 14.5
@@ -3029,8 +3460,8 @@ def compute_dual_conviction_signal(
     elif elite_holders_count > 0:
         reasons.append(f"Held by {elite_holders_count} Elite-50 13F fund(s)")
 
-    if pct_vs_quarter_vwap is not None:
-        reasons.append(f"{float(pct_vs_quarter_vwap):+.1f}% vs. Est. Q-VWAP")
+    if pv_num is not None:
+        reasons.append(f"{pv_num:+.1f}% vs. Est. Q-VWAP")
     else:
         reasons.append("Est. Q-VWAP pricing pending")
 
@@ -3039,11 +3470,12 @@ def compute_dual_conviction_signal(
     elif tier == "ACTIVIST_13F_CONVERGENCE":
         headline = "Activist Schedule 13D catalyst aligned with Elite-50 institutional backing."
     elif tier == "DUAL_CONVICTION_EXTENDED":
-        headline = (
-            "Insider + 13F co-buying on an extended rally (>12% above Q-VWAP) — monitor pullbacks."
-            if extended_or_fomo
-            else "Insider + 13F co-buying detected; verify Q-VWAP entry pricing."
-        )
+        if deep_drawdown:
+            headline = "Insider + 13F co-buying in a deep drawdown (>20% below Q-VWAP) — confirm stabilization before sizing."
+        elif extended_or_fomo:
+            headline = "Insider + 13F co-buying on an extended rally (>12% above Q-VWAP) — monitor pullbacks."
+        else:
+            headline = "Insider + 13F co-buying detected; verify Q-VWAP entry pricing."
     elif tier == "INSIDER_CLUSTER_WATCH":
         headline = (
             "Insider + 13F co-buying watch (non-cluster insider buy alongside 13F accumulation)."
@@ -3920,11 +4352,13 @@ def main() -> None:
         pit_snapshots["filing_lag"][cik] = lag_snaps
 
         nav_qe = simulate_nav_series(qe_segments, aligned_prices, n_dates)
-        nav_lag = simulate_nav_series(lag_segments, aligned_prices, n_dates)
+        nav_lag = simulate_nav_series(lag_segments, aligned_prices, n_dates, tx_cost_bps=DEFAULT_LAG_TX_COST_BPS)
         fund_navs["quarter_end"][cik] = nav_qe
         fund_navs["filing_lag"][cik] = nav_lag
 
         # Compute quarter-by-quarter returns & Batting Average vs QQQ (independently for QE & 45d-Lag)
+        qe_nans = np.where(np.isnan(nav_qe))[0]
+        qe_contig_start = int(qe_nans[-1]) + 1 if len(qe_nans) > 0 else 0
         q_beats = 0
         q_total = 0
         for i, qrow in enumerate(quarterly_hist):
@@ -3932,7 +4366,14 @@ def main() -> None:
             e_i = find_idx_on_or_after(cal_dates, quarterly_hist[i + 1]["periodEnd"]) if i + 1 < len(quarterly_hist) else (n_dates - 1)
             if e_i is None:
                 e_i = n_dates - 1
-            if e_i > s_i and not math.isnan(nav_qe[s_i]) and not math.isnan(nav_qe[e_i]):
+            if (
+                e_i > s_i
+                and s_i >= qe_contig_start
+                and not math.isnan(nav_qe[s_i])
+                and not math.isnan(nav_qe[e_i])
+                and nav_qe[s_i] > 0
+                and not np.any(np.isnan(nav_qe[s_i : e_i + 1]))
+            ):
                 qr = clean_num(((nav_qe[e_i] / nav_qe[s_i]) - 1.0) * 100.0, 2)
                 qqr = clean_num(((qqq_nav[e_i] / qqq_nav[s_i]) - 1.0) * 100.0, 2)
                 qrow["quarterReturnPct"] = qr
@@ -3945,6 +4386,8 @@ def main() -> None:
                 qrow["quarterReturnPct"] = None
                 qrow["qqqQuarterReturnPct"] = None
 
+        lag_nans = np.where(np.isnan(nav_lag))[0]
+        lag_contig_start = int(lag_nans[-1]) + 1 if len(lag_nans) > 0 else 0
         lag_beats = 0
         lag_total = 0
         lag_boundaries: list[int] = [seg[0] for seg in lag_segments]
@@ -3955,7 +4398,13 @@ def main() -> None:
             for nxt_b in lag_boundaries[1:]:
                 if nxt_b - prev_b < 15:
                     continue
-                if not math.isnan(nav_lag[prev_b]) and not math.isnan(nav_lag[nxt_b]) and nav_lag[prev_b] > 0:
+                if (
+                    prev_b >= lag_contig_start
+                    and not math.isnan(nav_lag[prev_b])
+                    and not math.isnan(nav_lag[nxt_b])
+                    and nav_lag[prev_b] > 0
+                    and not np.any(np.isnan(nav_lag[prev_b : nxt_b + 1]))
+                ):
                     lr = (nav_lag[nxt_b] / nav_lag[prev_b]) - 1.0
                     lqr = (qqq_nav[nxt_b] / qqq_nav[prev_b]) - 1.0
                     lag_total += 1
@@ -4202,7 +4651,7 @@ def main() -> None:
             for f in sk_cands:
                 c = f["cik"]
                 raw_sc = 0.40 * ir_pr[c] + 0.30 * bat_pr[c] + 0.30 * sort_pr[c]
-                conf = min(1.0, valid_3y_by_mode[mode].get(c, 0) / 630.0)
+                conf = min(1.0, valid_3y_by_mode[mode].get(c, 0) / SKILL_SHRINKAGE_DAYS)
                 shrunk_sc = 0.50 + conf * (raw_sc - 0.50)
                 sc = round(shrunk_sc * 100.0, 1)
                 f["metrics"][mode]["skillScore"] = sc
@@ -4485,6 +4934,25 @@ def main() -> None:
         win_indices=win_indices,
     )
 
+    # Count full Elite-50 exits per ticker from latest quarterly fund updates
+    elite_exited_by_ticker: dict[str, int] = {}
+    for u in fund_updates_out:
+        if u["cik"] not in elite50_set:
+            continue
+        seen_ex_u: set[str] = set()
+        for mv in u.get("allMoves") or []:
+            if mv.get("securityType") != "EQUITY" or mv.get("action") != "EXITED":
+                continue
+            raw_et = str(mv.get("ticker") or "")
+            if not raw_et or raw_et.startswith("CUSIP:"):
+                continue
+            ct = DUAL_CLASS_CANONICAL.get(raw_et, raw_et)
+            if ct not in excluded_etf_tickers and ct not in seen_ex_u:
+                seen_ex_u.add(ct)
+                elite_exited_by_ticker[ct] = elite_exited_by_ticker.get(ct, 0) + 1
+
+    latest_pe_mode = updates_overview.get("latestQuarterPeriodEnd") or max((f["latestPeriod"] for f in funds_out), default="2026-09-30")
+
     ideal_pool_funds = [fund_by_cik[c] for c in elite50_ciks if c in fund_by_cik] or lb_funds[:50] or funds_out
     ideal_weights, ideal_stock_agg, ideal_sorted_items = compute_ideal_portfolio_weights(
         ideal_pool_funds,
@@ -4498,14 +4966,26 @@ def main() -> None:
         aligned_prices=aligned_prices,
         n_dates=n_dates,
         excluded_etfs=excluded_etf_tickers,
+        exited_by_ticker=elite_exited_by_ticker,
+        latest_quarter_end=latest_pe_mode,
+        subsector_cap_pct=IDEAL_MAX_SUBSECTOR_CAP_PCT,
     )
 
     # Survivorship-free Point-in-Time Quarterly Backtests (QE vs 45-Day Lag)
     ticker_is_tech: dict[str, bool] = {}
+    ticker_sub_sector: dict[str, str] = {}
     for m_val in cusip_meta.values():
         tk = m_val.get("ticker", "")
-        if tk and not tk.startswith("CUSIP:") and m_val.get("isTechTmt"):
-            ticker_is_tech[DUAL_CLASS_CANONICAL.get(tk, tk)] = True
+        if tk and not tk.startswith("CUSIP:"):
+            ctk = DUAL_CLASS_CANONICAL.get(tk, tk)
+            if m_val.get("isTechTmt"):
+                ticker_is_tech[ctk] = True
+            if ctk not in ticker_sub_sector or m_val.get("industry"):
+                ticker_sub_sector[ctk] = classify_sub_sector(
+                    m_val.get("sector") or "Other",
+                    m_val.get("industry") or "",
+                    bool(m_val.get("isTechTmt")),
+                )
 
     all_bt_ciks = sorted(pit_snapshots["quarter_end"].keys())
     all_quarters = sorted({fl["reportDate"] for c in all_bt_ciks for fl in raw_fund_filings[c]})
@@ -4527,6 +5007,8 @@ def main() -> None:
         splits_map=splits_map,
         rf_ann_arr=rf_ann_arr,
         qqq_nav=qqq_nav,
+        ticker_sub_sector=ticker_sub_sector,
+        subsector_cap=IDEAL_MAX_SUBSECTOR_CAP_PCT / 100.0,
     )
     bt_segments_lag = run_ideal_portfolio_backtest(
         bt_mode="filing_lag",
@@ -4543,9 +5025,11 @@ def main() -> None:
         splits_map=splits_map,
         rf_ann_arr=rf_ann_arr,
         qqq_nav=qqq_nav,
+        ticker_sub_sector=ticker_sub_sector,
+        subsector_cap=IDEAL_MAX_SUBSECTOR_CAP_PCT / 100.0,
     )
     ideal_nav_qe = simulate_nav_series(bt_segments_qe, aligned_prices, n_dates)
-    ideal_nav_lag = simulate_nav_series(bt_segments_lag, aligned_prices, n_dates)
+    ideal_nav_lag = simulate_nav_series(bt_segments_lag, aligned_prices, n_dates, tx_cost_bps=DEFAULT_LAG_TX_COST_BPS)
     ideal_rets_qe, ideal_met_qe = compute_returns_and_metrics(ideal_nav_qe, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
     ideal_rets_lag, ideal_met_lag = compute_returns_and_metrics(ideal_nav_lag, qqq_nav, win_indices, rf_ann_arr=rf_ann_arr)
 
@@ -4559,7 +5043,7 @@ def main() -> None:
             if h["securityType"] != "EQUITY" or h["weightPct"] <= 0:
                 continue
             raw_t = cusip_meta.get(h["cusip"], {}).get("ticker") or h["ticker"]
-            if not raw_t or raw_t.startswith("CUSIP:"):
+            if not _is_valid_dossier_ticker(raw_t, h["cusip"], cusip_meta, aligned_prices):
                 continue
             t = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
             if t in excluded_etf_tickers:
@@ -4633,7 +5117,7 @@ def main() -> None:
             if mv["securityType"] != "EQUITY":
                 continue
             raw_t = mv["ticker"]
-            if not raw_t or raw_t.startswith("CUSIP:"):
+            if not _is_valid_dossier_ticker(raw_t, mv["cusip"], cusip_meta, aligned_prices):
                 continue
             t = DUAL_CLASS_CANONICAL.get(raw_t, raw_t)
             if t in excluded_etf_tickers:
@@ -4819,15 +5303,18 @@ def main() -> None:
         ):
             form4_priority_set.add(canon_cand)
 
+    ref_prices_by_ticker: dict[str, float] = {}
+    for tk_p, (arr_p, _, li_p) in aligned_prices.items():
+        if li_p >= 0 and not math.isnan(arr_p[li_p]) and arr_p[li_p] > 0:
+            ref_prices_by_ticker[tk_p] = float(arr_p[li_p])
+
     form4_map = fetch_form4_insider_signals(
         sorted(form4_priority_set),
         form4_cik_map,
         today_date=today_date,
         lookback_days=90,
+        ref_prices_by_ticker=ref_prices_by_ticker,
     )
-
-    # Latest quarter period end for Quarter-VWAP microstructure calculation
-    latest_pe_mode = updates_overview.get("latestQuarterPeriodEnd") or max((f["latestPeriod"] for f in funds_out), default="2026-09-30")
 
     def _compute_stock_enrichment(t: str) -> dict[str, Any]:
         px_usd = None
@@ -4850,7 +5337,7 @@ def main() -> None:
         mkt_cap_tier = None
         raw_mc: float | None = None
         nq_mc = nasdaq_mcaps.get(t)
-        if nq_mc and 0.0 < nq_mc <= 5e12 and nq_mc >= total_held * 0.75:
+        if nq_mc and 0.0 < nq_mc <= 50e12 and nq_mc >= total_held * 0.75:
             raw_mc = float(nq_mc)
         elif xb and xb.get("sharesOutstanding") and px_usd and px_usd > 0:
             cand_mc = px_usd * float(xb["sharesOutstanding"])
@@ -4959,6 +5446,7 @@ def main() -> None:
             fundamentals=enr.get("fundamentals"),
             avg_elite_holding_quarters=enr.get("avgEliteHoldingQuarters"),
             thesis_persistence=thesis_persistence_map.get(t),
+            market_cap_usd=enr.get("marketCapUsd"),
         )
         enr["actionability"] = act_m
         enr["actionabilityScore"] = act_m["score"]
@@ -5036,6 +5524,8 @@ def main() -> None:
         if f4.get("openMarketBuyCount", 0) > 0 or f4.get("discretionarySellValueUsd", 0) > 0:
             trimmed_f4 = dict(f4)
             trimmed_f4["recentTransactions"] = (f4.get("recentTransactions") or [])[:6]
+            if "recentSellTransactions" in trimmed_f4:
+                trimmed_f4["recentSellTransactions"] = (f4.get("recentSellTransactions") or [])[:6]
             form4_summary_out[tk] = trimmed_f4
 
     _ALPHA_DECAY_KEYS = (
@@ -5051,6 +5541,31 @@ def main() -> None:
         "actionability",
         "actionabilityScore",
         "actionVerdict",
+    )
+
+    # Final Actionability-aligned Ideal Portfolio pass: ensures 0% EXIT SIGNAL weight,
+    # damps DISTRIBUTION WARNING, incorporates full EXITED moves, vol-sizing, and 30% sub-sector cap.
+    actionability_by_ticker = {
+        t_k: enr_v["actionability"]
+        for t_k, enr_v in enrichment_by_ticker.items()
+        if enr_v.get("actionability")
+    }
+    ideal_weights, ideal_stock_agg, ideal_sorted_items = compute_ideal_portfolio_weights(
+        ideal_pool_funds,
+        mode="filing_lag",
+        cusip_meta=cusip_meta,
+        fund_navs_mode=fund_navs["filing_lag"],
+        cal_dates=cal_dates,
+        win_indices=win_indices,
+        max_names=40,
+        cap_pct=8.0,
+        aligned_prices=aligned_prices,
+        n_dates=n_dates,
+        excluded_etfs=excluded_etf_tickers,
+        exited_by_ticker=elite_exited_by_ticker,
+        actionability_by_ticker=actionability_by_ticker,
+        latest_quarter_end=latest_pe_mode,
+        subsector_cap_pct=IDEAL_MAX_SUBSECTOR_CAP_PCT,
     )
 
     # Build Ideal Portfolio Top-40 positions AND Top-80 candidatePool (for interactive filters)
@@ -5081,14 +5596,15 @@ def main() -> None:
         avg_fw = sum(rec["weights"]) / max(1, len(rec["weights"]))
         max_fw = max(rec["weights"]) if rec["weights"] else 0.0
         top_fs = max(b["fscore"] for b in rec["backers"])
+        net_ex = int(rec.get("netExit", 0))
 
-        # Fresh Inflection score emphasizes net new initiations + share adds over static consensus
-        buy_impulse = (1.5 * rec["netNew"] + 1.0 * rec["netAdd"] - 1.2 * rec["netTrim"]) / max(1, cnt_b)
-        inflection_score = round(raw_sc * (1.0 + 0.65 * max(-0.5, min(1.5, buy_impulse))), 4)
+        # Fresh Inflection score emphasizes net new initiations + share adds over trims & full exits
+        buy_impulse = (1.5 * rec["netNew"] + 1.0 * rec["netAdd"] - 1.0 * rec["netTrim"] - 1.5 * net_ex) / max(1, cnt_b + net_ex)
+        inflection_score = round(raw_sc * (1.0 + 0.65 * max(-0.75, min(1.5, buy_impulse))), 4)
 
         if cnt_b >= core_thresh:
             tag = "Core Consensus"
-        elif rec["netBuy"] > rec["netTrim"] and rec["netBuy"] >= max(2, cnt_b // 2):
+        elif rec["netBuy"] > (rec["netTrim"] + net_ex) and rec["netBuy"] >= max(2, cnt_b // 2):
             tag = "Active Accumulation"
         elif top_fs >= fscore_q60 and max_fw >= 4.5:
             tag = "Top-Decile Alpha"
@@ -5116,6 +5632,7 @@ def main() -> None:
             "netNew": rec["netNew"],
             "netAdd": rec["netAdd"],
             "netTrim": rec["netTrim"],
+            "netExit": net_ex,
             "avgFundWeightPct": round(avg_fw, 2),
             "maxFundWeightPct": round(max_fw, 2),
             "topHolderName": backers_sorted[0]["fundName"],
@@ -5160,13 +5677,15 @@ def main() -> None:
     ideal_portfolio_data = {
         "positionCount": len(ideal_positions),
         "maxPositionCapPct": 8.0,
+        "maxSubSectorCapPct": IDEAL_MAX_SUBSECTOR_CAP_PCT,
         "rankedFundsCount": len(ideal_pool_funds),
         "effectivePositions": round(ideal_eff_n, 1),
         "top10WeightPct": round(sum(p["idealWeightPct"] for p in ideal_positions[:10]), 2),
         "methodologySummary": (
             f"Constructed from active US equity holdings across the Elite {len(ideal_pool_funds)} Skill-Ranked managers "
-            f"(40% Info Ratio vs QQQ, 30% Batting Avg, 30% ^IRX Sortino). Positions are scored by non-overlapping "
-            f"multi-horizon conviction^1.5 × √(weight) × Tech/TMT relevance × consensus × ±5% share accumulation."
+            f"(50/50 Orthogonal Multi-Horizon Return & Risk-Adjusted Skill). Positions are scored by conviction^1.5 × "
+            f"√(weight) × full QoQ accumulation/exit impulse × inverse-√(63d vol) sizing × Actionability guard "
+            f"(0% EXIT SIGNAL), with 8% single-stock and {int(IDEAL_MAX_SUBSECTOR_CAP_PCT)}% sub-sector caps."
         ),
         "sectorBreakdown": [
             {"sector": v["sector"], "weightPct": round(v["weightPct"], 2), "stockCount": v["stockCount"]}
@@ -5474,28 +5993,25 @@ def main() -> None:
     if len(summary_json.encode("utf-8")) < 150_000:
         raise RuntimeError(f"Summary payload abnormally small ({len(summary_json)} bytes)")
 
-    PUBLIC_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    # Write summary & all 16 fund shards + 8 stock shards atomically via .tmp files
-    staged_files: list[tuple[Path, str]] = [(PUBLIC_DATA_DIR / "summary.json", summary_json)]
-    for sid, payload in fund_shards.items():
-        staged_files.append((PUBLIC_DATA_DIR / f"funds_{sid}.json", json.dumps(payload, allow_nan=False, separators=(",", ":"))))
-    for sh_id, payload in stock_shards.items():
-        staged_files.append((PUBLIC_DATA_DIR / f"stocks_{sh_id}.json", json.dumps(payload, allow_nan=False, separators=(",", ":"))))
-
-    total_bytes = 0
-    for target_p, content in staged_files:
-        tmp_p = target_p.with_suffix(".json.tmp")
-        tmp_p.write_text(content, encoding="utf-8")
-        tmp_p.replace(target_p)
-        total_bytes += target_p.stat().st_size
+    manifest_info, total_bytes = emit_data_artifacts(
+        PUBLIC_DATA_DIR,
+        summary_payload=summary_payload,
+        fund_shards=fund_shards,
+        stock_shards=stock_shards,
+        summary_json_preencoded=summary_json,
+    )
 
     if LEGACY_MONOLITH_JSON.exists():
         LEGACY_MONOLITH_JSON.unlink()
         print(f"[cleanup] Removed legacy monolith {LEGACY_MONOLITH_JSON}", flush=True)
 
     summary_kb = (PUBLIC_DATA_DIR / "summary.json").stat().st_size / 1024.0
+    bootstrap_kb = (PUBLIC_DATA_DIR / "bootstrap.json").stat().st_size / 1024.0
     print("\n=== Pipeline Complete ===")
-    print(f"Wrote {PUBLIC_DATA_DIR / 'summary.json'} ({summary_kb:.1f} KB) + 16 fund shards + 8 stock shards (total {total_bytes / 1024.0:.1f} KB)")
+    print(
+        f"Wrote bootstrap.json ({bootstrap_kb:.1f} KB), summary.json ({summary_kb:.1f} KB), "
+        f"split feeds + manifest.json ({len(manifest_info['files'])} files, total {total_bytes / 1024.0:.1f} KB)"
+    )
     print(
         f"Universe Funnel: {funnel_counts['totalCiksScanned']} CIKs -> {funnel_counts['activeRecentCount']} active -> "
         f"{funnel_counts['nonExcludedManagerCount']} focused managers -> {funnel_counts['concentrationPassCount']} concentrated -> "
@@ -5512,6 +6028,89 @@ def main() -> None:
         f"TTM QE Return: {ideal_rets_qe['TTM']}% | TTM 45d-Lag Return: {ideal_rets_lag['TTM']}% | "
         f"QQQ TTM: {benchmarks['QQQ']['returns']['TTM']}%"
     )
+
+
+def emit_data_artifacts(
+    out_dir: Path,
+    *,
+    summary_payload: dict[str, Any],
+    fund_shards: dict[str, dict[str, Any]],
+    stock_shards: dict[int, dict[str, dict[str, Any]]],
+    summary_json_preencoded: str | None = None,
+) -> tuple[dict[str, Any], int]:
+    """
+    Write backwards-compatible summary.json, tab-split SPA payloads (bootstrap.json,
+    screener.json, updates_feed.json, stocks_search.json), 16 fund shards, 8 stock shards,
+    and a content-hashed manifest.json (written last) atomically via .tmp files.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_json = (
+        summary_json_preencoded
+        if summary_json_preencoded is not None
+        else json.dumps(summary_payload, allow_nan=False, separators=(",", ":"))
+    )
+    bootstrap_payload = {
+        k: summary_payload[k]
+        for k in (
+            "metadata",
+            "benchmarks",
+            "funds",
+            "rankings",
+            "rankedUnionCiks",
+            "topHoldings",
+            "idealPortfolio",
+            "updatesOverview",
+            "midQuarterAlerts",
+            "dualConvictionSignals",
+            "form4Signals",
+        )
+        if k in summary_payload
+    }
+    screener_payload = {"signalScreener": summary_payload.get("signalScreener", {})}
+    updates_feed_payload = {
+        "fundUpdates": summary_payload.get("fundUpdates", []),
+        "updatesOverview": summary_payload.get("updatesOverview", {}),
+    }
+    stocks_search_payload = {"stocksIndex": summary_payload.get("stocksIndex", {})}
+
+    staged_files: list[tuple[str, str]] = [
+        ("summary.json", summary_json),
+        ("bootstrap.json", json.dumps(bootstrap_payload, allow_nan=False, separators=(",", ":"))),
+        ("screener.json", json.dumps(screener_payload, allow_nan=False, separators=(",", ":"))),
+        ("updates_feed.json", json.dumps(updates_feed_payload, allow_nan=False, separators=(",", ":"))),
+        ("stocks_search.json", json.dumps(stocks_search_payload, allow_nan=False, separators=(",", ":"))),
+    ]
+    for sid, payload in sorted(fund_shards.items()):
+        staged_files.append((f"funds_{sid}.json", json.dumps(payload, allow_nan=False, separators=(",", ":"))))
+    for sh_id, payload in sorted(stock_shards.items()):
+        staged_files.append((f"stocks_{sh_id}.json", json.dumps(payload, allow_nan=False, separators=(",", ":"))))
+
+    file_hashes: dict[str, str] = {}
+    total_bytes = 0
+    for fname, content in staged_files:
+        raw_bytes = content.encode("utf-8")
+        file_hashes[fname] = hashlib.sha256(raw_bytes).hexdigest()[:12]
+        target_p = out_dir / fname
+        tmp_p = target_p.with_suffix(".json.tmp")
+        tmp_p.write_bytes(raw_bytes)
+        tmp_p.replace(target_p)
+        total_bytes += len(raw_bytes)
+
+    meta = summary_payload.get("metadata") or {}
+    manifest_payload: dict[str, Any] = {
+        "schemaVersion": 2,
+        "generatedAt": meta.get("generatedAt", ""),
+        "asOfDate": meta.get("asOfDate", ""),
+        "files": file_hashes,
+    }
+    manifest_bytes = json.dumps(manifest_payload, allow_nan=False, separators=(",", ":")).encode("utf-8")
+    manifest_p = out_dir / "manifest.json"
+    manifest_tmp = manifest_p.with_suffix(".json.tmp")
+    manifest_tmp.write_bytes(manifest_bytes)
+    manifest_tmp.replace(manifest_p)
+    total_bytes += len(manifest_bytes)
+    return manifest_payload, total_bytes
 
 
 if __name__ == "__main__":

@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import { flushSync } from 'react-dom';
 import { Activity, Calendar, Database, Info, Layers, PieChart, Trophy, X } from 'lucide-react';
 import type { PaperTrailSummaryDataset, ReturnMode, ReturnWindow } from './types/data';
-import { fetchSummary } from './utils/dataLoader';
+import {
+  fetchBootstrap,
+  fetchScreener,
+  fetchStocksSearch,
+  fetchSummary,
+  fetchUpdatesFeed,
+} from './utils/dataLoader';
 import { formatUsdCompact } from './utils/format';
 import { RankingTab } from './components/RankingTab';
 import { HoldingsTab } from './components/HoldingsTab';
@@ -68,6 +74,7 @@ function parseHashState(): { tab: PrimaryTab; cik: string | null; stock: string 
 
 export function App() {
   const [dataset, setDataset] = useState<PaperTrailSummaryDataset | null>(null);
+  const [isSplitDataset, setIsSplitDataset] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const [switchAnim, setSwitchAnim] = useState<{ seq: number; to: ThemeMode } | null>(null);
@@ -76,6 +83,9 @@ export function App() {
   const fallbackTimerRef = useRef<number | null>(null);
   const activeTransitionRef = useRef<ViewTransitionLike | null>(null);
   const methodologyPanelRef = useRef<HTMLDivElement>(null);
+  const stocksLoadedRef = useRef(false);
+  const screenerLoadedRef = useRef(false);
+  const updatesLoadedRef = useRef(false);
   const initial = useMemo(() => parseHashState(), []);
   const [activeTab, setActiveTabState] = useState<PrimaryTab>(initial.tab);
   const [windowSize, setWindowSize] = useState<ReturnWindow>('TTM');
@@ -211,17 +221,105 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchSummary()
-      .then((data) => {
-        if (!cancelled) setDataset(data);
-      })
-      .catch((err) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load summary dataset');
-      });
+    (async () => {
+      const boot = await fetchBootstrap();
+      if (cancelled) return;
+      if (boot) {
+        setIsSplitDataset(true);
+        setDataset({
+          ...boot,
+          signalScreener: {
+            quarterLabel: boot.updatesOverview.latestQuarterLabel,
+            clusterInitiations: [],
+            heavyAdds: [],
+            smartMoneyExits: [],
+            contrarianBets: [],
+          },
+          fundUpdates: [],
+          stocksIndex: {},
+        });
+        return;
+      }
+      const data = await fetchSummary();
+      if (!cancelled) {
+        setIsSplitDataset(false);
+        setDataset(data);
+      }
+    })().catch((err) => {
+      if (!cancelled) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load summary dataset');
+      }
+    });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isSplitDataset || !dataset || stocksLoadedRef.current) return;
+    stocksLoadedRef.current = true;
+    let cancelled = false;
+    fetchStocksSearch()
+      .then((payload) => {
+        if (!cancelled && payload?.stocksIndex) {
+          setDataset((prev) => (prev ? { ...prev, stocksIndex: payload.stocksIndex } : prev));
+        }
+      })
+      .catch(() => {
+        stocksLoadedRef.current = false;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSplitDataset, dataset]);
+
+  useEffect(() => {
+    if (!isSplitDataset || !dataset || screenerLoadedRef.current) return;
+    if (activeTab !== 'holdings' && !selectedStockTicker) return;
+    screenerLoadedRef.current = true;
+    let cancelled = false;
+    fetchScreener()
+      .then((payload) => {
+        if (!cancelled && payload?.signalScreener) {
+          setDataset((prev) =>
+            prev ? { ...prev, signalScreener: payload.signalScreener } : prev
+          );
+        }
+      })
+      .catch(() => {
+        screenerLoadedRef.current = false;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSplitDataset, dataset, activeTab, selectedStockTicker]);
+
+  useEffect(() => {
+    if (!isSplitDataset || !dataset || updatesLoadedRef.current) return;
+    if (activeTab !== 'updates' && !selectedFundCik && !selectedUpdateCik) return;
+    updatesLoadedRef.current = true;
+    let cancelled = false;
+    fetchUpdatesFeed()
+      .then((payload) => {
+        if (!cancelled && payload?.fundUpdates) {
+          setDataset((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  fundUpdates: payload.fundUpdates,
+                  updatesOverview: payload.updatesOverview ?? prev.updatesOverview,
+                }
+              : prev
+          );
+        }
+      })
+      .catch(() => {
+        updatesLoadedRef.current = false;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSplitDataset, dataset, activeTab, selectedFundCik, selectedUpdateCik]);
 
   const syncHash = useCallback((tab: PrimaryTab, cik: string | null, stock: string | null) => {
     const nextHash = stock && !cik ? `#stock/${stock}` : cik ? `#${tab}/${cik}` : `#${tab}`;
@@ -386,7 +484,12 @@ export function App() {
   );
 
   const stocksIndexedCount = useMemo(
-    () => (dataset ? Object.keys(dataset.stocksIndex).length : 0),
+    () =>
+      dataset
+        ? Object.keys(dataset.stocksIndex).length ||
+          dataset.metadata.universeFunnel?.stocksIndexedCount ||
+          0
+        : 0,
     [dataset]
   );
 
@@ -627,7 +730,9 @@ export function App() {
             >
               <Activity size={16} />
               <span>Updates</span>
-              <span className="nav-count">{dataset.fundUpdates.length}</span>
+              <span className="nav-count">
+                {dataset.fundUpdates.length || dataset.updatesOverview.totalUpdateCards}
+              </span>
             </button>
           </nav>
         </div>
@@ -851,24 +956,24 @@ export function App() {
                 Every run scans <strong>100% of SEC Form 13F institutional managers</strong> ({funnel ? funnel.totalCiksScanned.toLocaleString() : '11,400+'} CIKs) from quarterly SEC Form 13F Bulk Data Sets plus incremental post-bulk <code>master.idx</code> submissions—and cross-checks non-curated candidates against SEC submissions metadata (<code>entityType</code>/SIC) to drop operating companies, banks, insurers, pensions, brokerages, and market makers. Single-stock VC/founder unlock books (Effective Positions &lt;4.0 or top holding &gt;40% 4Q avg / &gt;45% latest) remain browsable under <em>Excluded SPVs</em> but are kept out of Top-100 and Elite-50 cohorts.
               </p>
 
-              <h3 style={{ color: 'var(--text-primary)' }}>2. Composite Skill Score &amp; Elite-50 Cohort</h3>
+              <h3 style={{ color: 'var(--text-primary)' }}>2. Composite Skill Score, Elite-50 &amp; Upgraded Ideal Portfolio</h3>
               <p>
-                Rather than chasing raw 1-year luck, managers are ranked on a <strong>Composite Skill Score (0–100)</strong> evaluated under the actionable <strong>45-Day Filing-Lag</strong> lens: <strong>40% Information Ratio vs. QQQ</strong> + <strong>30% Quarterly Batting Average vs. QQQ</strong> + <strong>30% Sortino Ratio</strong> measured against live trailing 13-week Treasury Bill yields (<code>^IRX</code>). The top 50 managers form the <strong>Elite 50</strong> cohort.
+                Rather than chasing raw 1-year luck, managers are ranked on a <strong>Composite Skill Score (0–100)</strong> evaluated under the actionable <strong>45-Day Filing-Lag</strong> lens: <strong>40% Information Ratio vs. QQQ</strong> + <strong>30% Quarterly Batting Average vs. QQQ</strong> + <strong>30% Sortino Ratio</strong> measured against live trailing 13-week Treasury Bill yields (<code>^IRX</code>), with Bayesian 2-year (504d) shrinkage for shorter-history managers. The top 50 managers form the <strong>Elite 50</strong> cohort. The <strong>Ideal Portfolio</strong> blends 50% orthogonal fund alpha + 50% Skill Score across a uniform point-in-time qualified cohort, penalizes full exits, applies inverse-square-root 63-day volatility sizing and lag anti-chasing / 200-DMA guards, excludes Actionability <code>EXIT SIGNAL</code> stocks (0% weight), and enforces both an <strong>8% single-stock cap</strong> and a <strong>30% sub-sector cap</strong>.
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>3. Zero-Look-Ahead Filing Lag, Amendments &amp; Pitfalls Eliminated</h3>
               <ul>
-                <li><strong>45-Day Lag Actionable (Default):</strong> Rebalances only on actual SEC filing dates—and respects <code>13F-HR/A</code> confidential-treatment amendments from the exact amendment filing date, discarding stale restatements.</li>
+                <li><strong>45-Day Lag Actionable (Default):</strong> Executes rebalances on the next trading day (<code>T+1</code>) strictly after SEC filing dates with <strong>10 bps/side</strong> turnover slippage—and respects <code>13F-HR/A</code> confidential-treatment amendments from the exact post-amendment trading day, discarding stale restatements.</li>
                 <li><strong>Broad ETF Stripping &amp; Dual-Class Normalization:</strong> Broad index/sector/treasury ETFs (<code>SPY</code>, <code>QQQ</code>, <code>BIL</code>, <code>SHV</code>, etc.) are stripped from single-stock selection weights, and dual share classes (<code>GOOG</code>→<code>GOOGL</code>, etc.) are unified before concentration &amp; consensus scoring.</li>
                 <li>
-                  <strong>Survivorship-Free Backtests:</strong> The Ideal Portfolio quarterly simulation includes historical qualified tech funds even if they later closed or drifted below 35% Tech, re-ranking managers at each historical date using only past prices
+                  <strong>Survivorship-Free Backtests &amp; Causal Delisting Decay:</strong> The Ideal Portfolio quarterly simulation includes historical qualified tech funds even if they later closed or drifted below 35% Tech, re-ranking managers at each historical date using only past prices (with strictly causal delisting decay and no backward-filled look-ahead)
                   {funnel?.pitHistoricalBacktestCount != null ? ` (${funnel.pitHistoricalBacktestCount.toLocaleString()} point-in-time historical funds indexed)` : ''}.
                 </li>
               </ul>
 
               <h3 style={{ color: 'var(--text-primary)' }}>4. Public APIs, Lag Engine, Form 4 / 13D Convergence &amp; 4-Pillar Matrix</h3>
               <p>
-                Every indexed equity ({stocksIndexedCount.toLocaleString()} stocks across sharded JSON payloads) integrates <strong>Est. Quarter VWAP &amp; Post-13F Alpha-Decay</strong> (3-timestamp trajectory + Elite holding tenure), <strong>SEC EDGAR XBRL CompanyFacts</strong> (TTM Revenue, YoY Growth, Operating &amp; FCF Margins, R&amp;D Intensity, Share Dilution, Market Cap Tiers), <strong>SEC Form 4 Open-Market (&apos;P&apos;) Insider Purchases</strong> (excluding M/A/F/G option exercises &amp; grants), and <strong>Schedule 13D / 13G Filings</strong> (including Item 4 activist intent classification). The <strong>Dual-Conviction Convergence Feed</strong> highlights rare setups where C-suite Form 4 buyers, 13D activists, and Elite-50 13F funds align near Q-VWAP, while the <strong>Unified Actionability Matrix (0–100)</strong> scores <strong>Smart-Money Flow Impulse</strong> (25 pts), <strong>Price Discipline vs. Q-VWAP</strong> (25 pts), <strong>XBRL Quality Gate</strong> less dilution (25 pts), and <strong>Thesis Persistence</strong> (25 pts) into <code>STRONG ACCUMULATE</code>, <code>ACCUMULATE ON DIP</code>, <code>HOLD</code>, <code>DISTRIBUTION WARNING</code>, or <code>EXIT SIGNAL</code> verdicts.
+                Every indexed equity ({stocksIndexedCount.toLocaleString()} stocks across sharded JSON payloads) integrates <strong>Est. Quarter VWAP &amp; Post-13F Alpha-Decay</strong> (3-timestamp trajectory + Elite holding tenure), <strong>SEC EDGAR XBRL CompanyFacts</strong> (TTM Revenue, YoY Growth, Operating &amp; FCF Margins, R&amp;D Intensity, split-guarded Share Dilution, Market Cap Tiers), <strong>SEC Form 4 Open-Market (&apos;P&apos;) Purchases &amp; Discretionary (&apos;S&apos;) Sell Clusters</strong> (excluding M/A/F/G awards, ESPP/DRIP, and 10b5-1 sales, with affiliated PE/VC deduplication and ADR price normalization), and <strong>Schedule 13D / 13G Filings</strong> (including Item 4 activist intent classification). The <strong>Dual-Conviction Convergence Feed</strong> highlights rare setups where operating C-suite Form 4 buyers, 13D activists, and positive-flow Elite-50 13F accumulation align near Q-VWAP (<code>-20%</code> to <code>+12%</code>), while the <strong>Unified Actionability Matrix (0–100)</strong> scores market-cap-normalized <strong>Smart-Money Flow Impulse</strong> (25 pts), humped <strong>Price Discipline vs. Q-VWAP</strong> (25 pts), <strong>XBRL Quality Gate</strong> less dilution (25 pts), and <strong>Thesis Persistence</strong> (25 pts) into <code>STRONG ACCUMULATE</code>, <code>ACCUMULATE ON DIP</code>, <code>HOLD</code>, <code>DISTRIBUTION WARNING</code>, or proportion-aware <code>EXIT SIGNAL</code> verdicts.
               </p>
 
               <h3 style={{ color: 'var(--text-primary)' }}>5. Optimal Filing-Season Cron Schedule</h3>

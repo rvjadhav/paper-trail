@@ -73,17 +73,17 @@ export const UpdateSummaryContent: FC<UpdateSummaryContentProps> = ({
             {u.currCallBookPct > 0 && (
               <span
                 style={{ color: 'var(--chart-teal)', fontWeight: 600 }}
-                title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+                title="SEC Form 13F reports options at underlying share notional value (underlying shares × stock price), not option contract premium or delta-adjusted exposure"
               >
-                Calls {u.currCallBookPct.toFixed(1)}% ({formatUsdCompact(u.currCallUsd)} fair val)
+                Calls {u.currCallBookPct.toFixed(1)}% ({formatUsdCompact(u.currCallUsd)} notional)
               </span>
             )}
             {(u.currPutBookPct > 0 || u.prevPutBookPct > 0) && (
               <span
                 style={{ color: 'var(--warn-text)', fontWeight: 600 }}
-                title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+                title="SEC Form 13F reports options at underlying share notional value (underlying shares × stock price), not option contract premium or delta-adjusted exposure"
               >
-                Puts {u.currPutBookPct.toFixed(1)}% ({formatUsdCompact(u.currPutUsd)} fair val · vs {u.prevPutBookPct.toFixed(1)}%)
+                Puts {u.currPutBookPct.toFixed(1)}% ({formatUsdCompact(u.currPutUsd)} notional · vs {u.prevPutBookPct.toFixed(1)}%)
               </span>
             )}
           </div>

@@ -734,11 +734,14 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                       </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                      {insiderActivity && insiderActivity.openMarketBuyCount > 0 && (
-                        <span className={`chip ${insiderSignalChipClass(insiderActivity.insiderSignalLabel)}`}>
-                          {insiderSignalLabelText(insiderActivity.insiderSignalLabel)}
-                        </span>
-                      )}
+                      {insiderActivity &&
+                        (insiderActivity.openMarketBuyCount > 0 ||
+                          insiderActivity.insiderSignalLabel === 'CLUSTER_SELL' ||
+                          insiderActivity.insiderSignalLabel === 'DISCRETIONARY_SELL') && (
+                          <span className={`chip ${insiderSignalChipClass(insiderActivity.insiderSignalLabel)}`}>
+                            {insiderSignalLabelText(insiderActivity.insiderSignalLabel)}
+                          </span>
+                        )}
                       {convergenceSignal && (
                         <span
                           className={`chip mono ${convergenceTierChipClass(convergenceSignal.tier)}`}
@@ -751,6 +754,17 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                   </div>
 
                   <div style={{ padding: '1rem 1.25rem' }}>
+                    {insiderActivity?.priceUnitMismatch && (
+                      <div
+                        className="alpha-decay-banner warn"
+                        style={{ marginTop: 0, marginBottom: '0.8rem', fontSize: '0.78rem' }}
+                      >
+                        <div>
+                          <strong>ADR / Foreign Share Price Normalization:</strong> Reported Form 4 transaction prices differed materially from the U.S.-listed share price (e.g., ordinary-share vs. ADR ratio) and were verified against market price before scoring.
+                        </div>
+                      </div>
+                    )}
+
                     {convergenceSignal && (
                       <div
                         className={`alpha-decay-banner ${convergenceTierChipClass(convergenceSignal.tier)}`}
@@ -899,12 +913,84 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                       <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
                         {insiderActivity && insiderActivity.discretionarySellValueUsd > 0 ? (
                           <>
-                            No open-market Form 4 (&apos;P&apos;) purchases recorded for {detail.ticker} over the past{' '}
-                            {insiderActivity.lookbackDays} days;{' '}
-                            <strong className="mono" style={{ color: 'var(--warn-text)' }}>
-                              {formatUsdCompact(insiderActivity.discretionarySellValueUsd)}
-                            </strong>{' '}
-                            in discretionary open-market sales detected (option exercises &apos;M&apos;, RSU grants &apos;A&apos;, tax withholdings &apos;F&apos;, and gifts &apos;G&apos; excluded).
+                            <div
+                              className={`alpha-decay-banner ${insiderActivity.sellClusterDetected ? 'neg' : 'warn'}`}
+                              style={{ marginTop: 0, marginBottom: insiderActivity.recentSellTransactions?.length ? '0.8rem' : 0 }}
+                            >
+                              <div>
+                                <strong>
+                                  {insiderActivity.sellClusterDetected
+                                    ? 'Discretionary Insider Sell Cluster Detected:'
+                                    : 'Discretionary Insider Selling:'}
+                                </strong>{' '}
+                                No open-market Form 4 (&apos;P&apos;) purchases recorded for {detail.ticker} over the past{' '}
+                                {insiderActivity.lookbackDays} days;{' '}
+                                <strong className="mono">
+                                  {formatUsdCompact(insiderActivity.discretionarySellValueUsd)}
+                                </strong>{' '}
+                                in non-10b5-1 open-market sales
+                                {(insiderActivity.distinctSellersCount ?? 0) > 0
+                                  ? ` across ${insiderActivity.distinctSellersCount} distinct insider${insiderActivity.distinctSellersCount === 1 ? '' : 's'}`
+                                  : ''}{' '}
+                                (option exercises &apos;M&apos;, RSU grants &apos;A&apos;, tax withholdings &apos;F&apos;, and gifts &apos;G&apos; excluded).
+                              </div>
+                            </div>
+                            {insiderActivity.recentSellTransactions && insiderActivity.recentSellTransactions.length > 0 && (
+                              <div className="table-scroll" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                                <table className="data-table compact" aria-label="Recent discretionary Form 4 insider sales">
+                                  <thead>
+                                    <tr>
+                                      <th>Tx Date</th>
+                                      <th>Insider &amp; Role</th>
+                                      <th className="num">Shares</th>
+                                      <th className="num">Price</th>
+                                      <th className="num">Value</th>
+                                      <th>Plan</th>
+                                      <th>SEC Form 4</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {insiderActivity.recentSellTransactions.map((tx, idx) => (
+                                      <tr key={`sell-${tx.accessionNumber}-${idx}`}>
+                                        <td className="mono">{tx.transactionDate || tx.filingDate}</td>
+                                        <td>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                            <span style={{ fontWeight: 600 }}>{tx.insiderName}</span>
+                                            {tx.isCsuite && (
+                                              <span className="chip neg" style={{ fontSize: '0.64rem' }}>C-Suite</span>
+                                            )}
+                                          </div>
+                                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                            {tx.insiderRole}
+                                          </div>
+                                        </td>
+                                        <td className="num mono">{tx.shares.toLocaleString()}</td>
+                                        <td className="num mono">${tx.pricePerShare.toFixed(2)}</td>
+                                        <td className="num mono ret-neg" style={{ fontWeight: 700 }}>
+                                          {formatUsdCompact(tx.valueUsd)}
+                                        </td>
+                                        <td>
+                                          <span className="chip warn" style={{ fontSize: '0.66rem' }}>
+                                            Discretionary
+                                          </span>
+                                        </td>
+                                        <td>
+                                          <a
+                                            href={tx.edgarUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-ext-link mono"
+                                            style={{ fontSize: '0.75rem' }}
+                                          >
+                                            Form 4 <ExternalLink size={11} />
+                                          </a>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
                           </>
                         ) : insiderActivity ? (
                           <>
@@ -913,7 +999,7 @@ export const StockDetailDrawer: FC<StockDetailDrawerProps> = ({
                           </>
                         ) : (
                           <>
-                            SEC EDGAR Form 4 open-market (&apos;P&apos;) insider purchases (excluding M/A/F/G option exercises and awards) sync automatically on priority Ideal Portfolio, Screener &amp; Consensus tickers during EDGAR data builds.
+                            SEC EDGAR Form 4 open-market (&apos;P&apos;) insider purchases &amp; discretionary (&apos;S&apos;) sell-cluster signals sync automatically on priority Ideal Portfolio, Screener &amp; Consensus tickers during EDGAR data builds.
                           </>
                         )}
                       </div>

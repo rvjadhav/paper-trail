@@ -33,12 +33,12 @@ from security_resolver import (
 )
 
 FUNDAMENTALS_CACHE_PATH = Path(__file__).resolve().parent / "fundamentals_cache.json"
-XBRL_PARSER_VERSION = 2
+XBRL_PARSER_VERSION = 3
 MIDQUARTER_HDR_CACHE_PATH = SEC_CACHE_DIR / "hdr_13dg_cache.json"
 ITEM4_PARSER_VERSION = 3
 FORM4_PARSED_CACHE_PATH = SEC_CACHE_DIR / "form4_parsed_v1.json"
 FORM4_TICKER_CACHE_PATH = SEC_CACHE_DIR / "form4_ticker_v1.json"
-FORM4_PARSER_VERSION = 2
+FORM4_PARSER_VERSION = 3
 _XML_NUMERIC_PCT_RE = re.compile(r"[<>~]?\s*(\d+(?:\.\d+)?|\.\d+)\s*%?")
 _XML_NUMERIC_SHARES_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*\*?")
 _13DG_FORM_RE = re.compile(r"^(?:SCHEDULE|SC)\s*13([DG])(?:/A)?$", re.I)
@@ -491,6 +491,124 @@ def _extract_annual_only(
     return best[0], best[1], best[2]
 
 
+def _is_likely_unadjusted_split_ratio(ratio: float) -> bool:
+    """Detect common forward/reverse stock split ratios in raw XBRL share counts."""
+    if ratio <= 0:
+        return False
+    check_r = ratio if ratio >= 1.0 else (1.0 / ratio)
+    for mult in (2.0, 3.0, 4.0, 5.0, 7.0, 8.0, 10.0, 15.0, 20.0):
+        if abs(check_r - mult) / mult <= 0.12:
+            return True
+    return False
+
+
+def _extract_share_count_yoy(
+    facts_root: dict[str, Any],
+    concept_list: list[tuple[str, str]],
+    unit_keys: tuple[str, ...] = ("shares",),
+) -> float | None:
+    """
+    Compute YoY share dilution (%) strictly from like-for-like share-count periods
+    (latest standalone quarter vs same quarter ~1Y prior, or annual vs prior annual,
+    or point-in-time vs prior year point-in-time) within the SAME concept & bucket.
+    Never sums 4 quarterly weighted-average share counts.
+    """
+    facts_by_ns = facts_root.get("facts") or {}
+    # Candidate tuple: (end_date, bucket_rank, -prio_idx, yoy_pct)
+    candidates: list[tuple[str, int, int, float]] = []
+
+    def _find_yoy_in_series(series: dict[str, tuple[str, float]]) -> tuple[str, float] | None:
+        dates = sorted(series.keys(), reverse=True)
+        if len(dates) < 2:
+            return None
+        latest_s = dates[0]
+        latest_val = series[latest_s][1]
+        if latest_val <= 0:
+            return None
+        try:
+            d_latest = datetime.strptime(latest_s, "%Y-%m-%d").date()
+        except Exception:
+            return None
+        best_prior_val: float | None = None
+        best_diff = 9999
+        for cand_s in dates[1:]:
+            try:
+                d_c = datetime.strptime(cand_s, "%Y-%m-%d").date()
+            except Exception:
+                continue
+            delta = (d_latest - d_c).days
+            if 320 <= delta <= 410:
+                diff_365 = abs(delta - 365)
+                if diff_365 < best_diff:
+                    best_diff = diff_365
+                    best_prior_val = series[cand_s][1]
+        if best_prior_val is None or best_prior_val <= 0:
+            return None
+        ratio = latest_val / best_prior_val
+        dp = (ratio - 1.0) * 100.0
+        # Guard against unadjusted forward/reverse split artifacts in XBRL filings
+        if abs(dp) > 35.0 and _is_likely_unadjusted_split_ratio(ratio):
+            return None
+        if -30.0 <= dp <= 85.0:
+            return latest_s, round(dp, 1)
+        return None
+
+    for prio_idx, (ns, concept) in enumerate(concept_list):
+        c_node = (facts_by_ns.get(ns) or {}).get(concept) or {}
+        units = c_node.get("units") or {}
+        for uk in _expand_unit_keys(units, unit_keys):
+            rows = units.get(uk) or []
+            if not rows:
+                continue
+            q_series: dict[str, tuple[str, float]] = {}
+            a_series: dict[str, tuple[str, float]] = {}
+            p_series: dict[str, tuple[str, float]] = {}
+            for r in rows:
+                start_s = str(r.get("start") or "")[:10]
+                end_s = str(r.get("end") or "")[:10]
+                filed_s = str(r.get("filed") or "")
+                val = r.get("val")
+                if not end_s or val is None:
+                    continue
+                try:
+                    fval = float(val)
+                except (TypeError, ValueError):
+                    continue
+                if not math.isfinite(fval) or fval <= 0:
+                    continue
+                if not start_s:
+                    prev = p_series.get(end_s)
+                    if prev is None or filed_s > prev[0]:
+                        p_series[end_s] = (filed_s, fval)
+                else:
+                    try:
+                        dur = (
+                            datetime.strptime(end_s, "%Y-%m-%d").date()
+                            - datetime.strptime(start_s, "%Y-%m-%d").date()
+                        ).days
+                    except Exception:
+                        continue
+                    if 70 <= dur <= 115:
+                        prev = q_series.get(end_s)
+                        if prev is None or filed_s > prev[0]:
+                            q_series[end_s] = (filed_s, fval)
+                    elif 330 <= dur <= 400:
+                        prev = a_series.get(end_s)
+                        if prev is None or filed_s > prev[0]:
+                            a_series[end_s] = (filed_s, fval)
+
+            # Prefer standalone quarterly YoY (bucket_rank=3), then annual YoY (2), then point-in-time (1)
+            for b_rank, ser in ((3, q_series), (2, a_series), (1, p_series)):
+                hit = _find_yoy_in_series(ser)
+                if hit is not None:
+                    candidates.append((hit[0], b_rank, -prio_idx, hit[1]))
+
+    if not candidates:
+        return None
+    best = max(candidates, key=lambda x: (x[0], x[1], x[2]))
+    return best[3]
+
+
 def _parse_company_xbrl_facts(raw_facts: dict[str, Any]) -> dict[str, Any]:
     rev_concepts = [
         ("us-gaap", "RevenueFromContractWithCustomerExcludingAssessedTax"),
@@ -560,11 +678,13 @@ def _parse_company_xbrl_facts(raw_facts: dict[str, Any]) -> dict[str, Any]:
         if rd_ann is not None and rev_ann and rd_ann_end == rev_ann_end:
             rd_cur, rd_end = rd_ann, rd_ann_end
 
-    dil_cur, dil_prev, _ = _extract_ttm_and_prior(
+    dilution_pct = _extract_share_count_yoy(
         raw_facts,
         [
             ("us-gaap", "WeightedAverageNumberOfDilutedSharesOutstanding"),
             ("ifrs-full", "AdjustedWeightedAverageShares"),
+            ("dei", "EntityCommonStockSharesOutstanding"),
+            ("us-gaap", "CommonStockSharesOutstanding"),
         ],
         ("shares",),
     )
@@ -601,12 +721,6 @@ def _parse_company_xbrl_facts(raw_facts: dict[str, Any]) -> dict[str, Any]:
         if 0.0 <= rp <= 150.0:
             rd_pct = round(rp, 1)
 
-    dilution_pct = None
-    if dil_cur is not None and dil_prev is not None and dil_prev > 0:
-        dp = ((dil_cur / dil_prev) - 1.0) * 100.0
-        if -40.0 <= dp <= 100.0:
-            dilution_pct = round(dp, 1)
-
     rev_usd_val = None
     if rev_unit == "USD":
         if rev_cur:
@@ -633,6 +747,7 @@ def fetch_xbrl_fundamentals_batch(
     """
     Fetch & parse SEC EDGAR XBRL CompanyFacts for candidate/signal US stocks.
     Cached persistently in pipeline/fundamentals_cache.json with a 7-day TTL and parser version check.
+    Transient network failures are NOT cached so subsequent runs retry automatically.
     """
     cache = load_json_dict(FUNDAMENTALS_CACHE_PATH)
     now_ts = time.time()
@@ -668,7 +783,8 @@ def fetch_xbrl_fundamentals_batch(
                 parsed["_ts"] = now_ts
                 return t, parsed
             except Exception:
-                return t, {"_ts": now_ts, "_ver": XBRL_PARSER_VERSION, "cik": cik10}
+                # Never cache transient SEC EDGAR / network failures as 7-day empty stubs
+                return t, None
 
         with ThreadPoolExecutor(max_workers=4) as ex:
             for idx_done, (t, parsed) in enumerate(ex.map(_fetch_one, to_fetch), 1):
@@ -1296,10 +1412,48 @@ def _is_csuite_title(title: str) -> bool:
     return bool(_CSUITE_TITLE_RE.search(cleaned))
 
 
+_FORM4_ESPP_DRIP_RE = re.compile(
+    r"\b(?:employee\s+stock\s+purchase(?:\s+plan)?|espp|dividend\s+reinvestment(?:\s+plan)?|drip|"
+    r"401\s*\(\s*k\s*\)|stock\s+savings\s+plan|automatic\s+reinvestment)\b",
+    re.I,
+)
+_FORM4_ADR_TITLE_RE = re.compile(r"\b(?:ads|adr|american\s+depositary|depositary\s+share)\b", re.I)
+_FORM4_ENTITY_STRIP_RE = re.compile(
+    r"\b(?:l\.?p\.?|l\.?l\.?c\.?|l\.?t\.?d\.?|inc\.?|corp\.?|co\.?|g\.?p\.?|fund|funds|"
+    r"partners?|partnership|management|capital|holdings?|associates?|advisors?|advisers?|"
+    r"master|feeder|parallel|offshore|onshore|co-?invest(?:ment)?|equity|ventures?|"
+    r"de|delaware|cayman|aiv|spv|blocker|series|international|global|group|"
+    r"ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|[0-9]+)\b",
+    re.I,
+)
+_FORM4_ADR_MULTIPLIERS = (2, 3, 4, 5, 8, 10, 20, 50, 100)
+
+
 def _footnote_confirms_10b5(fn_text: str) -> bool:
     if not fn_text or "10b5-1" not in fn_text.lower():
         return False
     return not bool(_NOT_10B5_RE.search(fn_text))
+
+
+def _footnote_is_espp_or_drip(fn_text: str) -> bool:
+    if not fn_text:
+        return False
+    return bool(_FORM4_ESPP_DRIP_RE.search(fn_text))
+
+
+def _normalize_reporter_entity_key(name: str, cik: str, is_ten_only: bool) -> str:
+    """
+    Collapse affiliated 10%-owner PE/VC vehicles (e.g. 'Silver Lake Partners V LP' &
+    'Silver Lake Partners VI LP') into one entity key while keeping operating officers/directors
+    keyed cleanly by CIK or name.
+    """
+    if is_ten_only and name:
+        cleaned = re.sub(r"[^A-Za-z0-9\s]", " ", name)
+        cleaned = _FORM4_ENTITY_STRIP_RE.sub(" ", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip().upper()
+        if len(cleaned) >= 4:
+            return f"ENT:{cleaned}"
+    return cik or (name.upper() if name else "UNKNOWN")
 
 
 def _parse_form4_xml(
@@ -1312,8 +1466,9 @@ def _parse_form4_xml(
 ) -> dict[str, Any] | None:
     """
     Parse SEC Form 4 / 4/A ownershipDocument XML.
-    Strictly retains open-market purchases (`transactionCode == 'P'` with `acquiredDisposedCode != 'D'`)
-    and separately tracks open-market sales (`'S'`) to guard against sell-heavy false positives.
+    Strictly retains open-market purchases (`transactionCode == 'P'` with `acquiredDisposedCode != 'D'`,
+    excluding routine ESPP/DRIP purchases) and separately tracks discretionary vs scheduled Rule 10b5-1
+    open-market sales (`'S'`) to detect both insider sell clusters and sell-heavy false positives.
     Excludes `'M'` (option exercises), `'A'` (grants), `'F'` (tax withholding), `'G'` (gifts), etc.
     """
     try:
@@ -1404,7 +1559,8 @@ def _parse_form4_xml(
         any_director = any(o["isDirector"] for o in owners)
         any_ten = any(o["isTenPercentOwner"] for o in owners)
         any_csuite = any(o["isCsuite"] for o in owners)
-        rep_key = primary_owner["cik"] or primary_owner["name"].upper()
+        is_ten_only = any_ten and not any_officer and not any_director
+        rep_key = _normalize_reporter_entity_key(primary_owner["name"], primary_owner["cik"], is_ten_only)
         rep_name = primary_owner["name"]
         rep_role = primary_owner["role"]
     else:
@@ -1426,6 +1582,7 @@ def _parse_form4_xml(
     )
 
     buys: list[dict[str, Any]] = []
+    sells: list[dict[str, Any]] = []
     disc_sell_usd = 0.0
     sched_sell_usd = 0.0
 
@@ -1433,10 +1590,12 @@ def _parse_form4_xml(
         code = _deep_text(tx, ("transactionCoding", "transactionCode")).upper()
         if code not in ("P", "S"):
             continue
+        sec_title = _deep_text(tx, ("securityTitle",))
         tx_date = _deep_text(tx, ("transactionDate", "value")) or _deep_text(tx, ("transactionDate",)) or filing_date
         acq_disp = _deep_text(tx, ("transactionAmounts", "transactionAcquiredDisposedCode")).upper()
         sh_str = _deep_text(tx, ("transactionAmounts", "transactionShares"))
         px_str = _deep_text(tx, ("transactionAmounts", "transactionPricePerShare"))
+        post_sh_str = _deep_text(tx, ("postTransactionAmounts", "sharesOwnedFollowingTransaction"))
         try:
             sh_val = float(sh_str.replace(",", "").strip())
             px_val = float(px_str.replace(",", "").strip().lstrip("$"))
@@ -1445,35 +1604,50 @@ def _parse_form4_xml(
         if not (math.isfinite(sh_val) and math.isfinite(px_val) and sh_val > 0 and px_val > 0):
             continue
 
+        post_sh_val: float | None = None
+        if post_sh_str:
+            try:
+                psv = float(post_sh_str.replace(",", "").strip())
+                if math.isfinite(psv) and psv >= 0:
+                    post_sh_val = round(psv, 2)
+            except ValueError:
+                pass
+
         tx_fn_ids = [
             (fn_ref.attrib.get("id") or "").strip()
             for fn_ref in tx.xpath(".//*[local-name()='footnoteId']")
         ]
-        tx_fn_10b5 = any(_footnote_confirms_10b5(footnotes.get(fid, "")) for fid in tx_fn_ids)
+        tx_fn_texts = [footnotes.get(fid, "") for fid in tx_fn_ids if footnotes.get(fid, "")]
+        tx_fn_10b5 = any(_footnote_confirms_10b5(ft) for ft in tx_fn_texts)
+        tx_fn_espp = any(_footnote_is_espp_or_drip(ft) for ft in tx_fn_texts)
         is_10b5 = bool(doc_10b5 or tx_fn_10b5)
         val_usd = round(sh_val * px_val, 2)
 
+        tx_row = {
+            "accessionNumber": acc,
+            "filingDate": filing_date,
+            "transactionDate": tx_date[:10],
+            "reporterKey": rep_key,
+            "insiderName": rep_name,
+            "insiderRole": rep_role,
+            "isOfficer": any_officer,
+            "isDirector": any_director,
+            "isTenPercentOwner": any_ten,
+            "isCsuite": any_csuite,
+            "isAmendment": is_amendment,
+            "shares": round(sh_val, 2),
+            "sharesOwnedAfter": post_sh_val,
+            "pricePerShare": round(px_val, 4),
+            "valueUsd": val_usd,
+            "securityTitle": sec_title[:80],
+            "is10b5Plan": is_10b5,
+            "edgarUrl": edgar_url,
+        }
+
         if code == "P":
-            if acq_disp == "D":
+            if acq_disp == "D" or tx_fn_espp:
                 continue
-            buys.append({
-                "accessionNumber": acc,
-                "filingDate": filing_date,
-                "transactionDate": tx_date[:10],
-                "reporterKey": rep_key,
-                "insiderName": rep_name,
-                "insiderRole": rep_role,
-                "isOfficer": any_officer,
-                "isDirector": any_director,
-                "isTenPercentOwner": any_ten,
-                "isCsuite": any_csuite,
-                "isAmendment": is_amendment,
-                "shares": round(sh_val, 2),
-                "pricePerShare": round(px_val, 4),
-                "valueUsd": val_usd,
-                "is10b5Plan": is_10b5,
-                "edgarUrl": edgar_url,
-            })
+            buys.append(tx_row)
         elif code == "S":
             if acq_disp == "A":
                 continue
@@ -1481,6 +1655,7 @@ def _parse_form4_xml(
                 sched_sell_usd += val_usd
             else:
                 disc_sell_usd += val_usd
+                sells.append(tx_row)
 
     return {
         "accessionNumber": acc,
@@ -1497,10 +1672,51 @@ def _parse_form4_xml(
         "isTenPercentOwner": any_ten,
         "isCsuite": any_csuite,
         "buys": buys,
+        "sells": sells,
         "discretionarySellValueUsd": round(disc_sell_usd, 2),
         "scheduledSellValueUsd": round(sched_sell_usd, 2),
         "edgarUrl": edgar_url,
     }
+
+
+def _normalize_form4_tx_price(
+    tx: dict[str, Any],
+    ref_price_usd: float | None,
+) -> tuple[dict[str, Any], bool, bool]:
+    """
+    Validate transaction pricePerShare against current US-listed reference price.
+    Returns (adjusted_tx, price_valid_for_avg, value_valid_for_usd).
+    - Normalizes FPI ordinary-share filings to ADR-equivalent price & share count when
+      securityTitle is not already an ADR/ADS and ref_price / tx_price matches an integer
+      ADR ratio (e.g. TSM 5:1 ordinary-to-ADS).
+    - Flags non-ADR currency/unit mismatches (>45% deviation) so bogus prices never corrupt
+      avgBuyPriceUsd or buyPriceVsQuarterVwapPct.
+    """
+    out = dict(tx)
+    px = float(out.get("pricePerShare") or 0.0)
+    sh = float(out.get("shares") or 0.0)
+    if ref_price_usd is None or ref_price_usd <= 0 or px <= 0 or sh <= 0:
+        return out, True, True
+
+    if ref_price_usd * 0.55 <= px <= ref_price_usd * 1.80:
+        return out, True, True
+
+    sec_title = str(out.get("securityTitle") or "")
+    is_adr_title = bool(_FORM4_ADR_TITLE_RE.search(sec_title))
+    if not is_adr_title and px < ref_price_usd * 0.55:
+        ratio = ref_price_usd / px
+        for mult in _FORM4_ADR_MULTIPLIERS:
+            if abs(ratio - mult) / mult <= 0.18:
+                out["pricePerShare"] = round(px * mult, 4)
+                out["shares"] = round(sh / mult, 2)
+                out["valueUsd"] = round(out["shares"] * out["pricePerShare"], 2)
+                out["adrAdjusted"] = True
+                return out, True, True
+
+    out["priceUnitMismatch"] = True
+    # Extreme mismatch (>3.5x or <0.25x without clean ADR ratio) is likely local currency (TWD/JPY/KRW)
+    ratio_any = max(ref_price_usd / px, px / ref_price_usd)
+    return out, False, (ratio_any <= 3.5)
 
 
 def summarize_form4_transactions_for_ticker(
@@ -1508,44 +1724,137 @@ def summarize_form4_transactions_for_ticker(
     issuer_cik: str,
     parsed_docs: list[dict[str, Any]],
     lookback_days: int = 90,
+    ref_price_usd: float | None = None,
+    min_buyer_value_usd: float = 25_000.0,
 ) -> dict[str, Any]:
     """
-    Aggregate parsed Form 4 / 4/A filings into a clean insider cluster summary for a ticker.
-    Deduplicates `4` filings superseded by matching `4/A` amendments while preserving separate lots
-    inside a single Form 4 filing.
+    Aggregate parsed Form 4 / 4/A filings into an institutional-grade insider buy & sell summary.
+    - Deduplicates `4` filings superseded by matching `4/A` amendments while preserving separate lots.
+    - Normalizes FPI ordinary-share transactions against ADR reference prices when applicable.
+    - Filters routine micro-purchases (<$25K aggregate per reporter unless >=10% stake increase).
+    - Requires operating insiders (officers/directors, not 10%-owner-only) for CLUSTER_BUY.
+    - Detects pure discretionary open-market sell clusters (CLUSTER_SELL / DISCRETIONARY_SELL).
     """
     ordered_docs = sorted(
         parsed_docs,
         key=lambda d: (d.get("filingDate", ""), 1 if d.get("isAmendment") else 0, d.get("accessionNumber", "")),
     )
 
-    # Deduplicate buys by (reporterKey, txDate, round(shares, 1), round(price, 2), per_filing_ordinal)
     dedup_buys: dict[tuple[str, str, float, float, int], dict[str, Any]] = {}
+    dedup_sells: dict[tuple[str, str, float, float, int], dict[str, Any]] = {}
     disc_sell_by_doc: dict[str, float] = {}
     sched_sell_by_doc: dict[str, float] = {}
+    has_structured_sells = False
 
     for doc in ordered_docs:
         acc = str(doc.get("accessionNumber") or "")
         disc_sell_by_doc[acc] = float(doc.get("discretionarySellValueUsd") or 0.0)
         sched_sell_by_doc[acc] = float(doc.get("scheduledSellValueUsd") or 0.0)
-        in_doc_counts: dict[tuple[str, str, float, float], int] = {}
+        in_doc_buy_counts: dict[tuple[str, str, float, float], int] = {}
         for tx in doc.get("buys") or []:
             rkey = str(tx.get("reporterKey") or doc.get("reporterKey") or "UNKNOWN")
             txd = str(tx.get("transactionDate") or doc.get("filingDate") or "")
             sh_r = round(float(tx.get("shares") or 0.0), 1)
             px_r = round(float(tx.get("pricePerShare") or 0.0), 2)
             base_k = (rkey, txd, sh_r, px_r)
-            ord_idx = in_doc_counts.get(base_k, 0)
-            in_doc_counts[base_k] = ord_idx + 1
+            ord_idx = in_doc_buy_counts.get(base_k, 0)
+            in_doc_buy_counts[base_k] = ord_idx + 1
             full_k = (*base_k, ord_idx)
             prev_tx = dedup_buys.get(full_k)
             if prev_tx is None or tx.get("isAmendment") or doc.get("isAmendment"):
                 dedup_buys[full_k] = tx
 
-    buys = list(dedup_buys.values())
-    disc_sell_usd = round(sum(disc_sell_by_doc.values()), 2)
+        in_doc_sell_counts: dict[tuple[str, str, float, float], int] = {}
+        for tx in doc.get("sells") or []:
+            has_structured_sells = True
+            rkey = str(tx.get("reporterKey") or doc.get("reporterKey") or "UNKNOWN")
+            txd = str(tx.get("transactionDate") or doc.get("filingDate") or "")
+            sh_r = round(float(tx.get("shares") or 0.0), 1)
+            px_r = round(float(tx.get("pricePerShare") or 0.0), 2)
+            base_k = (rkey, txd, sh_r, px_r)
+            ord_idx = in_doc_sell_counts.get(base_k, 0)
+            in_doc_sell_counts[base_k] = ord_idx + 1
+            full_k = (*base_k, ord_idx)
+            prev_tx = dedup_sells.get(full_k)
+            if prev_tx is None or tx.get("isAmendment") or doc.get("isAmendment"):
+                dedup_sells[full_k] = tx
+
+    # Price-validate & ADR-normalize buys
+    norm_buys: list[tuple[dict[str, Any], bool, bool]] = []
+    any_price_mismatch = False
+    for raw_tx in dedup_buys.values():
+        adj_tx, px_ok, val_ok = _normalize_form4_tx_price(raw_tx, ref_price_usd)
+        if not px_ok:
+            any_price_mismatch = True
+        if val_ok:
+            norm_buys.append((adj_tx, px_ok, val_ok))
+
+    # Materiality filter by reporter: >= $25K aggregate buy OR >= 10% stake increase (>= $5K)
+    val_by_rk: dict[str, float] = {}
+    stake_inc_by_rk: dict[str, float] = {}
+    for tx, _, _ in norm_buys:
+        rk = str(tx.get("reporterKey") or tx.get("insiderName") or "UNKNOWN")
+        val_by_rk[rk] = val_by_rk.get(rk, 0.0) + float(tx.get("valueUsd") or 0.0)
+        sh = float(tx.get("shares") or 0.0)
+        post_sh = tx.get("sharesOwnedAfter")
+        if post_sh is not None and post_sh > sh:
+            prior_sh = max(1.0, float(post_sh) - sh)
+            stake_inc_by_rk[rk] = max(stake_inc_by_rk.get(rk, 0.0), sh / prior_sh)
+
+    material_rks = {
+        rk
+        for rk, tot_v in val_by_rk.items()
+        if tot_v >= min_buyer_value_usd or (stake_inc_by_rk.get(rk, 0.0) >= 0.10 and tot_v >= 5_000.0)
+    }
+
+    buys_with_flags = [
+        (tx, px_ok)
+        for tx, px_ok, _ in norm_buys
+        if str(tx.get("reporterKey") or tx.get("insiderName") or "UNKNOWN") in material_rks
+    ]
+    buys = [tx for tx, _ in buys_with_flags]
+
+    # Price-validate & aggregate discretionary sells
+    norm_sells: list[dict[str, Any]] = []
+    for raw_stx in dedup_sells.values():
+        adj_stx, _, sval_ok = _normalize_form4_tx_price(raw_stx, ref_price_usd)
+        if sval_ok:
+            norm_sells.append(adj_stx)
+
+    sell_val_by_rk: dict[str, float] = {}
+    for stx in norm_sells:
+        rk = str(stx.get("reporterKey") or stx.get("insiderName") or "UNKNOWN")
+        sell_val_by_rk[rk] = sell_val_by_rk.get(rk, 0.0) + float(stx.get("valueUsd") or 0.0)
+    material_sell_rks = {rk for rk, v in sell_val_by_rk.items() if v >= min_buyer_value_usd}
+    material_sells = [
+        stx for stx in norm_sells
+        if str(stx.get("reporterKey") or stx.get("insiderName") or "UNKNOWN") in material_sell_rks
+    ]
+
+    if has_structured_sells:
+        disc_sell_usd = round(sum(float(stx.get("valueUsd") or 0.0) for stx in norm_sells), 2)
+    else:
+        disc_sell_usd = round(sum(disc_sell_by_doc.values()), 2)
     sched_sell_usd = round(sum(sched_sell_by_doc.values()), 2)
     total_sell_usd = round(disc_sell_usd + sched_sell_usd, 2)
+
+    distinct_sellers: set[str] = set()
+    officer_sellers: set[str] = set()
+    csuite_sellers: set[str] = set()
+    director_sellers: set[str] = set()
+    latest_sell_date: str | None = None
+    for stx in material_sells:
+        rk = str(stx.get("reporterKey") or stx.get("insiderName") or "UNKNOWN")
+        distinct_sellers.add(rk)
+        if stx.get("isOfficer"):
+            officer_sellers.add(rk)
+        if stx.get("isCsuite"):
+            csuite_sellers.add(rk)
+        if stx.get("isDirector"):
+            director_sellers.add(rk)
+        td = stx.get("transactionDate")
+        if td and (latest_sell_date is None or td > latest_sell_date):
+            latest_sell_date = td
 
     distinct_buyers: set[str] = set()
     officer_buyers: set[str] = set()
@@ -1554,12 +1863,14 @@ def summarize_form4_transactions_for_ticker(
     tenpct_buyers: set[str] = set()
     total_buy_val = 0.0
     total_buy_sh = 0.0
+    avg_px_val_sum = 0.0
+    avg_px_sh_sum = 0.0
     non10b5_count = 0
     non10b5_val = 0.0
     latest_buy_date: str | None = None
     latest_filing_date: str | None = None
 
-    for tx in buys:
+    for tx, px_ok in buys_with_flags:
         rk = str(tx.get("reporterKey") or tx.get("insiderName") or "UNKNOWN")
         distinct_buyers.add(rk)
         if tx.get("isOfficer"):
@@ -1574,6 +1885,9 @@ def summarize_form4_transactions_for_ticker(
         sh = float(tx.get("shares") or 0.0)
         total_buy_val += val
         total_buy_sh += sh
+        if px_ok:
+            avg_px_val_sum += val
+            avg_px_sh_sum += sh
         if not tx.get("is10b5Plan"):
             non10b5_count += 1
             non10b5_val += val
@@ -1584,20 +1898,41 @@ def summarize_form4_transactions_for_ticker(
         if fd and (latest_filing_date is None or fd > latest_filing_date):
             latest_filing_date = fd
 
+    for stx in material_sells:
+        fd = stx.get("filingDate")
+        if fd and (latest_filing_date is None or fd > latest_filing_date):
+            latest_filing_date = fd
+
     open_mkt_cnt = len(buys)
     d_cnt = len(distinct_buyers)
     o_cnt = len(officer_buyers)
     c_cnt = len(csuite_buyers)
     dir_cnt = len(director_buyers)
     ten_cnt = len(tenpct_buyers)
+    op_insiders_cnt = len(officer_buyers | director_buyers)
 
-    avg_px = round(total_buy_val / total_buy_sh, 2) if total_buy_sh > 0 else None
+    d_sell_cnt = len(distinct_sellers)
+    o_sell_cnt = len(officer_sellers)
+    c_sell_cnt = len(csuite_sellers)
+    op_sellers_cnt = len(officer_sellers | director_sellers)
+
+    avg_px = round(avg_px_val_sum / avg_px_sh_sum, 2) if avg_px_sh_sum > 0 else None
+
+    sell_cluster_detected = bool(
+        (d_sell_cnt >= 2 and op_sellers_cnt >= 1 and disc_sell_usd >= 500_000.0)
+        or (c_sell_cnt >= 1 and disc_sell_usd >= 2_000_000.0)
+    )
 
     if open_mkt_cnt == 0:
-        sig_label = "NONE"
+        if sell_cluster_detected:
+            sig_label = "CLUSTER_SELL"
+        elif disc_sell_usd >= 250_000.0:
+            sig_label = "DISCRETIONARY_SELL"
+        else:
+            sig_label = "NONE"
     elif disc_sell_usd > total_buy_val * 3.0 and total_buy_val < 500_000.0:
         sig_label = "MIXED_SELL_HEAVY"
-    elif d_cnt >= 2 and (o_cnt >= 1 or total_buy_val >= 100_000.0):
+    elif d_cnt >= 2 and op_insiders_cnt >= 1 and (o_cnt >= 1 or total_buy_val >= 100_000.0):
         sig_label = "CLUSTER_BUY"
     elif c_cnt >= 1 and total_buy_val >= 100_000.0:
         sig_label = "C_SUITE_BUY"
@@ -1608,6 +1943,7 @@ def summarize_form4_transactions_for_ticker(
 
     cluster_detected = bool(
         open_mkt_cnt > 0
+        and op_insiders_cnt >= 1
         and sig_label != "MIXED_SELL_HEAVY"
         and (
             (d_cnt >= 2 and (o_cnt >= 1 or total_buy_val >= 100_000.0))
@@ -1615,13 +1951,8 @@ def summarize_form4_transactions_for_ticker(
         )
     )
 
-    buys_sorted = sorted(
-        buys,
-        key=lambda x: (x.get("transactionDate", ""), float(x.get("valueUsd") or 0.0)),
-        reverse=True,
-    )
-    clean_recent = [
-        {
+    def _serialize_tx(b: dict[str, Any]) -> dict[str, Any]:
+        return {
             "accessionNumber": b["accessionNumber"],
             "filingDate": b["filingDate"],
             "transactionDate": b["transactionDate"],
@@ -1637,8 +1968,17 @@ def summarize_form4_transactions_for_ticker(
             "is10b5Plan": bool(b.get("is10b5Plan")),
             "edgarUrl": b["edgarUrl"],
         }
-        for b in buys_sorted[:12]
-    ]
+
+    buys_sorted = sorted(
+        buys,
+        key=lambda x: (x.get("transactionDate", ""), float(x.get("valueUsd") or 0.0)),
+        reverse=True,
+    )
+    sells_sorted = sorted(
+        material_sells,
+        key=lambda x: (x.get("transactionDate", ""), float(x.get("valueUsd") or 0.0)),
+        reverse=True,
+    )
 
     return {
         "ticker": ticker,
@@ -1654,15 +1994,23 @@ def summarize_form4_transactions_for_ticker(
         "totalBuyShares": round(total_buy_sh, 0),
         "avgBuyPriceUsd": avg_px,
         "buyPriceVsQuarterVwapPct": None,
+        "priceUnitMismatch": any_price_mismatch,
         "latestBuyDate": latest_buy_date,
+        "latestSellDate": latest_sell_date,
         "latestFilingDate": latest_filing_date,
         "non10b5Count": non10b5_count,
         "non10b5BuyValueUsd": round(non10b5_val, 2),
+        "discretionarySellCount": len(material_sells),
+        "distinctSellersCount": d_sell_cnt,
+        "officerSellersCount": o_sell_cnt,
+        "cSuiteSellersCount": c_sell_cnt,
         "discretionarySellValueUsd": disc_sell_usd,
         "totalSellValueUsd": total_sell_usd,
+        "sellClusterDetected": sell_cluster_detected,
         "insiderSignalLabel": sig_label,
         "clusterDetected": cluster_detected,
-        "recentTransactions": clean_recent,
+        "recentTransactions": [_serialize_tx(b) for b in buys_sorted[:12]],
+        "recentSellTransactions": [_serialize_tx(s) for s in sells_sorted[:8]],
     }
 
 
@@ -1673,15 +2021,17 @@ def fetch_form4_insider_signals(
     lookback_days: int = 90,
     max_age_hours: float = 24.0,
     max_filings_per_ticker: int = 30,
+    ref_prices_by_ticker: dict[str, float] | None = None,
+    sell_scan_limit: int = 300,
 ) -> dict[str, dict[str, Any]]:
     """
-    Fetch and parse recent SEC EDGAR Form 4 / 4/A open-market ('P') insider cluster buys
-    across prioritized Ideal Portfolio, Signal Screener, Consensus, and 13D/13G tickers.
-    Phase 1 batch-queries SEC EFTS (`q=P&forms=4`) across 25-CIK chunks to skip scanning
-    thousands of non-buy RSU/tax/10b5-1 Form 4 filings; Phase 2 pulls `get_submissions` only
-    for detected open-market buyer tickers (to capture offsetting discretionary 'S' sells and
-    amendments) plus any chunk needing fallback. Caches parsed Form 4 accessions in
-    `pipeline/cache/sec/` across runs.
+    Fetch and parse recent SEC EDGAR Form 4 / 4/A open-market ('P') insider buys AND
+    discretionary ('S') insider sell clusters across prioritized Ideal Portfolio, Signal
+    Screener, Consensus, and 13D/13G tickers.
+    Phase 1 batch-queries SEC EFTS (`q=P&forms=4`) across 25-CIK chunks; Phase 2 batch-queries
+    SEC EFTS (`q=S&forms=4`) across all open-market buyer CIKs PLUS top priority CIKs (so pure
+    discretionary C-suite/director sell clusters with zero buys are captured!). Falls back to
+    `get_submissions` automatically on any failed EFTS chunk.
     """
     if not tickers:
         return {}
@@ -1836,7 +2186,6 @@ def fetch_form4_insider_signals(
             xml_name = id_xml.split("/")[-1].strip()
             if not xml_name.lower().endswith(".xml"):
                 continue
-            # Skip accessions already attributed for every matched ticker
             all_already_attributed = all(
                 acc in docs_by_ticker.get(tk, {})
                 for mc in matched_ciks
@@ -1924,18 +2273,27 @@ def fetch_form4_insider_signals(
 
     p_hit_cnt, p_buy_tickers, efts_failed_ciks = _run_efts_stage(unique_ciks, "P")
 
-    p_buy_ciks = sorted({
+    # Scan q=S across ALL open-market buyer CIKs PLUS top priority CIKs (capturing pure sell clusters!)
+    p_buy_ciks = {
         cik10 for t, cik10 in target_pairs
         if t in p_buy_tickers and cik10 not in efts_failed_ciks
-    })
-    s_hit_cnt, _, s_failed_ciks = _run_efts_stage(p_buy_ciks, "S", allowed_tickers=p_buy_tickers)
+    }
+    priority_sell_ciks: list[str] = []
+    seen_s: set[str] = set()
+    for c in unique_ciks:
+        if c in efts_failed_ciks or c in seen_s:
+            continue
+        if c in p_buy_ciks or len(priority_sell_ciks) < sell_scan_limit:
+            seen_s.add(c)
+            priority_sell_ciks.append(c)
+    s_hit_cnt, _, s_failed_ciks = _run_efts_stage(priority_sell_ciks, "S", allowed_tickers=None)
     efts_failed_ciks.update(s_failed_ciks)
 
     fallback_pairs = [(t, cik10) for t, cik10 in target_pairs if cik10 in efts_failed_ciks]
 
     print(
         f"[form4] EFTS identified {p_hit_cnt} 'P' hits -> {len(p_buy_tickers)} buyer tickers "
-        f"(+{s_hit_cnt} offsetting 'S' hits; submissions fallback={len(fallback_pairs)})...",
+        f"(+{s_hit_cnt} 'S' hits across {len(priority_sell_ciks)} CIKs; submissions fallback={len(fallback_pairs)})...",
         flush=True,
     )
 
@@ -2020,6 +2378,7 @@ def fetch_form4_insider_signals(
                     if p_acc:
                         docs_by_ticker.setdefault(t, {})[p_acc] = pd
 
+    ref_prices = ref_prices_by_ticker or {}
     for t, cik10 in target_pairs:
         if t in fetch_failed_tickers:
             continue
@@ -2029,6 +2388,7 @@ def fetch_form4_insider_signals(
             issuer_cik=cik10,
             parsed_docs=pdocs_list,
             lookback_days=lookback_days,
+            ref_price_usd=ref_prices.get(t),
         )
         cached_entry = dict(summary)
         cached_entry["_ver"] = FORM4_PARSER_VERSION

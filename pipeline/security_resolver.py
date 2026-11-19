@@ -423,9 +423,13 @@ def resolve_cusips(
         issuer_by_c[c] = iss
         title_by_c[c] = tit
 
-    # Purge poisoned umbrella ETF collisions & never-attempted legacy CUSIP:* placeholders
+    # Purge poisoned umbrella ETF collisions, never-attempted legacy CUSIP:* placeholders,
+    # and expired resolvedFail entries (>14d old) so transient API outages are retried.
     repaired_poison = 0
     pruned_unattempted = 0
+    pruned_expired_fail = 0
+    now_ts_cache = time.time()
+    fail_retry_ttl_sec = 14.0 * 86400.0
     for c in list(cache.keys()):
         if c in MANUAL_CUSIP_OVERRIDES:
             continue
@@ -434,13 +438,19 @@ def resolve_cusips(
         if t_cur in _POISON_PRONE_ETF_TICKERS:
             cache.pop(c, None)
             repaired_poison += 1
-        elif t_cur.startswith("CUSIP:") and not ent.get("resolvedFail"):
-            cache.pop(c, None)
-            pruned_unattempted += 1
-    if repaired_poison or pruned_unattempted:
+        elif t_cur.startswith("CUSIP:"):
+            if not ent.get("resolvedFail"):
+                cache.pop(c, None)
+                pruned_unattempted += 1
+            else:
+                fail_ts = float(ent.get("failTs") or 0.0)
+                if fail_ts <= 0.0 or (now_ts_cache - fail_ts) > fail_retry_ttl_sec:
+                    cache.pop(c, None)
+                    pruned_expired_fail += 1
+    if repaired_poison or pruned_unattempted or pruned_expired_fail:
         print(
             f"[resolver] Cache hygiene: purged {repaired_poison} poisoned umbrella ETF entries, "
-            f"{pruned_unattempted} unattempted placeholder entries.",
+            f"{pruned_unattempted} unattempted placeholders, {pruned_expired_fail} expired failed lookups.",
             flush=True,
         )
 
@@ -672,6 +682,7 @@ def resolve_cusips(
                         "industry": "",
                         "isTechTmt": False,
                         "unpriced": True,
+                        "isResolved": False,
                     }
             else:
                 print(f"[resolver] Falling back to US Yahoo issuer search for {len(http_fallback)} CUSIPs...", flush=True)
@@ -700,6 +711,8 @@ def resolve_cusips(
                     "industry": "",
                     "unpriced": True,
                     "resolvedFail": True,
+                    "isResolved": False,
+                    "failTs": time.time(),
                 }
 
             with ThreadPoolExecutor(max_workers=12) as ex:

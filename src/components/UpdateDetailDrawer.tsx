@@ -367,9 +367,9 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
             <div className="metric-card">
               <div
                 className="metric-label"
-                title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+                title="SEC Form 13F reports options at underlying share notional value (underlying shares × stock price), not option contract premium or delta-adjusted exposure"
               >
-                Put Hedges (13F Fair Value %)
+                Put Hedges (Underlying Notional %)
               </div>
               <div className="metric-value">
                 <span className={update.currPutBookPct > 0 ? 'warn-text' : ''}>
@@ -390,7 +390,7 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
               </div>
               <div className="metric-sub mono">
                 {update.currPutUsd > 0
-                  ? `${formatUsdCompact(update.currPutUsd)} fair val (vs ${formatUsdCompact(update.prevPutUsd)} / ${update.prevPutBookPct.toFixed(1)}%)`
+                  ? `${formatUsdCompact(update.currPutUsd)} notional (vs ${formatUsdCompact(update.prevPutUsd)} / ${update.prevPutBookPct.toFixed(1)}%)`
                   : 'No disclosed put hedges'}
               </div>
             </div>
@@ -398,16 +398,16 @@ export const UpdateDetailDrawer: FC<UpdateDetailDrawerProps> = ({
             <div className="metric-card">
               <div
                 className="metric-label"
-                title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+                title="SEC Form 13F reports options at underlying share notional value (underlying shares × stock price), not option contract premium or delta-adjusted exposure"
               >
-                Call Options (13F Fair Value %)
+                Call Options (Underlying Notional %)
               </div>
               <div className="metric-value">
                 <span>{formatPct(update.currCallBookPct, 1)}</span>
               </div>
               <div className="metric-sub mono">
                 {update.currCallUsd > 0
-                  ? `${formatUsdCompact(update.currCallUsd)} fair val (vs ${formatUsdCompact(update.prevCallUsd)} / ${update.prevCallBookPct.toFixed(1)}%)`
+                  ? `${formatUsdCompact(update.currCallUsd)} notional (vs ${formatUsdCompact(update.prevCallUsd)} / ${update.prevCallBookPct.toFixed(1)}%)`
                   : 'No disclosed call positions'}
               </div>
             </div>

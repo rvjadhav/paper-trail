@@ -431,13 +431,13 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
         <div className="metric-card">
           <div
             className="metric-label"
-            title="SEC Form 13F reports option market fair value, not delta-adjusted notional exposure"
+            title="SEC Form 13F reports options at underlying share notional value (underlying shares × stock price), not option contract premium or delta-adjusted exposure"
           >
-            13F Disclosed Put Fair Value
+            13F Disclosed Put Notional
           </div>
           <div className="metric-value">{formatUsdCompact(overview.totalPutNotionalUsd)}</div>
           <div className="metric-sub">
-            Reported option fair value (not notional) · {overview.fundsWithPutHedgesCount} filers
+            Underlying share notional (not option premium or delta) · {overview.fundsWithPutHedgesCount} filers
           </div>
         </div>
 
@@ -445,7 +445,7 @@ export const UpdatesTab: FC<UpdatesTabProps> = ({
           <div className="metric-label">Mid-Quarter 13D / 13G Alerts</div>
           <div className="metric-value">{midQuarterAlerts.length}</div>
           <div className="metric-sub">
-            Elite-50 &ge;5% stakes · {formatUsdCompact(overview.totalCallNotionalUsd)} call fair value in {overview.latestQuarterLabel}
+            Elite-50 &ge;5% stakes · {formatUsdCompact(overview.totalCallNotionalUsd)} call notional in {overview.latestQuarterLabel}
           </div>
         </div>
       </div>

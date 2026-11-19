@@ -43,14 +43,48 @@ jobs:
       - name: Run Python pipeline unit tests
         run: PYTHONPATH=pipeline python3 -m unittest discover -s pipeline -p "test_*.py" -v
 
-      - name: Restore SEC EDGAR & Yahoo cache (scheduled/manual only)
+      - name: Compute cache time buckets (scheduled/manual only)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "CACHE_MONTH=$(date -u +%Y-%m)" >> "$GITHUB_ENV"
+          echo "CACHE_WEEK=$(date -u +%Y-W%V)" >> "$GITHUB_ENV"
+
+      - name: Restore immutable SEC bulk ZIP cache (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: actions/cache@v4
         with:
-          path: pipeline/cache
-          key: sec-edgar-cache-v3-${{ github.run_id }}
+          path: pipeline/cache/bulk
+          key: sec-bulk-zips-v4-${{ env.CACHE_MONTH }}
           restore-keys: |
-            sec-edgar-cache-v3-
+            sec-bulk-zips-v4-
+
+      - name: Restore mutable SEC/Yahoo/resolver caches (scheduled/manual only)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v4
+        with:
+          path: |
+            pipeline/cache/prices
+            pipeline/cache/sec
+            pipeline/cusip_cache.json
+            pipeline/ticker_meta_cache.json
+            pipeline/fundamentals_cache.json
+          key: sec-mutable-v4-${{ env.CACHE_WEEK }}-${{ github.run_id }}
+          restore-keys: |
+            sec-mutable-v4-${{ env.CACHE_WEEK }}-
+            sec-mutable-v4-
+
+      - name: Sync latest data-snapshot branch (push/PR only)
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        run: |
+          if git ls-remote --exit-code --heads origin data-snapshot >/dev/null 2>&1; then
+            git fetch --depth=1 origin data-snapshot:refs/remotes/origin/data-snapshot
+            rm -rf public/data
+            mkdir -p public/data
+            git archive origin/data-snapshot public/data | tar -x
+            echo "Loaded public/data from orphan data-snapshot branch."
+          else
+            echo "data-snapshot branch not initialized yet; using repository public/data."
+          fi
 
       - name: Run SEC EDGAR 13F pipeline (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -59,90 +93,34 @@ jobs:
           OPENFIGI_API_KEY: ${{ secrets.OPENFIGI_API_KEY }}
         run: python3 -u pipeline/build_data.py
 
-      - name: Verify sharded dataset integrity before commit/deploy
+      - name: Verify sharded dataset integrity (strict on pipeline rebuilds)
         run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python3 pipeline/validate_dataset.py --data-dir public/data --strict
+          else
+            python3 pipeline/validate_dataset.py --data-dir public/data
+          fi
 
-          data_dir = Path("public/data")
-          summary_path = data_dir / "summary.json"
-          assert summary_path.exists() and summary_path.stat().st_size >= 150_000, (
-              f"Summary missing or too small: {summary_path.stat().st_size if summary_path.exists() else 0}B"
-          )
-          d = json.loads(summary_path.read_text(encoding="utf-8"))
-          m = d["metadata"]
-          assert m["qualifiedFundsCount"] >= 25, f"Too few qualified funds: {m}"
-          assert m["elite50Count"] >= 25, f"Too few Elite 50 funds: {m}"
-          assert m["total13fFilingsProcessed"] >= 100, f"Too few filings: {m}"
-          assert len(d.get("funds", [])) >= 25, "Missing funds list"
-          assert len(d.get("fundUpdates", [])) >= 15, "Missing fundUpdates list"
-          assert len(d.get("idealPortfolio", {}).get("positions", [])) >= 15, "Missing idealPortfolio positions"
-          assert len(d.get("stocksIndex", {})) >= 100, "Missing stocksIndex entries"
-          assert isinstance(d.get("signalScreener"), dict), "Missing signalScreener"
-
-          for i in range(16):
-              fp = data_dir / f"funds_{i:x}.json"
-              assert fp.exists(), f"Missing fund shard {fp}"
-              obj = json.loads(fp.read_text(encoding="utf-8"))
-              assert "funds" in obj and "updates" in obj, f"Invalid fund shard {fp}"
-          for i in range(8):
-              sp = data_dir / f"stocks_{i}.json"
-              assert sp.exists(), f"Missing stock shard {sp}"
-              json.loads(sp.read_text(encoding="utf-8"))
-
-          uf = m.get("universeFunnel") or {}
-          assert uf.get("totalCiksScanned", 0) >= 5000, f"Unexpected low totalCiksScanned in universeFunnel: {uf}"
-          assert uf.get("qualifiedFundsCount") == m["qualifiedFundsCount"], "Funnel qualified count mismatch"
-          print(
-              f"Dataset verified: {uf.get('totalCiksScanned', 0)} SEC CIKs -> {m['qualifiedFundsCount']} qualified funds "
-              f"({m.get('elite50Count', 0)} Elite 50 / {m.get('leaderboardEligibleCount', 0)} Eligible), "
-              f"{len(d['stocksIndex'])} indexed stocks, {len(d.get('midQuarterAlerts', []))} 13D/13G alerts"
-          )
-
-          gh_summary = os.environ.get("GITHUB_STEP_SUMMARY")
-          if gh_summary and uf:
-              lines = [
-                  f"## Paper Trail Full-Universe 13F Funnel ({m.get('latestQuarterCovered', '')})",
-                  "",
-                  f"**Method:** {uf.get('method', '')} ({uf.get('bulkDatasetsCount', 0)} bulk ZIPs through `{uf.get('bulkMaxFilingDate', '')}` + {uf.get('postBulkFilingsCount', 0):,} post-bulk filings)",
-                  "",
-                  "| Stage | Filter Description | Count |",
-                  "|---|---|---:|",
-                  f"| 1. Universe Scanned | All SEC 13F-HR / 13F-HR/A filers (2021–Present) | {uf.get('totalCiksScanned', 0):,} |",
-                  f"| 2. Active Managers | Filed within 210 days / current filing cycle | {uf.get('activeRecentCount', 0):,} |",
-                  f"| 3. Manager Filter | Exclude operating corps, mega-banks, insurers, pensions | {uf.get('nonExcludedManagerCount', 0):,} |",
-                  f"| 4. Filing History | ≥4 quarters since 2024-01-01 | {uf.get('fourPlusQuartersCount', 0):,} |",
-                  f"| 5. Scale Screen | ≥$200M reported / ≥$100M single-stock equity AUM | {uf.get('sizeAndEquityPassCount', 0):,} |",
-                  f"| 6. Concentration | 5+ pos, effN ≥ 1.4, & ≤130 pos (or ≤265 w/ Top-10 ≥48%) | {uf.get('concentrationPassCount', 0):,} |",
-                  f"| 7. Tech/TMT Focus | ≥35% Tech/TMT + SEC entityType/SIC check | {uf.get('techFloorPassCount', 0):,} |",
-                  f"| 8. Strict Audit | Rolling 4Q median Tech/TMT persistence & breadth | {uf.get('strictQualificationCount', 0):,} |",
-                  f"| 9. Priced History Qualified | ≥$100M & ≥70% single-stock equity w/ price history | {uf.get('qualifiedFundsCount', 0):,} |",
-                  f"| 10. Leaderboard Eligible / Elite 50 | Anti-SPV cohort ({uf.get('leaderboardEligibleCount', 0)}) → Elite 50 Skill Cohort ({uf.get('elite50Count', 0)}) | {uf.get('leaderboardEligibleCount', 0)} / {uf.get('elite50Count', 0)} |",
-                  f"| 11. Top-100 Union | Ranked Top 100 in any window (QE / 45d Lag) | {uf.get('rankedUnionQeCount', 0):,} / {uf.get('rankedUnionLagCount', 0):,} |",
-                  f"| 12. Sharded UI Output | Ideal Positions / Indexed Stocks / 13D-13G Alerts | {uf.get('idealPortfolioCount', 0)} / {uf.get('stocksIndexedCount', 0):,} / {uf.get('midQuarterAlertsCount', 0)} |",
-              ]
-              with open(gh_summary, "a", encoding="utf-8") as sf:
-                  sf.write("\n".join(lines) + "\n")
-          PY
-
-      - name: Commit updated sharded 13F dataset & caches
+      - name: Publish dataset snapshot to orphan data-snapshot branch (scheduled/manual only)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/data/ pipeline/cusip_cache.json pipeline/ticker_meta_cache.json pipeline/fundamentals_cache.json
-          if git ls-files --error-unmatch src/data/portfolio_data.json >/dev/null 2>&1; then
-            git rm -f --ignore-unmatch src/data/portfolio_data.json
+          SNAP_DIR="$(mktemp -d)"
+          mkdir -p "$SNAP_DIR/public"
+          cp -R public/data "$SNAP_DIR/public/data"
+          REMOTE_URL="$(git remote get-url origin)"
+          AUTH_HEADER="$(git config --get http.https://github.com/.extraheader || true)"
+          git -C "$SNAP_DIR" init -q
+          git -C "$SNAP_DIR" checkout --orphan data-snapshot
+          git -C "$SNAP_DIR" config user.name "github-actions[bot]"
+          git -C "$SNAP_DIR" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$AUTH_HEADER" ]; then
+            git -C "$SNAP_DIR" config http.https://github.com/.extraheader "$AUTH_HEADER"
           fi
-          if ! git diff --cached --quiet; then
-            git commit -m "chore(data): automated 13F/13D-13G & market data update"
-            git fetch origin main && git rebase origin/main || { git rebase --abort; exit 1; }
-            git push
-          else
-            echo "No dataset changes to commit."
-          fi
+          git -C "$SNAP_DIR" add public/data
+          git -C "$SNAP_DIR" commit -q -m "chore(data): automated 13F/13D-13G & Form 4 data snapshot ($(date -u +%Y-%m-%d))"
+          git -C "$SNAP_DIR" remote add origin "$REMOTE_URL"
+          git -C "$SNAP_DIR" push --force origin HEAD:refs/heads/data-snapshot
+          rm -rf "$SNAP_DIR"
 
       - name: Set up Node.js 24
         uses: actions/setup-node@v4

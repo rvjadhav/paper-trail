@@ -137,6 +137,14 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   const initialPreset = useMemo(() => loadSavedPreset(), []);
   const initialRebalance = useMemo(() => loadSavedRebalanceState(), []);
   const defaultMaxNames = Math.min(40, idealPortfolio.positions.length || 40);
+  const defaultSectorCap: SectorCapOption =
+    idealPortfolio.maxSubSectorCapPct === 30
+      ? 30
+      : idealPortfolio.maxSubSectorCapPct === 35
+        ? 35
+        : idealPortfolio.maxSubSectorCapPct === 25
+          ? 25
+          : null;
 
   const [universeFilter, setUniverseFilter] = useState<UniverseFilter>(
     initialPreset.universeFilter ?? 'ALL'
@@ -147,7 +155,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
   const [maxNames, setMaxNames] = useState<number>(initialPreset.maxNames ?? defaultMaxNames);
   const [capPct, setCapPct] = useState<number>(initialPreset.capPct ?? 8);
   const [sectorCapPct, setSectorCapPct] = useState<SectorCapOption>(
-    initialPreset.sectorCapPct ?? null
+    initialPreset.sectorCapPct !== undefined ? initialPreset.sectorCapPct : defaultSectorCap
   );
   const [capitalUsd, setCapitalUsd] = useState<number>(initialPreset.capitalUsd ?? 100000);
   const [savedToast, setSavedToast] = useState(false);
@@ -203,7 +211,13 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     const conv = dualConvictionByTicker?.[upper] ?? dualConvictionByTicker?.[ticker];
     const f4 = form4Signals?.[upper] ?? form4Signals?.[ticker];
     const hasBuy = Boolean(f4 && f4.openMarketBuyCount > 0);
-    if (!conv && !hasBuy) return null;
+    const hasSellSignal = Boolean(
+      f4 &&
+        !hasBuy &&
+        (f4.insiderSignalLabel === 'CLUSTER_SELL' ||
+          f4.insiderSignalLabel === 'DISCRETIONARY_SELL')
+    );
+    if (!conv && !hasBuy && !hasSellSignal) return null;
     return (
       <div style={{ display: 'flex', gap: '0.24rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
         {conv && (
@@ -224,6 +238,15 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
             {insiderSignalLabelText(f4.insiderSignalLabel)} · {formatUsdCompact(f4.totalBuyValueUsd)}
           </span>
         )}
+        {f4 && hasSellSignal && (
+          <span
+            className={`chip ${insiderSignalChipClass(f4.insiderSignalLabel)}`}
+            style={{ fontSize: '0.62rem' }}
+            title={`Form 4 discretionary ('S') sales: ${f4.discretionarySellCount ?? 0} trades by ${f4.distinctSellersCount ?? 0} insiders`}
+          >
+            {insiderSignalLabelText(f4.insiderSignalLabel)} · {formatUsdCompact(f4.discretionarySellValueUsd)}
+          </span>
+        )}
       </div>
     );
   };
@@ -238,7 +261,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     signalMode === 'rawScore' &&
     maxNames === idealPortfolio.positions.length &&
     capPct === 8 &&
-    sectorCapPct === null;
+    sectorCapPct === defaultSectorCap;
 
   const { activePositions, constraintNote } = useMemo(() => {
     if (isDefault) {
@@ -496,7 +519,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
     setSignalMode('rawScore');
     setMaxNames(defaultMaxNames);
     setCapPct(8);
-    setSectorCapPct(null);
+    setSectorCapPct(defaultSectorCap);
     setCapitalUsd(100000);
     try {
       window.localStorage.removeItem(PRESET_STORAGE_KEY);
@@ -745,6 +768,7 @@ export const IdealPortfolioTab: FC<IdealPortfolioTabProps> = ({
                 [
                   { val: null, label: 'No Cap' },
                   { val: 35, label: '35%' },
+                  { val: 30, label: '30%' },
                   { val: 25, label: '25%' },
                 ] as const
               ).map((sc) => (

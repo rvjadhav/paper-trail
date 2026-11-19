@@ -165,13 +165,16 @@ export function insiderSignalLabelText(label: InsiderSignalLabel | string | null
   if (label === 'DIRECTOR_BUY') return 'Director Buy';
   if (label === 'SINGLE_BUY') return 'Open-Market Buy';
   if (label === 'MIXED_SELL_HEAVY') return 'Mixed (Sell-Heavy)';
+  if (label === 'CLUSTER_SELL') return 'Form 4 Sell Cluster';
+  if (label === 'DISCRETIONARY_SELL') return 'Discretionary Insider Sell';
   return 'No Open-Market Buys';
 }
 
 export function insiderSignalChipClass(label: InsiderSignalLabel | string | null | undefined): string {
   if (label === 'CLUSTER_BUY' || label === 'C_SUITE_BUY') return 'pos';
   if (label === 'DIRECTOR_BUY' || label === 'SINGLE_BUY') return 'tech';
-  if (label === 'MIXED_SELL_HEAVY') return 'warn';
+  if (label === 'CLUSTER_SELL') return 'neg';
+  if (label === 'MIXED_SELL_HEAVY' || label === 'DISCRETIONARY_SELL') return 'warn';
   return '';
 }
 

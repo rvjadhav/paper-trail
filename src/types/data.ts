@@ -111,6 +111,8 @@ export type InsiderSignalLabel =
   | 'DIRECTOR_BUY'
   | 'SINGLE_BUY'
   | 'MIXED_SELL_HEAVY'
+  | 'CLUSTER_SELL'
+  | 'DISCRETIONARY_SELL'
   | 'NONE';
 
 export interface Form4Transaction {
@@ -150,6 +152,14 @@ export interface Form4InsiderSummary {
   non10b5BuyValueUsd: number;
   discretionarySellValueUsd: number;
   totalSellValueUsd: number;
+  discretionarySellCount?: number;
+  distinctSellersCount?: number;
+  officerSellersCount?: number;
+  cSuiteSellersCount?: number;
+  sellClusterDetected?: boolean;
+  latestSellDate?: string | null;
+  recentSellTransactions?: Form4Transaction[];
+  priceUnitMismatch?: boolean;
   insiderSignalLabel: InsiderSignalLabel;
   clusterDetected: boolean;
   recentTransactions: Form4Transaction[];
@@ -430,6 +440,7 @@ export interface IdealPortfolioPosition {
   netNew: number;
   netAdd: number;
   netTrim: number;
+  netExit?: number;
   avgFundWeightPct: number;
   maxFundWeightPct: number;
   topHolderName: string;
@@ -479,6 +490,7 @@ export interface IdealPortfolioBacktestMode {
 export interface IdealPortfolioData {
   positionCount: number;
   maxPositionCapPct: number;
+  maxSubSectorCapPct?: number;
   rankedFundsCount: number;
   effectivePositions: number;
   top10WeightPct: number;
@@ -868,5 +880,30 @@ export interface PaperTrailSummaryDataset {
   midQuarterAlerts: MidQuarterAlert[];
   dualConvictionSignals?: DualConvictionSignal[];
   form4Signals?: Record<string, Form4InsiderSummary>;
+  stocksIndex: Record<string, StockIndexEntry>;
+}
+
+export interface DataManifest {
+  schemaVersion: number;
+  generatedAt: string;
+  asOfDate: string;
+  files: Record<string, string>;
+}
+
+export type BootstrapDataset = Omit<
+  PaperTrailSummaryDataset,
+  'signalScreener' | 'fundUpdates' | 'stocksIndex'
+>;
+
+export interface ScreenerPayload {
+  signalScreener: SignalScreenerData;
+}
+
+export interface UpdatesFeedPayload {
+  fundUpdates: FundUpdateSummary[];
+  updatesOverview?: UpdatesOverview;
+}
+
+export interface StocksSearchPayload {
   stocksIndex: Record<string, StockIndexEntry>;
 }

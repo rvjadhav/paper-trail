@@ -2,7 +2,7 @@ import type { IdealPortfolioPosition, StockIndexEntry } from '../types/data';
 
 export type UniverseFilter = 'ALL' | 'EX_MEGA' | 'EMERGING';
 export type SignalMode = 'rawScore' | 'inflectionScore';
-export type SectorCapOption = null | 35 | 25;
+export type SectorCapOption = null | 35 | 30 | 25;
 export type RebalanceMode = 'full' | 'buyOnly';
 
 export interface DynamicPosition extends IdealPortfolioPosition {
@@ -123,11 +123,12 @@ export function buildConstrainedPortfolio(
     const primary: IdealPortfolioPosition[] = [];
     const deferred: IdealPortfolioPosition[] = [];
     const secCounts = new Map<string, number>();
+    const maxPerSec = Math.max(6, Math.ceil((sectorCapPct / Math.max(1.5, 100 / targetN)) * 1.15));
 
     for (const p of sorted) {
       const key = p.subSector || p.sector;
       const cnt = secCounts.get(key) ?? 0;
-      if (cnt * effStockCap < sectorCapPct - 1e-6 && primary.length < targetN) {
+      if (cnt < maxPerSec && primary.length < targetN) {
         primary.push(p);
         secCounts.set(key, cnt + 1);
       } else {

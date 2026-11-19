@@ -408,6 +408,60 @@ describe('convictionMatrix 4-pillar scoring engine', () => {
     expect(exitSignal.score).toBeLessThan(35);
   });
 
+  it('applies humped Price Discipline, market-cap Flow normalization, and proportion-aware EXIT SIGNAL', () => {
+    const sweetSpot = computeActionabilityMatrix({
+      newCount: 2,
+      addedCount: 2,
+      pctVsQuarterVwap: -6,
+      fundamentals: makeFundamentals(),
+    });
+    const fallingKnife = computeActionabilityMatrix({
+      newCount: 2,
+      addedCount: 2,
+      pctVsQuarterVwap: -35,
+      fundamentals: makeFundamentals(),
+    });
+    expect(sweetSpot.pillars.priceDiscipline).toBeGreaterThan(23);
+    expect(fallingKnife.pillars.priceDiscipline).toBeLessThan(12);
+
+    // Mega-cap with 28 holders and 2 routine exits (low exit ratio & positive score) should NOT fire EXIT SIGNAL
+    const megaCapRoutineExits = computeActionabilityMatrix({
+      newCount: 4,
+      addedCount: 6,
+      trimmedCount: 10,
+      exitedCount: 2,
+      eliteBuyersCount: 10,
+      eliteSellersCount: 12,
+      eliteHoldersCount: 28,
+      totalValueUsd: 9_000_000_000,
+      netEstFlowUsd: -150_000_000,
+      marketCapUsd: 2_200_000_000_000,
+      pctVsQuarterVwap: -4,
+      fundamentals: makeFundamentals({ revenueGrowthYoYPct: 18, fcfMarginPct: 26, shareDilutionYoYPct: -1.5 }),
+      avgEliteHoldingQuarters: 7.0,
+    });
+    expect(megaCapRoutineExits.verdict).not.toBe('EXIT SIGNAL');
+
+    // Market-cap Flow normalization: same $100M inflow is stronger signal for a $10B mid-cap than a $3T mega-cap
+    const midCapFlow = computeActionabilityMatrix({
+      newCount: 2,
+      addedCount: 1,
+      totalValueUsd: 400_000_000,
+      netEstFlowUsd: 100_000_000,
+      marketCapUsd: 10_000_000_000,
+      pctVsQuarterVwap: 0,
+    });
+    const megaCapFlow = computeActionabilityMatrix({
+      newCount: 2,
+      addedCount: 1,
+      totalValueUsd: 400_000_000,
+      netEstFlowUsd: 100_000_000,
+      marketCapUsd: 3_000_000_000_000,
+      pctVsQuarterVwap: 0,
+    });
+    expect(midCapFlow.pillars.flowImpulse).toBeGreaterThan(megaCapFlow.pillars.flowImpulse);
+  });
+
   it('merges cross-silo tickers cleanly into UnifiedConvictionList without duplicates', () => {
     const alphConsensus = makeConsensusHolding({ ticker: 'ALPH', name: 'Alpha Chips Inc' });
     const alphCluster = makeScreenerEntry({

@@ -207,8 +207,8 @@ describe('UpdatesTab', () => {
       />
     );
 
-    expect(screen.getByText('13F Disclosed Put Fair Value')).toBeInTheDocument();
-    expect(screen.getByText(/call fair value in 2026 Q3/i)).toBeInTheDocument();
+    expect(screen.getByText('13F Disclosed Put Notional')).toBeInTheDocument();
+    expect(screen.getByText(/call notional in 2026 Q3/i)).toBeInTheDocument();
     expect(screen.getByText(/6f · \+\$2\.5M/)).toBeInTheDocument();
     expect(screen.getByText(/4f · -\$4\.1M/)).toBeInTheDocument();
 

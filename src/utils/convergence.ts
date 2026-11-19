@@ -72,7 +72,10 @@ export function computeDualConvictionSignal(
   const csuiteCnt = f4?.cSuiteBuyersCount ?? 0;
   const non10b5Cnt = f4?.non10b5Count ?? 0;
   const insiderLabel: InsiderSignalLabel = f4?.insiderSignalLabel ?? 'NONE';
-  const isSellHeavy = insiderLabel === 'MIXED_SELL_HEAVY';
+  const isSellHeavy =
+    insiderLabel === 'MIXED_SELL_HEAVY' ||
+    insiderLabel === 'CLUSTER_SELL' ||
+    insiderLabel === 'DISCRETIONARY_SELL';
   const hasInsiderBuy = openBuyCnt > 0 && !isSellHeavy;
   const hasForm4Cluster = Boolean(
     f4 &&
@@ -139,8 +142,13 @@ export function computeDualConvictionSignal(
   const totalSellers = Math.max(0, Math.trunc(trimmedCount + exitedCount));
   const flowVal = params.netEstFlowUsd ?? 0;
   const isFomo = params.alphaDecayStatus === 'FOMO_TRAP';
+  const isDistVerdict =
+    params.actionVerdict === 'EXIT SIGNAL' || params.actionVerdict === 'DISTRIBUTION WARNING';
+  const flowPositiveOrUnknown = params.netEstFlowUsd == null || flowVal > 0;
   const has13fAccum =
     !isFomo &&
+    !isDistVerdict &&
+    flowPositiveOrUnknown &&
     (params.actionVerdict === 'STRONG ACCUMULATE' ||
       params.actionVerdict === 'ACCUMULATE ON DIP' ||
       (totalBuyers > totalSellers &&
@@ -150,7 +158,8 @@ export function computeDualConvictionSignal(
         flowVal > 0));
 
   const pvRaw = params.pctVsQuarterVwap ?? null;
-  const nearQuarterVwap = pvRaw != null && pvRaw <= 12.0;
+  const nearQuarterVwap = pvRaw != null && pvRaw >= -20.0 && pvRaw <= 12.0;
+  const deepDrawdown = pvRaw != null && pvRaw < -20.0;
   const extendedOrFomo = isFomo || (pvRaw != null && pvRaw > 12.0);
 
   if (!(hasForm4Cluster || has13D || (hasInsiderBuy && (has13fAccum || has13G)))) {
@@ -163,7 +172,7 @@ export function computeDualConvictionSignal(
   } else if (has13D && (has13fAccum || eliteHoldersCount >= 1 || hasInsiderBuy)) {
     tier = 'ACTIVIST_13F_CONVERGENCE';
   } else if (hasInsiderBuy && (has13fAccum || has13D || has13G)) {
-    tier = extendedOrFomo ? 'DUAL_CONVICTION_EXTENDED' : 'INSIDER_CLUSTER_WATCH';
+    tier = extendedOrFomo || deepDrawdown ? 'DUAL_CONVICTION_EXTENDED' : 'INSIDER_CLUSTER_WATCH';
   } else if (hasForm4Cluster) {
     tier = 'INSIDER_CLUSTER_WATCH';
   } else {
@@ -235,6 +244,10 @@ export function computeDualConvictionSignal(
   let sVwap: number;
   if (pvRaw == null) {
     sVwap = 7;
+  } else if (pvRaw < -25) {
+    sVwap = 8;
+  } else if (pvRaw < -20) {
+    sVwap = 11;
   } else if (pvRaw <= -5) {
     sVwap = 16;
   } else if (pvRaw <= 0) {
@@ -291,9 +304,15 @@ export function computeDualConvictionSignal(
   } else if (tier === 'ACTIVIST_13F_CONVERGENCE') {
     headline = 'Activist Schedule 13D catalyst aligned with Elite-50 institutional backing.';
   } else if (tier === 'DUAL_CONVICTION_EXTENDED') {
-    headline = extendedOrFomo
-      ? 'Insider + 13F co-buying on an extended rally (>12% above Q-VWAP) — monitor pullbacks.'
-      : 'Insider + 13F co-buying detected; verify Q-VWAP entry pricing.';
+    if (deepDrawdown) {
+      headline =
+        'Insider + 13F co-buying in a deep drawdown (>20% below Q-VWAP) — confirm stabilization before sizing.';
+    } else if (extendedOrFomo) {
+      headline =
+        'Insider + 13F co-buying on an extended rally (>12% above Q-VWAP) — monitor pullbacks.';
+    } else {
+      headline = 'Insider + 13F co-buying detected; verify Q-VWAP entry pricing.';
+    }
   } else if (tier === 'INSIDER_CLUSTER_WATCH') {
     headline =
       hasInsiderBuy && has13fAccum

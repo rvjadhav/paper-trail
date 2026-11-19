@@ -146,6 +146,7 @@ export interface ComputeActionabilityRawParams {
   eliteHoldersCount?: number;
   totalValueUsd?: number;
   netEstFlowUsd?: number | null;
+  marketCapUsd?: number | null;
   movers?: Array<{
     cik?: string;
     fundTier?: FundTier | string;
@@ -237,15 +238,27 @@ export function computeActionabilityMatrix(
       ? 6.5 + 6.5 * ((buyW - sellW) / totW) * Math.min(1, totW / 4.5)
       : 6.5;
 
+  const marketCapUsd = params.marketCapUsd ?? null;
   let flowImpulse: number;
   if (netEstFlowUsd != null && Number.isFinite(netEstFlowUsd)) {
     const skillMult = clamp(avgActiveSkill / 55, 0.75, 1.5);
     const effFlow = netEstFlowUsd * skillMult;
     const absTanh = Math.tanh(effFlow / 120_000_000);
-    let flowSignal = absTanh;
-    if (totalValueUsd > 0) {
-      const relTanh = Math.tanh(effFlow / (0.35 * Math.max(totalValueUsd, 25_000_000)));
+    const hasRel = totalValueUsd > 0;
+    const relTanh = hasRel
+      ? Math.tanh(effFlow / (0.35 * Math.max(totalValueUsd, 25_000_000)))
+      : absTanh;
+    let flowSignal: number;
+    if (marketCapUsd != null && marketCapUsd > 0) {
+      const mcapScale = Math.max(marketCapUsd * 0.005, 15_000_000);
+      const mcapTanh = Math.tanh(effFlow / mcapScale);
+      flowSignal = hasRel
+        ? 0.45 * mcapTanh + 0.35 * relTanh + 0.2 * absTanh
+        : 0.65 * mcapTanh + 0.35 * absTanh;
+    } else if (hasRel) {
       flowSignal = 0.65 * absTanh + 0.35 * relTanh;
+    } else {
+      flowSignal = absTanh;
     }
     const flowSub = 6.0 + 6.0 * flowSignal;
     flowImpulse = clamp(partScore + flowSub, 0, 25);
@@ -253,21 +266,25 @@ export function computeActionabilityMatrix(
     flowImpulse = clamp(12.5 + (partScore - 6.5) * (8.5 / 6.5), 0, 25);
   }
 
-  // 2. Price Discipline (0-25)
+  // 2. Price Discipline (0-25): humped curve peaks near institutional Q-VWAP (-10%..-5%)
+  // and damps both parabolic chases (>+15%) and severe falling-knife breakdowns (<-20%)
   const pctVsVwap = params.pctVsQuarterVwap ?? null;
   let priceDiscipline =
     pctVsVwap == null
       ? 12.5
       : interpKnots(pctVsVwap, [
-          [-15, 25],
-          [-5, 23.5],
-          [0, 21],
-          [5, 17.5],
-          [10, 14],
-          [15, 10.5],
-          [20, 7],
-          [30, 3],
-          [45, 0],
+          [-45, 7],
+          [-30, 12],
+          [-20, 18],
+          [-10, 24],
+          [-5, 25],
+          [0, 22],
+          [5, 18.5],
+          [10, 15],
+          [15, 11.5],
+          [20, 8.5],
+          [30, 5],
+          [45, 2.5],
         ]);
   if (params.filingToTodayPct != null && params.filingToTodayPct > 20) {
     priceDiscipline = Math.max(0, priceDiscipline - 1.5);
@@ -394,8 +411,21 @@ export function computeActionabilityMatrix(
     (netEstFlowUsd != null && netEstFlowUsd < 0) ||
     exitedCount >= 2;
   const hasMultiQSell = (tp?.consecutiveNetSellQuarters ?? 0) >= 2;
+  const activePool = Math.max(1, totalBuyers + totalSellers);
+  const baseHolders = Math.max(activePool, eliteHolders, (params.holders ?? []).length);
+  const exitRatio = exitedCount / Math.max(1, baseHolders + exitedCount);
+  const sellDominance = totalSellers / activePool;
+  const flowOutRatio =
+    netEstFlowUsd != null && netEstFlowUsd < 0 && totalValueUsd > 0
+      ? -netEstFlowUsd / totalValueUsd
+      : 0;
   const severeExitSignal =
-    (exitedCount >= 2 && totalSellers >= totalBuyers + 2 && hasNegOrFlatFlow) ||
+    (exitedCount >= 2 &&
+      totalSellers >= totalBuyers + 2 &&
+      sellDominance >= 0.65 &&
+      (exitRatio >= 0.15 || flowOutRatio >= 0.15) &&
+      hasNegOrFlatFlow &&
+      totalScore < 58) ||
     (flowR <= 6.0 &&
       persR <= 6.5 &&
       totalSellers >= totalBuyers + 3 &&
@@ -526,7 +556,7 @@ export function resolveActionabilityMatrix(
     newCount = input.netNew;
     addedCount = input.netAdd;
     trimmedCount = input.netTrim;
-    exitedCount = 0;
+    exitedCount = input.netExit ?? 0;
     eliteHoldersCount = input.holderCount;
     holders = input.topBackers.map((b) => ({
       cik: b.cik,
@@ -572,6 +602,8 @@ export function resolveActionabilityMatrix(
     };
   }
 
+  const marketCapUsd = 'marketCapUsd' in input ? (input.marketCapUsd ?? null) : null;
+
   return computeActionabilityMatrix({
     newCount,
     addedCount,
@@ -582,6 +614,7 @@ export function resolveActionabilityMatrix(
     eliteHoldersCount,
     totalValueUsd,
     netEstFlowUsd,
+    marketCapUsd,
     movers,
     holders,
     fundSkillByCik: options?.fundSkillByCik,
@@ -1060,6 +1093,7 @@ export function buildUnifiedConvictionList({
       eliteHoldersCount,
       totalValueUsd,
       netEstFlowUsd: netFlowUsd,
+      marketCapUsd,
       movers: combinedMovers,
       holders: combinedHolders,
       fundSkillByCik: skillMap,
